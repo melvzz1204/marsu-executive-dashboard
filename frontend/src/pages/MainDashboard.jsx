@@ -281,9 +281,6 @@ function MainDashboard() {
               <div className="lg:col-span-2">
                 <GeneralAdministration isDarkMode={isDarkMode} />
               </div>
-              <div>
-                <DistributionPieWidget isDarkMode={isDarkMode} />
-              </div>
             </div>
           )}
           {currentTab === "support to operation" && (

@@ -1,4 +1,4 @@
-import React from "react";
+import "./enrollmentData.js";
 import {
   Chart as ChartJS,
   CategoryScale,

@@ -1,6 +1,15 @@
-import React from "react";
-import UndergradEnrollment from "../staticData/enrollments/undergradEnrollmentData.jsx";
+/* import UndergradEnrollment from "../staticData/enrollments/undergradEnrollmentData.jsx";
+ */ import EnrollmentFull from "../staticData/enrollments/enrollmentFull.jsx";
 
 export default function EnrollmentChart() {
-  return <UndergradEnrollment />;
+  return (
+    <>
+      {/*   <div>
+        <UndergradEnrollment />;
+      </div> */}
+      <div>
+        <EnrollmentFull />
+      </div>
+    </>
+  );
 }
