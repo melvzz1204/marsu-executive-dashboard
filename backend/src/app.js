@@ -6,6 +6,7 @@ const authRoutes = require("./routes/authRoutes");
 const globalRecognitionRoutes = require("./routes/achievements/globalRecognitionRoutes");
 const licensurePerformanceRoutes = require("./routes/achievements/licensurePerformanceRoutes");
 const reportRoutes = require("./routes/reports/reportRoutes");
+const researchAnalyticsRouter = require("./routes/research/researchRoutes");
 /* const analyticsRoutes = require("./routes/analyticsRoutes"); */
 
 const app = express();
@@ -29,6 +30,7 @@ app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/global-recognition", globalRecognitionRoutes); 
 app.use("/api/v1/licensure-performance", licensurePerformanceRoutes);
 app.use("/api/v1/reports", reportRoutes);
+app.use("/api/v1/research", researchAnalyticsRouter);
 
 // Catch-All 404 Middleware
 app.use((req, res) => {
