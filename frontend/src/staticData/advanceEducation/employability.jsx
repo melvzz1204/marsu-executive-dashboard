@@ -138,7 +138,7 @@ export default function EmployabilityMetrics({ isDarkMode = false }) {
 
   return (
     <div
-      className={`p-8 rounded-[32px] border transition-all duration-500 shadow-sm ${
+      className={`p-8 rounded-2xl transition-all duration-500 ${
         isDarkMode
           ? "bg-slate-900/60 border-slate-800/80 text-white backdrop-blur-xl"
           : "bg-white border-slate-200/50 text-slate-900"
@@ -176,7 +176,7 @@ export default function EmployabilityMetrics({ isDarkMode = false }) {
             </span>
             <span
               className={`text-4xl font-black block tracking-tighter font-sans ${
-                isDarkMode ? "text-[#D4AF37]" : "text-white"
+                isDarkMode ? "text-[#D4AF37]" : "text-[#FFD700]"
               }`}
             >
               {coreData?.highlighted_rate}

@@ -114,7 +114,7 @@ export default function AccreditationDashboard() {
     accreditationData[selectedBranchIdx]?.programs || [];
 
   return (
-    <div className="bg-slate-50 min-h-screen p-8 text-slate-800">
+    <div className="bg-slate-50 min-h-screen p-8 text-slate-800 rounded-2xl">
       <div className="max-w-6xl mx-auto space-y-6">
         {/* Header Grid */}
         <div>

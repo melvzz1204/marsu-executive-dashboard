@@ -223,7 +223,7 @@ export default function EnrollmentDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 antialiased p-4 md:p-8">
+    <div className="min-h-screen bg-slate-50 text-slate-800 antialiased p-4 md:p-8 rounded-2xl">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* TOP COMPACT CONTROL LAYER */}
         <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
@@ -279,7 +279,7 @@ export default function EnrollmentDashboard() {
               <span className="text-[10px] font-extrabold tracking-wider text-slate-300 block uppercase font-sans mb-1">
                 Campus Enrollment
               </span>
-              <span className="text-3xl font-black text-[#D4AF37] block font-sans tracking-tight leading-none my-1">
+              <span className="text-3xl font-black text-[#FFD700] leading-none block mt-1 tracking-tight my-1">
                 {currentData?.metadata?.total_enrollment?.toLocaleString() || 0}
               </span>
             </div>
@@ -289,7 +289,7 @@ export default function EnrollmentDashboard() {
                 total students on campus
               </span>
               {summaryData?.yoy_growth && (
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-[#D4AF37] text-[#660033] font-sans">
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-[#D4AF37] text-[#660033] ">
                   ▲ {(summaryData.yoy_growth * 100).toFixed(1)}% YoY Growth
                 </span>
               )}

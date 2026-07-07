@@ -181,14 +181,14 @@ export default function ResearchDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-[#fafafa] text-slate-800 p-6 md:p-10 font-sans antialiased selection:bg-rose-100">
+    <div className="min-h-screen bg-white text-slate-800 p-6 md:p-10 antialiased selection:bg-rose-100 rounded-2xl ">
       <div className="max-w-6xl mx-auto">
         {/* MAIN DASHBOARD HEADER */}
         <header className="mb-10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-200/60 pb-6">
           <div>
             <div className="flex items-center gap-2 mb-1.5">
               <span className="h-1.5 w-1.5 bg-[#D4AF37] rounded-full" />
-              <span className="text-[10px] uppercase tracking-widest font-bold text-slate-400 font-mono">
+              <span className="text-[10px] uppercase tracking-widest font-bold text-slate-400 ">
                 Institutional Repository
               </span>
             </div>
@@ -198,13 +198,13 @@ export default function ResearchDashboard() {
           </div>
 
           <div className="relative bg-[#660033] text-white px-6 py-4 rounded-xl shadow-[0_4px_0_0_#D4AF37] text-center min-w-[160px]">
-            <span className="text-[10px] font-extrabold tracking-wider text-slate-300 block uppercase font-sans mb-1">
+            <span className="text-[10px] font-extrabold tracking-wider text-slate-300 block uppercase mb-1">
               Total Papers
             </span>
-            <span className="text-3xl font-black text-[#D4AF37] block font-sans tracking-tight leading-none my-1">
+            <span className="text-3xl font-black text-[#FFD700] leading-none block mt-1 tracking-tight">
               {baseSummary?.total_research || fullDataset.length}+
             </span>
-            <span className="text-[11px] font-medium text-slate-200/90 block font-sans lowercase tracking-wide mt-1">
+            <span className="text-[11px] font-medium text-slate-200/90 block capitalize tracking-wide mt-1">
               active registry
             </span>
           </div>
@@ -216,7 +216,7 @@ export default function ResearchDashboard() {
           <div className="lg:col-span-1 bg-white p-6 rounded-2xl border border-slate-200/70 shadow-[0_4px_20px_rgba(0,0,0,0.02)] flex flex-col justify-between items-start group relative overflow-hidden">
             <div className="absolute top-0 right-0 w-32 h-32 bg-slate-50 rounded-bl-full -z-10 group-hover:bg-rose-50/50 transition-colors duration-300" />
             <div>
-              <span className="text-[9px] font-bold uppercase tracking-wider font-mono text-slate-400 block mb-2">
+              <span className="text-[9px] font-bold uppercase tracking-wider  text-slate-400 block mb-2">
                 Database Index
               </span>
               <h2 className="text-lg font-bold text-slate-900 tracking-tight leading-snug mb-2">
@@ -250,7 +250,7 @@ export default function ResearchDashboard() {
           {/* PROJECT REACH SUMMARY CARD */}
           <div className="bg-white p-6 rounded-2xl border border-slate-200/70 shadow-[0_4px_20px_rgba(0,0,0,0.02)] flex flex-col justify-start">
             {/* Predictable spacing under the header */}
-            <span className="text-[9px] font-bold uppercase tracking-wider font-mono text-slate-400 block mb-4">
+            <span className="text-[9px] font-bold uppercase tracking-wider  text-slate-400 block mb-4">
               Project Reach
             </span>
             <div className="space-y-3.5">
@@ -258,7 +258,7 @@ export default function ResearchDashboard() {
                 <span className="text-slate-700 font-medium">
                   International Scope
                 </span>
-                <span className="font-mono font-bold text-[#660033] bg-rose-50 px-2 py-0.5 rounded-sm">
+                <span className=" font-bold text-[#660033] bg-rose-50 px-2 py-0.5 rounded-sm">
                   {analytics.forums.International}
                 </span>
               </div>
@@ -266,7 +266,7 @@ export default function ResearchDashboard() {
                 <span className="text-slate-700 font-medium">
                   National Scope
                 </span>
-                <span className="font-mono font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded-sm">
+                <span className=" font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded-sm">
                   {analytics.forums.National}
                 </span>
               </div>
@@ -274,7 +274,7 @@ export default function ResearchDashboard() {
                 <span className="text-slate-700 font-medium">
                   Regional Scope
                 </span>
-                <span className="font-mono font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-sm">
+                <span className=" font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-sm">
                   {analytics.forums.Regional}
                 </span>
               </div>
@@ -283,18 +283,16 @@ export default function ResearchDashboard() {
               <span className="text-[10px] text-slate-400 font-medium">
                 Average Duration
               </span>
-              <span className="text-lg font-mono font-bold text-slate-900">
+              <span className="text-lg  font-bold text-slate-900">
                 {analytics.avgDuration}{" "}
-                <span className="text-xs font-sans font-normal text-slate-400">
-                  Days
-                </span>
+                <span className="text-xs font-normal text-slate-400">Days</span>
               </span>
             </div>
           </div>
 
           {/* TOP RESEARCHERS PANEL */}
           <div className="bg-white p-6 rounded-2xl border border-slate-200/70 shadow-[0_4px_20px_rgba(0,0,0,0.02)] flex flex-col justify-start">
-            <span className="text-[9px] font-bold uppercase tracking-wider font-mono text-slate-400 block mb-4">
+            <span className="text-[9px] font-bold uppercase tracking-wider  text-slate-400 block mb-4">
               Top Authors
             </span>
             <div className="space-y-2.5">
@@ -304,14 +302,14 @@ export default function ResearchDashboard() {
                   className="flex items-center justify-between text-xs"
                 >
                   <div className="flex items-center gap-2 truncate">
-                    <span className="w-4 h-4 bg-slate-50 border border-slate-100 text-[9px] font-mono font-bold rounded-sm flex items-center justify-center text-slate-400">
+                    <span className="w-4 h-4 bg-slate-50 border border-slate-100 text-[9px]  font-bold rounded-sm flex items-center justify-center text-slate-400">
                       {idx + 1}
                     </span>
                     <span className="text-slate-700 font-semibold truncate">
                       {name}
                     </span>
                   </div>
-                  <span className="text-[10px] font-mono font-medium text-slate-400">
+                  <span className="text-[10px]  font-medium text-slate-400">
                     {count} papers
                   </span>
                 </div>
@@ -322,7 +320,7 @@ export default function ResearchDashboard() {
 
         {/* LOWER BAR CHART COMPONENT */}
         <section className="bg-white p-6 rounded-2xl border border-slate-200/70 shadow-[0_4px_20px_rgba(0,0,0,0.02)]">
-          <h3 className="text-[10px] font-bold font-mono uppercase tracking-widest text-slate-400 mb-6 pb-2 border-b border-slate-100">
+          <h3 className="text-[10px] font-bold  uppercase tracking-widest text-slate-400 mb-6 pb-2 border-b border-slate-100">
             Papers by Category
           </h3>
           <div className="relative h-40 w-full">
@@ -445,7 +443,7 @@ export default function ResearchDashboard() {
                         />
                         <div className="flex flex-col gap-2 pl-2">
                           <div className="flex flex-wrap items-center gap-2 text-[11px] font-bold text-slate-400">
-                            <span className="text-slate-800 font-mono">
+                            <span className="text-slate-800 ">
                               Year {item.year || "—"}
                             </span>
                             <span className="h-0.5 w-0.5 bg-slate-300 rounded-full" />
@@ -469,7 +467,7 @@ export default function ResearchDashboard() {
                             </span>
 
                             <span
-                              className={`ml-auto font-mono text-[9px] uppercase tracking-wider flex items-center gap-1 ${item.status?.trim() === "Completed" ? "text-emerald-600" : "text-blue-500"}`}
+                              className={`ml-auto  text-[9px] uppercase tracking-wider flex items-center gap-1 ${item.status?.trim() === "Completed" ? "text-emerald-600" : "text-blue-500"}`}
                             >
                               <span
                                 className={`h-1 w-1 rounded-full ${item.status?.trim() === "Completed" ? "bg-emerald-500" : "bg-blue-400"}`}
@@ -483,7 +481,7 @@ export default function ResearchDashboard() {
                           </h4>
 
                           <p className="text-xs text-slate-500 line-clamp-1">
-                            <span className="text-slate-300 font-mono text-[9px] mr-1 uppercase font-bold">
+                            <span className="text-slate-300  text-[9px] mr-1 uppercase font-bold">
                               Authors
                             </span>
                             <span className="text-slate-700 font-semibold">
@@ -512,7 +510,7 @@ export default function ResearchDashboard() {
                     );
                   })
                 ) : (
-                  <div className="h-full flex flex-col items-center justify-center text-center py-12 font-mono text-xs text-slate-400">
+                  <div className="h-full flex flex-col items-center justify-center text-center py-12  text-xs text-slate-400">
                     <p>No results match your search parameters.</p>
                   </div>
                 )}
@@ -520,7 +518,7 @@ export default function ResearchDashboard() {
 
               {/* MODAL PAGINATION FOOTER */}
               {totalPages > 1 && (
-                <div className="p-4 border-t border-slate-100 bg-white flex items-center justify-between text-xs font-mono text-slate-400 shrink-0 px-6">
+                <div className="p-4 border-t border-slate-100 bg-white flex items-center justify-between text-xs  text-slate-400 shrink-0 px-6">
                   <span>
                     Showing page {currentPage} of {totalPages} (
                     {filteredData.length} papers found)

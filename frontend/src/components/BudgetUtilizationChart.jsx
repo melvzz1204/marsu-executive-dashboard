@@ -106,7 +106,7 @@ function BudgetUtilization() {
   };
 
   return (
-    <div className="bg-white p-8 rounded-3xl shadow-[0_20px_50px_-12px_rgba(0,0,0,0.04)] border border-slate-100">
+    <div className="bg-white p-8 rounded-2xl shadow-[0_20px_50px_-12px_rgba(0,0,0,0.04)] border border-slate-100">
       {/* Header Info Banner */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <div>
