@@ -275,7 +275,7 @@ const Sidebar = ({
               <button
                 key={item.id}
                 onClick={() => setCurrentTab(item.id)}
-                className={`flex items-center rounded-xl font-semibold tracking-wide transition-all group relative ${
+                className={`cursor-pointer flex items-center rounded-xl font-semibold tracking-wide transition-all group relative ${
                   isOpen
                     ? "px-4 py-3.5 gap-6 w-full"
                     : "p-3.5 justify-center mx-auto"

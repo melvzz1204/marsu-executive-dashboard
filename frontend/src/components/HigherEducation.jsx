@@ -1,9 +1,10 @@
 import React from "react";
+import AccreditationDashboard from "../staticData/higherEducation/accreditation.jsx";
 
 export default function HigherEducation() {
   return (
     <div>
-      <h3>This the higher education</h3>
+      <AccreditationDashboard />
     </div>
   );
 }

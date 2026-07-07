@@ -1,9 +1,5 @@
-import React from "react";
+import Employability from "../staticData/advanceEducation/employability.jsx";
 
 export default function AdvanceEducation() {
-  return (
-    <div>
-      <h3>This the Advance Education section </h3>
-    </div>
-  );
+  return <Employability />;
 }

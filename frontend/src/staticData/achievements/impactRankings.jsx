@@ -90,51 +90,52 @@ export default function ImpactRankings() {
                 </div>
               </div>
 
-              {/* Sub-metrics Performance Grids */}
-              {isTHE ? (
-                /* Times Higher Education Grid Layout using database metrics */
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-[240px] overflow-y-auto no-scrollbar pr-1">
-                  {ranking.metrics.map((metric, i) => (
-                    <div
-                      key={metric._id || i}
-                      className="bg-slate-50/60 border border-slate-100 p-3 rounded-xl flex items-center justify-between transition-colors hover:bg-slate-50"
-                    >
-                      <span className="font-bold text-slate-700 tracking-wide text-xs truncate pr-2">
-                        {metric.label}
-                      </span>
-                      <div className="text-right shrink-0">
-                        <span className="font-black text-[#660033] block text-sm uppercase">
-                          RANK {metric.rank}
-                        </span>
-                        <span className="text-[9px] text-slate-400 block uppercase tracking-wider">
-                          {metric.contextLabel}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                /* WURI Rankings Metric Cards using generic database metrics layout */
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  {ranking.metrics.map((metric, i) => (
-                    <div
-                      key={metric._id || i}
-                      className="bg-slate-50/60 border border-slate-100 p-4 rounded-xl flex flex-col justify-between text-center transition-all duration-300 hover:border-[#D4AF37]/40 hover:bg-white hover:shadow-sm"
-                    >
-                      <span className="text-[10px] uppercase font-bold text-slate-400 tracking-widest">
-                        {metric.contextLabel}
-                      </span>
-                      <span className="text-2xl font-black text-[#660033] my-2.5 block tracking-tight uppercase">
+            {/* Sub-metrics Performance Grids */}
+            {ranking.type === "THE" ? (
+              /* Times Higher Education Grid Layout */
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-[240px] overflow-y-auto no-scrollbar pr-1">
+                {ranking.sdgMetrics.map((metric, i) => (
+                  <div
+                    key={i}
+                    className="bg-slate-50/60 border border-slate-100 p-3 rounded-xl flex items-start justify-between gap-3 min-w-0 transition-colors hover:bg-slate-50"
+                  >
+                    <span className="font-bold text-slate-700 tracking-wide text-xs break-words leading-normal block">
+                      {" "}
+                      {metric.sdg}
+                    </span>
+                    <div className="text-right shrink-0 pt-0.5">
+                      <span className="font-black text-[#660033] block text-sm uppercase tracking-tight leading-none">
                         RANK {metric.rank}
                       </span>
-                      <span className="text-xs font-bold text-slate-800 leading-snug uppercase tracking-wide">
-                        {metric.label}
+                      <span className="text-[9px] text-slate-400 block uppercase tracking-wider mt-1.5 leading-none">
+                        out of {metric.total}
                       </span>
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              /* WURI Rankings Metric Cards */
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {ranking.categories.map((cat, i) => (
+                  <div
+                    key={i}
+                    className="bg-slate-50/60 border border-slate-100 p-4 rounded-xl flex flex-col justify-between text-center transition-all duration-300 hover:border-[#D4AF37]/40 hover:bg-white hover:shadow-sm"
+                  >
+                    <span className="text-[10px] uppercase font-bold text-slate-400 tracking-widest">
+                      {cat.tier}
+                    </span>
+                    <span className="text-2xl font-black text-[#660033] my-2.5 block tracking-tight uppercase">
+                      RANK {cat.rank}
+                    </span>
+                    <span className="text-xs font-bold text-slate-800 leading-snug uppercase tracking-wide">
+                      {cat.name}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
 
             {/* Verification Live Strip Footer */}
             <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between text-[10px] tracking-wider text-slate-400 uppercase font-bold">

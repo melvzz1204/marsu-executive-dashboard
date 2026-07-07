@@ -27,7 +27,7 @@ const KPICard = ({
             <span className="text-3xl font-light text-slate-900 tracking-tight">
               {value}
             </span>
-            <span className="text-xs font-normal text-slate-400">
+            <span className="text-xs font-normal text-slate-400 capitalize">
               {metricContext}
             </span>
           </div>

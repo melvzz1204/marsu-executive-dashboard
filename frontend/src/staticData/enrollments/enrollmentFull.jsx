@@ -95,7 +95,7 @@ export default function EnrollmentDashboard() {
   const campuses = ["Boac", "Gasan", "Sta. Cruz", "Torrijos"];
 
   // ==========================================
-  // STREAMLINED DATA PIPELINES
+  // DATA PIPELINES
   // ==========================================
   const currentData = useMemo(() => {
     return (enrollmentFull.time_series || []).find(
@@ -128,15 +128,13 @@ export default function EnrollmentDashboard() {
       (a, b) => b.enrollment - a.enrollment,
     );
 
-    // Captured Wide Real-Estate displaying top 6 items
+    // Displaying top 6 items
     const top6 = sorted.slice(0, 6);
     const remainder = sorted.slice(6);
     const remainderSum = remainder.reduce(
       (acc, curr) => acc + curr.enrollment,
       0,
     );
-
-    // Swap names with ultra-clean dictionary abbreviations
     const labels = top6.map((p) => PROGRAM_ABBREVIATIONS[p.name] || p.name);
     const values = top6.map((p) => p.enrollment);
     const backgroundColors = top6.map(
@@ -170,7 +168,7 @@ export default function EnrollmentDashboard() {
       datasets: [
         {
           type: "line",
-          label: "Total System Capacity",
+          label: "Total Enrollment",
           data: historicalSummary.map((s) => s.total_enrollment),
           borderColor: PALETTE.gold,
           borderWidth: 4,
@@ -186,7 +184,7 @@ export default function EnrollmentDashboard() {
   }, []);
 
   // ==========================================
-  // CHART CONFIGURATIONS (ABBREVIATION TOOLTIP SAFEGUARD)
+  // CHART CONFIGURATIONS
   // ==========================================
   const horizontalOptions = {
     responsive: true,
@@ -201,7 +199,6 @@ export default function EnrollmentDashboard() {
         titleFont: { size: 12, weight: "bold" },
         bodyFont: { size: 12 },
         callbacks: {
-          // TOOLTIP SAFEGUARD: Restores full curriculum spelling when user hovers an abbreviation
           title: function (context) {
             const shortLabel = context[0].label;
             return labelToFullNameMap.get(shortLabel) || shortLabel;
@@ -226,7 +223,7 @@ export default function EnrollmentDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 antialiased p-4 md:p-8">
+    <div className="min-h-screen bg-slate-50 text-slate-800 antialiased p-4 md:p-8 rounded-2xl">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* TOP COMPACT CONTROL LAYER */}
         <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
@@ -235,7 +232,7 @@ export default function EnrollmentDashboard() {
               Institutional Registrar Dashboard
             </span>
             <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight mt-0.5">
-              Enrollment Distribution Terminal
+              Campus Enrollment Trends
             </h1>
           </div>
 
@@ -275,42 +272,61 @@ export default function EnrollmentDashboard() {
         </div>
 
         {/* SUMMARY KPI BLOCKS */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
+          {/* CARD 1: Total Campus Enrollment */}
+          <div className="relative bg-[#660033] text-white p-6 rounded-2xl shadow-[0_4px_0_0_#D4AF37] flex flex-col justify-between min-h-[140px]">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-                Hub Enrollment Volume
-              </p>
-              <h3 className="text-3xl font-black text-slate-900 mt-1 font-mono">
+              <span className="text-[10px] font-extrabold tracking-wider text-slate-300 block uppercase font-sans mb-1">
+                Campus Enrollment
+              </span>
+              <span className="text-3xl font-black text-[#FFD700] leading-none block mt-1 tracking-tight my-1">
                 {currentData?.metadata?.total_enrollment?.toLocaleString() || 0}
+              </span>
+            </div>
+
+            <div className="flex items-center justify-between mt-4 pt-2 border-t border-white/10">
+              <span className="text-[11px] font-medium text-slate-200/90 font-sans lowercase tracking-wide">
+                total students on campus
+              </span>
+              {summaryData?.yoy_growth && (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-[#D4AF37] text-[#660033] ">
+                  ▲ {(summaryData.yoy_growth * 100).toFixed(1)}% YoY Growth
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* CARD 2: ACTIVE CAMPUS PROGRAMS */}
+          <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-[0_4px_20px_rgba(0,0,0,0.01)] flex flex-col justify-between min-h-[140px]">
+            <div>
+              <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 font-sans block mb-1">
+                Active Programs
+              </span>
+              <h3 className="text-3xl font-black text-slate-900 font-sans tracking-tight mt-1.5">
+                {currentData?.metadata?.program_count || 0}
               </h3>
             </div>
-            {summaryData?.yoy_growth && (
-              <span className="text-xs font-bold px-2.5 py-1 rounded-lg bg-amber-50 text-[#D4AF37] border border-amber-100">
-                ▲ {(summaryData.yoy_growth * 100).toFixed(1)}% System SY
+            <span className="text-[11px] font-semibold text-slate-400 capitalize tracking-wide mt-auto pt-2 border-t border-slate-100">
+              degree offerings this campus
+            </span>
+          </div>
+
+          {/* CARD 3: LEADING CAMPUS ARRAY */}
+          <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-[0_4px_20px_rgba(0,0,0,0.01)] flex flex-col justify-between min-h-[140px] min-w-0">
+            <div>
+              <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 font-sans block mb-1">
+                Largest Program
               </span>
-            )}
-          </div>
-
-          <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
-            <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-              Active Campus Programs
-            </p>
-            <h3 className="text-3xl font-black text-slate-900 mt-1 font-mono">
-              {currentData?.metadata?.program_count || 0}
-            </h3>
-          </div>
-
-          <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-              Leading Campus Array
-            </p>
-            <h3
-              className="text-sm font-bold text-[#660033] mt-2 block truncate"
-              title={currentData?.metadata?.top_program}
-            >
-              {currentData?.metadata?.top_program || "None Listed"}
-            </h3>
+              <h3
+                className="text-base font-black text-[#660033] mt-2 block truncate font-sans tracking-tight"
+                title={currentData?.metadata?.top_program}
+              >
+                {currentData?.metadata?.top_program || "None Listed"}
+              </h3>
+            </div>
+            <span className="text-[11px] font-semibold text-slate-400 capitalize tracking-wide mt-auto pt-2 border-t border-slate-100">
+              highest student count
+            </span>
           </div>
         </div>
 
@@ -319,9 +335,9 @@ export default function EnrollmentDashboard() {
           <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col">
             <div className="mb-4">
               <h4 className="text-base font-bold text-slate-900">
-                Primary Concentration Nodes
+                Highest Enrollment Programs
               </h4>
-              <p className="text-xs text-slate-400">Top programs</p>
+              <p className="text-xs text-slate-400">Top courses by headcount</p>
             </div>
             <div className="h-[340px] relative flex-1">
               <Chart
@@ -333,14 +349,47 @@ export default function EnrollmentDashboard() {
           </div>
         </div>
 
-        {/* AUDIT MATRIX (TABLE STAYS DETAILED WITH COMPACT BADGES) */}
+        {/* LONGITUDINAL TRAJECTORY */}
+        <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
+          <div className="mb-4">
+            <h4 className="text-base font-bold text-slate-900">
+              Multi-Year Enrollment Growth
+            </h4>
+            <p className="text-xs text-slate-400">
+              Overall university system student registration trace
+            </p>
+          </div>
+          <div className="h-[160px] relative">
+            <Chart
+              type="line"
+              data={macroTrendData}
+              options={{
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                  x: {
+                    grid: { display: false },
+                    ticks: { color: PALETTE.slateMuted, font: { size: 11 } },
+                  },
+                  y: {
+                    grid: { color: "#f1f5f9" },
+                    ticks: { color: PALETTE.slateMuted, font: { size: 11 } },
+                  },
+                },
+              }}
+            />
+          </div>
+        </div>
+
+        {/* AUDIT MATRIX */}
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
           <div className="p-5 border-b border-slate-100">
             <h4 className="text-base font-bold text-slate-900">
-              Granular Curriculum Registry Audit
+              Complete Course & Program List
             </h4>
             <p className="text-xs text-slate-400">
-              Comprehensive reference directory
+              Detailed campus reference directory
             </p>
           </div>
 
@@ -349,12 +398,9 @@ export default function EnrollmentDashboard() {
               <thead className="bg-slate-50 sticky top-0 border-b border-slate-200 text-slate-400 font-semibold text-[11px] uppercase tracking-wider z-10">
                 <tr>
                   <th className="px-6 py-3 w-16">Rank</th>
-                  <th className="px-6 py-3 w-24">Code</th>
-                  <th className="px-6 py-3 min-w-[240px]">
-                    Curriculum Designation
-                  </th>
-                  <th className="px-6 py-3">Classification</th>
-                  <th className="px-6 py-3 text-right">Count</th>
+                  <th className="px-6 py-3 min-w-[240px]">Program Title</th>
+                  <th className="px-6 py-3">Department</th>
+                  <th className="px-6 py-3 text-right">Students</th>
                   <th className="px-6 py-3 text-center">Status</th>
                 </tr>
               </thead>
@@ -369,9 +415,7 @@ export default function EnrollmentDashboard() {
                       <td className="px-6 py-4 font-mono text-slate-400 text-xs font-semibold">
                         #{String(program.rank).padStart(2, "0")}
                       </td>
-                      <td className="px-6 py-4 font-bold text-slate-700 font-mono text-xs">
-                        {PROGRAM_ABBREVIATIONS[program.name] || "N/A"}
-                      </td>
+
                       <td className="px-6 py-4 font-medium text-slate-900 max-w-md break-words leading-relaxed">
                         {program.name}
                       </td>
@@ -401,45 +445,12 @@ export default function EnrollmentDashboard() {
           </div>
         </div>
 
-        {/* LONGITUDINAL TRAJECTORY */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
-          <div className="mb-4">
-            <h4 className="text-base font-bold text-slate-900">
-              Longitudinal Capacity Velocity
-            </h4>
-            <p className="text-xs text-slate-400">
-              Multi-year global system registration growth trace
-            </p>
-          </div>
-          <div className="h-[160px] relative">
-            <Chart
-              type="line"
-              data={macroTrendData}
-              options={{
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
-                scales: {
-                  x: {
-                    grid: { display: false },
-                    ticks: { color: PALETTE.slateMuted, font: { size: 11 } },
-                  },
-                  y: {
-                    grid: { color: "#f1f5f9" },
-                    ticks: { color: PALETTE.slateMuted, font: { size: 11 } },
-                  },
-                },
-              }}
-            />
-          </div>
-        </div>
-
         {/* FOOTER */}
         <div className="flex justify-between items-center text-[10px] text-slate-400 font-semibold tracking-wider uppercase">
           <span>Office of the University Registrar // MarSU</span>
           <span className="text-[#D4AF37] flex items-center gap-1.5">
             <span className="w-1.5 h-1.5 rounded-full bg-[#D4AF37]"></span>
-            Active Operational Stream
+            Active System Online
           </span>
         </div>
       </div>

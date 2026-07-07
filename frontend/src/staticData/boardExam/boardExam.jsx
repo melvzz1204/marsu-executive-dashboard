@@ -195,7 +195,7 @@ export default function BoardExam() {
             {Number(performanceDelta) >= 0 ? "▲" : "▼"}
           </div>
           <div>
-            <span className="block text-2xl font-black text-[#D4AF37] leading-none tracking-tight">
+            <span className="block text-2xl font-black text-[#FFD700] leading-none block mt-1 tracking-tight">
               {Number(performanceDelta) >= 0 ? "+" : ""}
               {performanceDelta}%
             </span>
