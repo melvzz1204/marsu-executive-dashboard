@@ -147,17 +147,13 @@ function MainDashboard() {
             </div>
           )}
           {currentTab === "general administration" && (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-10 animate-fade-in">
-              <div className="lg:col-span-2">
-                <GeneralAdministration isDarkMode={isDarkMode} />
-              </div>
+            <div className="space-y-10 animate-fade-in">
+              <GeneralAdministration isDarkMode={isDarkMode} />
             </div>
           )}
           {currentTab === "support to operation" && (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-10 animate-fade-in">
-              <div className="lg:col-span-2">
-                <SupportToOperation isDarkMode={isDarkMode} />
-              </div>
+            <div className="space-y-10 animate-fade-in">
+              <SupportToOperation isDarkMode={isDarkMode} />
             </div>
           )}
           {currentTab === "achievements" && (
