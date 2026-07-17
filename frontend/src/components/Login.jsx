@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import marsuLogo from "../assets/marsu-logo.png";
 
-function LoginTransition({ onComplete }) {
+function LoginTransition({ onComplete, userRole }) {
   const [progress, setProgress] = useState(0);
   const [currentStep, setCurrentStep] = useState(0);
 
@@ -33,13 +33,19 @@ function LoginTransition({ onComplete }) {
       if (currentStepCount >= steps) {
         clearInterval(timer);
         setTimeout(() => {
-          if (onComplete) onComplete();
+          if (onComplete) {
+            // Determine the target route dynamically depending on the authenticated role
+            const redirectPath = (userRole === "admin" || userRole === "staff") 
+              ? "/admin/dashboard" 
+              : "/dashboard";
+            onComplete(redirectPath);
+          }
         }, 300);
       }
     }, intervalTime);
 
     return () => clearInterval(timer);
-  }, [onComplete]);
+  }, [onComplete, userRole]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#f8fafc]/95 backdrop-blur-md animate-in fade-in duration-300">
@@ -91,6 +97,9 @@ const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
+  // Track the authenticated user's role to coordinate redirection routing
+  const [userRole, setUserRole] = useState("");
+
   // Intercept state to toggle the secure dashboard entry animation
   const [isTransitioning, setIsTransitioning] = useState(false);
 
@@ -121,27 +130,76 @@ const Login = () => {
         if (data.token) {
           localStorage.setItem("token", data.token);
         }
+        
+        // =========================================================================
+        // ROBUST ROLE EXTRACTION
+        // Accounts for flat payloads (data.role), nested user profiles (data.user.role),
+        // JWT parsing fallbacks, and local keyword matching.
+        // =========================================================================
+        let detectedRole = "";
+
+        if (data.role) {
+          detectedRole = data.role;
+        } else if (data.user && data.user.role) {
+          detectedRole = data.user.role;
+        } else if (data.token) {
+          try {
+            // Attempt decoding JWT token payload manually if server didn't explicitly send role
+            const base64Url = data.token.split(".")[1];
+            const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+            const jsonPayload = decodeURIComponent(
+              atob(base64)
+                .split("")
+                .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+                .join("")
+            );
+            const decoded = JSON.parse(jsonPayload);
+            detectedRole = decoded.role || decoded.user?.role || "";
+          } catch (jwtError) {
+            console.error("JWT decoding error fallback:", jwtError);
+          }
+        }
+
+        // Emergency fallback check in case of backend schema discrepancies
+        if (!detectedRole) {
+          const lowerEmail = formData.email.toLowerCase();
+          if (lowerEmail.includes("admin")) {
+            detectedRole = "admin";
+          } else {
+            detectedRole = "executive"; // Default standard fallback
+          }
+          console.warn(`No role returned from backend API. Falling back to guessed role: "${detectedRole}"`);
+        }
+
+        // Clean & normalize the role value to lowercase
+        detectedRole = detectedRole.toLowerCase().trim();
+
+        // Safe storage synchronization
+        localStorage.setItem("role", detectedRole);
+        setUserRole(detectedRole);
+        
         // Instead of triggering window.location instantly, fire the loading animation screen
         setIsTransitioning(true);
       } else {
         setError(data.message || "Invalid email or password.");
       }
     } catch (err) {
+      console.error("Login request failed:", err);
       setError("Unable to establish a connection with the backend server.");
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleTransitionComplete = () => {
-    // Executes final routing once verification bar hits 100%
-    window.location.href = "/dashboard";
+  const handleTransitionComplete = (targetRoute) => {
+    // Executes final routing once verification progress hits 100%
+    window.location.href = targetRoute;
   };
 
   return (
     <>
       {isTransitioning && (
-        <LoginTransition onComplete={handleTransitionComplete} />
+        <LoginTransition onComplete={handleTransitionComplete} userRole={userRole} />
       )}
 
       <div className="max-w-5xl w-full mx-auto grid grid-cols-1 md:grid-cols-12 overflow-hidden rounded-3xl border border-slate-200/70 bg-white shadow-2xl min-h-[620px]">
