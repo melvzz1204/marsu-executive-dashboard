@@ -223,7 +223,7 @@ export default function EnrollmentDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 antialiased p-4 md:p-8 rounded-2xl">
+    <div className="bg-white p-6 md:p-8 rounded-2xl shadow-[0_30px_60px_-15px_rgba(15,23,42,0.02)] border border-slate-100 flex flex-col gap-6 font-oswald animate-fade-in">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* TOP COMPACT CONTROL LAYER */}
         <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
