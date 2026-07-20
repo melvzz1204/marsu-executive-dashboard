@@ -33,8 +33,8 @@ exports.login = async (req, res) => {
 
     // 4. Create JSON Web Token (JWT)
     const token = jwt.sign(
-      { id: user._id, role: user.role },
-      process.env.JWT_SECRET || "fallback_secret_key",
+      { id: user._id, role: user.role, collegeId: user.collegeId }, // Explicitly naming the key "collegeId"
+        process.env.JWT_SECRET || "fallback_secret_key",
       { expiresIn: "30d" },
     );
 
@@ -61,7 +61,7 @@ exports.register = async (req, res) => {
     const { name, email, password, role } = req.body;
 
     // 1. Create the user in MongoDB Atlas
-    const user = await User.create({ name, email, password, role });
+    const user = await User.create({ name, email, password, role, collegeId });
 
     // 2. Remove password from the response object for security
     const userResponse = user.toObject();
@@ -116,6 +116,7 @@ exports.getUserName = async (req, res) => {
       success: true,
       name: user.name || "Dr. Diosdado P. Zulueta",
       role: user.role || "staff", // 💡 CRITICAL FIX: Sends the role to the frontend payload
+      collegeId: user.collegeId || null,
     });
   } catch (error) {
     console.error("❌ Get User Name Error:", error.message);
