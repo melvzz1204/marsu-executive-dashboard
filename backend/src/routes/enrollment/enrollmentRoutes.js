@@ -8,7 +8,12 @@ const {
   getEnrollmentTrend,
   upsertEnrollmentAnalytics
 } = require("../../controllers/enrollment/enrollmentController");
-const { uploadEnrollmentExcel } = require("../../controllers/enrollment/enrollmentUploadController");
+
+// Updated controller import to pull the preview and confirm handlers
+const { 
+  previewEnrollmentUpload, 
+  confirmEnrollmentUpload 
+} = require("../../controllers/enrollment/enrollmentUploadController");
 
 // Assuming your security middleware is located here:
 const { protect, authorize } = require("../../middleware/authMiddleware");
@@ -19,14 +24,28 @@ const upload = multer({ storage: multer.memoryStorage() });
 // Secure all endpoints within this enrollment tracking stack
 router.use(protect);
 
-// Bulk Spreadsheet Ingestion Route
-// 💡 Added upload.single("file") middleware to catch the 'file' key sent from the frontend FormData
+// =========================================================================
+// BULK SPREADSHEET INGESTION ROUTES (2-Step Preview & Commit Flow)
+// =========================================================================
+
+// Step 1: Upload and analyze Excel file for diff/change preview
 router.post(
-  "/upload", 
+  "/upload-preview", 
   authorize("admin", "superadmin"), 
   upload.single("file"), 
-  uploadEnrollmentExcel
+  previewEnrollmentUpload
 );
+
+// Step 2: Confirm and commit approved changes to MongoDB
+router.post(
+  "/upload-confirm", 
+  authorize("admin", "superadmin"), 
+  confirmEnrollmentUpload
+);
+
+// =========================================================================
+// STANDARD DASHBOARD & ANALYTICAL ROUTES
+// =========================================================================
 
 // Main snapshot and ingestion workspace paths
 router
