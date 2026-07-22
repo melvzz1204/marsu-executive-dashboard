@@ -1,39 +1,42 @@
+// routes/analytics/enrollmentRoutes.js
 const express = require("express");
 const router = express.Router();
-const multer = require("multer");
+const multer = require("multer"); // 💡 Imported multer to process multipart form-data streams
 
-// Import controller handlers consistently using CommonJS
 const {
   getEnrollmentSnapshot,
   getEnrollmentTrend,
-  upsertEnrollmentAnalytics,
-  uploadEnrollment,
+  upsertEnrollmentAnalytics
 } = require("../../controllers/enrollment/enrollmentController");
+const { uploadEnrollmentExcel } = require("../../controllers/enrollment/enrollmentUploadController");
 
-// Security middleware
+// Assuming your security middleware is located here:
 const { protect, authorize } = require("../../middleware/authMiddleware");
 
-// Configure Multer memory storage to read Excel buffer directly
+// 💡 Configure memory storage so the raw Excel file buffer is accessible via req.file.buffer
 const upload = multer({ storage: multer.memoryStorage() });
 
-// Protect all routes in this stack
+// Secure all endpoints within this enrollment tracking stack
 router.use(protect);
 
-// ✅ FIXED: Clean route definition with proper middleware execution order
+// Bulk Spreadsheet Ingestion Route
+// 💡 Added upload.single("file") middleware to catch the 'file' key sent from the frontend FormData
 router.post(
-  "/upload",
-  authorize("admin", "superadmin"),
-  upload.single("file"),
-  uploadEnrollment,
+  "/upload", 
+  authorize("admin", "superadmin"), 
+  upload.single("file"), 
+  uploadEnrollmentExcel
 );
 
-// Snapshot & manual entry endpoints
+// Main snapshot and ingestion workspace paths
 router
   .route("/")
-  .get(getEnrollmentSnapshot)
-  .post(authorize("admin", "superadmin"), upsertEnrollmentAnalytics);
+  .get(getEnrollmentSnapshot) // Accessible by all authenticated accounts to render dashboards
+  .post(authorize("admin", "superadmin"), upsertEnrollmentAnalytics); // Admin data-entry restriction
 
-// Multi-year trend line endpoint
-router.route("/trend").get(getEnrollmentTrend);
+// Timeline trace tracking route for the multi-year trend line component
+router
+  .route("/trend")
+  .get(getEnrollmentTrend);
 
 module.exports = router;

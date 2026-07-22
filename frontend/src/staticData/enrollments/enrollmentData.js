@@ -1,0 +1,65 @@
+export const ENROLLMENT_GROWTH_KPI = {
+  percentage: "5.34%",
+  direction: "UP",
+  compareTerm: "1st Semester of AY 2025-2026",
+  baseTerm: "1st Semester of AY 2024-2025",
+};
+
+export const CAMPUS_ENROLLMENT_DATA = [
+  {
+    semester: "AY 2022-23 SEM 1",
+    main: 7343,
+    stacruz: 479,
+    torrijos: 110,
+    gasan: 315,
+    total: 8247,
+  },
+  {
+    semester: "AY 2022-23 SEM 2",
+    main: 6971,
+    stacruz: 472,
+    torrijos: 112,
+    gasan: 283,
+    total: 7838,
+  },
+  {
+    semester: "AY 2023-24 SEM 1",
+    main: 7313,
+    stacruz: 983,
+    torrijos: 243,
+    gasan: 387,
+    total: 8926,
+  },
+  {
+    semester: "AY 2023-24 SEM 2",
+    main: 7084,
+    stacruz: 960,
+    torrijos: 215,
+    gasan: 347,
+    total: 8606,
+  },
+  {
+    semester: "AY 2024-25 SEM 1",
+    main: 7719,
+    stacruz: 982,
+    torrijos: 347,
+    gasan: 430,
+    total: 9478,
+  },
+  {
+    semester: "AY 2024-25 SEM 2",
+    main: 7505,
+    stacruz: 965,
+    torrijos: 338,
+    gasan: 396,
+    total: 9204,
+  },
+  {
+    semester: "AY 2025-26 SEM 1",
+    main: 8090,
+    stacruz: 918,
+    torrijos: 298,
+    gasan: 390,
+    total: 9696,
+  },
+];

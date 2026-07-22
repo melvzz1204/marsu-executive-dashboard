@@ -5,7 +5,7 @@ export default function GeneralAdministration() {
   const [activeTab, setActiveTab] = useState("financial");
 
   return (
-    <div className="w-full  mx-auto space-y-6  bg-white p-5 rounded-2xl">
+    <div className="w-full max-w-5xl mx-auto  space-y-6 bg-white p-5">
       {/* 1. TAB TOGGLE NAVIGATION */}
       <div className="flex flex-col sm:flex-row gap-3 ">
         {/* Tab 1: Financial Services */}

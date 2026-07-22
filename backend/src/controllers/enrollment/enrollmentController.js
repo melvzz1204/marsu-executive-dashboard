@@ -1,152 +1,95 @@
-const ExcelJS = require("exceljs");
+// controllers/enrollment/enrollmentController.js
 const EnrollmentAnalytics = require("../../models/enrollment/enrollmentAnalyticsModel");
 
-// 1. Spreadsheet Upload Handler
-exports.uploadEnrollment = async (req, res) => {
+// @desc    Get Campus Enrollment Snapshot (KPI Cards, Bar Chart, & Program Table Grid)
+// @route   GET /api/v1/enrollment
+// @access  Private
+exports.getEnrollmentSnapshot = async (req, res) => {
   try {
-    if (!req.file || !req.file.buffer) {
-      return res.status(400).json({
+    const year = req.query.year ? Number(req.query.year) : 2023;
+    const campus = req.query.campus || "Boac";
+
+    const snapshot = await EnrollmentAnalytics.findOne({ academicYear: year, campus: campus });
+
+    if (!snapshot) {
+      return res.status(404).json({
         success: false,
-        error: "Please upload an Excel spreadsheet (.xlsx) file.",
+        error: `No enrollment baseline matrix profile logged for ${campus} campus in AY ${year}.`
       });
-    }
-
-    // 💡 FIX: Safely parse the string to a Number (e.g., "2022-2023" -> 2022)
-    let academicYear = 2021;
-    if (req.body && req.body.academicYear) {
-      const match = String(req.body.academicYear).match(/\b(20\d{2})\b/);
-      if (match) {
-        academicYear = Number(match[1]);
-      }
-    }
-
-    const semester = req.body.semester || "1st Sem";
-    const processedCampuses = [];
-
-    const workbook = new ExcelJS.Workbook();
-    await workbook.xlsx.load(req.file.buffer);
-
-    workbook.eachSheet((worksheet) => {
-      const campusName = worksheet.name.trim(); // e.g., "Boac"
-      const rows = [];
-
-      const headerRow = worksheet.getRow(1);
-      const headers = [];
-
-      // 💡 FIX: Map human-readable Excel headers to strict Schema keys
-      const headerDictionary = {
-        "program name": "programName",
-        program: "programName",
-        "program code": "programCode",
-        code: "programCode",
-        department: "department",
-        "student count": "studentCount",
-        students: "studentCount",
-        priority: "isPriorityProgram",
-        "is priority": "isPriorityProgram",
-        active: "isActive",
-      };
-
-      headerRow.eachCell((cell, colNumber) => {
-        if (cell.value) {
-          // Convert header to lowercase and clean up spaces for matching
-          const rawHeader = cell.value.toString().toLowerCase().trim();
-          // Assign the strict schema key if found, otherwise keep original
-          headers[colNumber] = headerDictionary[rawHeader] || rawHeader;
-        } else {
-          headers[colNumber] = `col_${colNumber}`;
-        }
-      });
-
-      worksheet.eachRow((row, rowNumber) => {
-        if (rowNumber === 1) return; // Skip header row
-
-        const rowData = {};
-        let hasValue = false;
-
-        row.eachCell((cell, colNumber) => {
-          const headerKey = headers[colNumber];
-          if (!headerKey) return;
-
-          let val = cell.value;
-          if (val && typeof val === "object" && val.result !== undefined) {
-            val = val.result;
-          }
-
-          rowData[headerKey] = val;
-          hasValue = true;
-        });
-
-        if (hasValue) {
-          rows.push(rowData);
-        }
-      });
-
-      if (rows.length > 0) {
-        processedCampuses.push({
-          campus: campusName,
-          academicYear,
-          semester,
-          programs: rows, // ✅ Ensuring this says 'programs', not 'records'
-        });
-      }
-    });
-
-    for (const data of processedCampuses) {
-      await EnrollmentAnalytics.findOneAndUpdate(
-        {
-          campus: data.campus,
-          academicYear: data.academicYear,
-          semester: data.semester,
-        },
-        data,
-        { upsert: true, new: true, setDefaultsOnInsert: true },
-      );
     }
 
     return res.status(200).json({
       success: true,
-      message: `Successfully imported data for Academic Year ${academicYear}!`,
-      academicYear,
-      processedCount: processedCampuses.length,
-      data: processedCampuses,
+      data: snapshot
     });
   } catch (error) {
-    console.error("ExcelJS Upload Failure:", error);
     return res.status(500).json({ success: false, error: error.message });
   }
 };
 
-// 2. Snapshot Fetch Handler
-exports.getEnrollmentSnapshot = async (req, res) => {
-  try {
-    const data = await EnrollmentAnalytics.find();
-    return res.status(200).json({ success: true, data });
-  } catch (error) {
-    return res.status(500).json({ success: false, error: error.message });
-  }
-};
-
-// 3. Multi-Year Trend Line Handler
+// @desc    Get Multi-Year Growth Registration Trace (Powers the Line Chart Trend Component)
+// @route   GET /api/v1/enrollment/trend
+// @access  Private
 exports.getEnrollmentTrend = async (req, res) => {
   try {
-    const data = await EnrollmentAnalytics.find().sort({ academicYear: 1 });
-    return res.status(200).json({ success: true, data });
+    const campus = req.query.campus || "Boac";
+
+    // Queries all historical records for a campus and sorts chronologically by Academic Year
+    const trends = await EnrollmentAnalytics.find({ campus: campus })
+      .sort({ academicYear: 1 })
+      .select("academicYear summaryKpis.totalStudents");
+
+    // Formats payload to map effortlessly onto a Recharts/Chart.js continuous line coordinate dataset
+    const formattedTrendData = trends.map((record) => ({
+      academicYear: record.academicYear, // ✨ Add this raw integer back for the frontend filters!
+      label: `AY ${record.academicYear}`,
+      totalStudents: record.summaryKpis ? record.summaryKpis.totalStudents : 0 // Defensive fallback
+    }));
+
+    return res.status(200).json({
+      success: true,
+      campus,
+      data: formattedTrendData
+    });
   } catch (error) {
     return res.status(500).json({ success: false, error: error.message });
   }
 };
 
-// 4. Manual Ingestion / Upsert Handler
+// @desc    Upsert/Create Enrollment Snapshot Ledger (Admin Data Ingestion Matrix)
+// @route   POST /api/v1/enrollment
+// @access  Private/Admin
 exports.upsertEnrollmentAnalytics = async (req, res) => {
   try {
-    const { campus, academicYear, semester, records } = req.body;
-    const updated = await EnrollmentAnalytics.findOneAndUpdate(
-      { campus, academicYear, semester },
-      req.body,
-      { upsert: true, new: true, setDefaultsOnInsert: true },
-    );
-    return res.status(200).json({ success: true, data: updated });
+    const { academicYear, campus, programs } = req.body;
+
+    if (!academicYear || !campus) {
+      return res.status(400).json({
+        success: false,
+        error: "Missing required query parameter bounds: academicYear and campus references are required."
+      });
+    }
+
+    let record = await EnrollmentAnalytics.findOne({ academicYear, campus });
+
+    if (record) {
+      if (programs) record.programs = programs;
+    } else {
+      record = new EnrollmentAnalytics({
+        academicYear,
+        campus,
+        programs
+      });
+    }
+
+    // Save automatically runs our pre-save engine to calculate KPIs, find the top course, and lookup YoY growth
+    await record.save();
+
+    return res.status(200).json({
+      success: true,
+      message: `Enrollment metadata metrics ledger for ${campus} (AY ${academicYear}) synced successfully.`,
+      data: record
+    });
   } catch (error) {
     return res.status(500).json({ success: false, error: error.message });
   }
