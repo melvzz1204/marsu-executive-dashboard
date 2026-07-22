@@ -61,16 +61,36 @@ exports.uploadEnrollmentExcel = async (req, res) => {
       try {
         const colA = extractCellValue(row.getCell(1));
         const colB = extractCellValue(row.getCell(2));
+        const colC = extractCellValue(row.getCell(3));
+        const colD = extractCellValue(row.getCell(4));
 
-        if (!colA && !colB) return;
+        if (!colA && !colB && !colC && !colD) return;
 
-        // --- Detect Campus Header boundaries ---
-        // Headers may appear in Col A (e.g., "BOAC CAMPUS-Tanza...") or Col B
-        const targetHeaderStr = colA.toUpperCase().includes("CAMPUS") ? colA : colB;
+        // Combine text across first two columns to reliably detect headers & skip words
+        const combinedRowStart = `${colA} ${colB}`.trim().toUpperCase();
 
-        if (targetHeaderStr && targetHeaderStr.toUpperCase().includes("CAMPUS")) {
-          let rawName = targetHeaderStr.split(/CAMPUS/i)[0].replace(/[-_]/g, "").trim();
-          if (!rawName) rawName = targetHeaderStr.replace(/CAMPUS/i, "").trim();
+        // --- Ignore Bottom Table Footers & Table Headers ---
+        if (
+          combinedRowStart.startsWith("TOTAL") ||
+          combinedRowStart.startsWith("GRAND TOTAL") ||
+          combinedRowStart.startsWith("PERCENTAGE") ||
+          combinedRowStart.includes("PROGRAM NAME") ||
+          combinedRowStart.includes("NO. OF ENROLLMENT") ||
+          combinedRowStart.includes("SUPPORTING DOCUMENTS") ||
+          combinedRowStart.includes("LIST UNDERGRADUATE") ||
+          combinedRowStart.includes("CHED-IDENTIFIED") ||
+          combinedRowStart.includes("NEITHER")
+        ) {
+          return;
+        }
+
+        // --- Detect Campus Header Boundaries ---
+        // e.g. "BOAC CAMPUS-Tanza...", "GASAN CAMPUS-Pinggan...", "SANTA CRUZ CAMPUS..."
+        if (colA.toUpperCase().includes("CAMPUS") || colB.toUpperCase().includes("CAMPUS")) {
+          const rawCampusStr = colA.toUpperCase().includes("CAMPUS") ? colA : colB;
+          
+          let rawName = rawCampusStr.split(/CAMPUS/i)[0].replace(/[-_]/g, "").trim();
+          if (!rawName) rawName = rawCampusStr.replace(/CAMPUS/i, "").trim();
 
           if (rawName.toUpperCase().includes("SANTA CRUZ")) {
             currentCampus = "Santa Cruz";
@@ -88,36 +108,35 @@ exports.uploadEnrollmentExcel = async (req, res) => {
         if (!currentCampus) return;
 
         // --- Extract Program Data ---
-        // In the Excel matrix, program titles are located in Column B (Cell 2)
-        const programName = colB;
+        // Program Name is in Column B (Cell 2) or Column A if unnumbered
+        let programName = colB;
+        if (!programName || !isNaN(programName)) {
+          // If colB was a row number (e.g. 1, 2, 3), check colC or colA
+          if (isNaN(colA) && colA.length > 3) {
+            programName = colA;
+          }
+        }
 
-        // Skip header titles, instructions, empty spacer rows, or pure numeric strings
-        if (
-          !programName ||
-          !isNaN(programName) ||
-          programName.toUpperCase().includes("PROGRAM NAME") ||
-          programName.toUpperCase().includes("LIST UNDERGRADUATE") ||
-          programName.toUpperCase().includes("SPELL OUT") ||
-          programName.toUpperCase().includes("INCOMPLETE ENTRIES") ||
-          programName.toUpperCase().includes("MEANS OF VERIFICATION")
-        ) {
+        // Skip invalid/numeric program titles
+        if (!programName || !isNaN(programName) || programName.length < 3) {
           return;
         }
 
         // Dynamically deduce department group
         let department = "General";
         if (programName.includes("Engineering")) department = "Engineering";
-        else if (programName.includes("Education") || programName.includes("Teacher")) department = "Education";
-        else if (programName.includes("Technology") || programName.includes("Information")) department = "Technology";
+        else if (programName.includes("Education") || programName.includes("Teacher") || programName.includes("Arts")) department = "Education";
+        else if (programName.includes("Technology") || programName.includes("Information") || programName.includes("Computer")) department = "Technology";
         else if (programName.includes("Business") || programName.includes("Accountancy")) department = "Business";
-        else if (programName.includes("Nursing") || programName.includes("Midwifery")) department = "Sciences";
+        else if (programName.includes("Nursing") || programName.includes("Midwifery") || programName.includes("Agriculture")) department = "Sciences";
 
-        // Extract value mappings: Col C (Cell 3) = Priority, Col D (Cell 4) = Neither
-        const priorityVal = row.getCell(3).value;
-        const neitherVal = row.getCell(4).value;
+        // Extract value mappings: Priority vs Neither
+        // Look in cells 3, 4, or 5 depending on column alignment
+        const valCol3 = row.getCell(3).value;
+        const valCol4 = row.getCell(4).value;
 
-        const priorityCount = priorityVal !== null && priorityVal !== undefined && !isNaN(priorityVal) ? Number(priorityVal) : 0;
-        const neitherCount = neitherVal !== null && neitherVal !== undefined && !isNaN(neitherVal) ? Number(neitherVal) : 0;
+        const priorityCount = valCol3 !== null && valCol3 !== undefined && !isNaN(valCol3) ? Number(valCol3) : 0;
+        const neitherCount = valCol4 !== null && valCol4 !== undefined && !isNaN(valCol4) ? Number(valCol4) : 0;
 
         const studentCount = priorityCount > 0 ? priorityCount : neitherCount;
         const isPriorityProgram = priorityCount > 0;
@@ -149,7 +168,7 @@ exports.uploadEnrollmentExcel = async (req, res) => {
     if (processedCampuses.length === 0) {
       return res.status(422).json({
         success: false,
-        error: "Could not parse any valid program rows. Please check your Excel headers and formatting.",
+        error: "Could not parse any valid program rows. Please check your Excel table structure.",
       });
     }
 
