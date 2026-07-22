@@ -11,9 +11,16 @@ exports.uploadEnrollment = async (req, res) => {
       });
     }
 
-    const academicYear = req.body.academicYear || "2021-2022";
-    const semester = req.body.semester || "1st Sem";
+    // 💡 FIX: Safely parse the string to a Number (e.g., "2022-2023" -> 2022)
+    let academicYear = 2021;
+    if (req.body && req.body.academicYear) {
+      const match = String(req.body.academicYear).match(/\b(20\d{2})\b/);
+      if (match) {
+        academicYear = Number(match[1]);
+      }
+    }
 
+    const semester = req.body.semester || "1st Sem";
     const processedCampuses = [];
 
     const workbook = new ExcelJS.Workbook();
@@ -89,7 +96,7 @@ exports.uploadEnrollment = async (req, res) => {
   }
 };
 
-// 2. 💡 ADDED: Snapshot Fetch Handler
+// 2. Snapshot Fetch Handler
 exports.getEnrollmentSnapshot = async (req, res) => {
   try {
     const data = await EnrollmentAnalytics.find();
@@ -99,7 +106,7 @@ exports.getEnrollmentSnapshot = async (req, res) => {
   }
 };
 
-// 3. 💡 ADDED: Multi-Year Trend Line Handler
+// 3. Multi-Year Trend Line Handler
 exports.getEnrollmentTrend = async (req, res) => {
   try {
     const data = await EnrollmentAnalytics.find().sort({ academicYear: 1 });
@@ -109,7 +116,7 @@ exports.getEnrollmentTrend = async (req, res) => {
   }
 };
 
-// 4. 💡 ADDED: Manual Ingestion / Upsert Handler
+// 4. Manual Ingestion / Upsert Handler
 exports.upsertEnrollmentAnalytics = async (req, res) => {
   try {
     const { campus, academicYear, semester, records } = req.body;
