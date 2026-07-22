@@ -27,25 +27,46 @@ exports.uploadEnrollment = async (req, res) => {
     await workbook.xlsx.load(req.file.buffer);
 
     workbook.eachSheet((worksheet) => {
-      const campusName = worksheet.name;
+      const campusName = worksheet.name.trim(); // e.g., "Boac"
       const rows = [];
 
       const headerRow = worksheet.getRow(1);
       const headers = [];
+
+      // 💡 FIX: Map human-readable Excel headers to strict Schema keys
+      const headerDictionary = {
+        "program name": "programName",
+        program: "programName",
+        "program code": "programCode",
+        code: "programCode",
+        department: "department",
+        "student count": "studentCount",
+        students: "studentCount",
+        priority: "isPriorityProgram",
+        "is priority": "isPriorityProgram",
+        active: "isActive",
+      };
+
       headerRow.eachCell((cell, colNumber) => {
-        headers[colNumber] = cell.value
-          ? cell.value.toString().trim()
-          : `col_${colNumber}`;
+        if (cell.value) {
+          // Convert header to lowercase and clean up spaces for matching
+          const rawHeader = cell.value.toString().toLowerCase().trim();
+          // Assign the strict schema key if found, otherwise keep original
+          headers[colNumber] = headerDictionary[rawHeader] || rawHeader;
+        } else {
+          headers[colNumber] = `col_${colNumber}`;
+        }
       });
 
       worksheet.eachRow((row, rowNumber) => {
-        if (rowNumber === 1) return;
+        if (rowNumber === 1) return; // Skip header row
 
         const rowData = {};
         let hasValue = false;
 
         row.eachCell((cell, colNumber) => {
-          const headerKey = headers[colNumber] || `col_${colNumber}`;
+          const headerKey = headers[colNumber];
+          if (!headerKey) return;
 
           let val = cell.value;
           if (val && typeof val === "object" && val.result !== undefined) {
@@ -66,7 +87,7 @@ exports.uploadEnrollment = async (req, res) => {
           campus: campusName,
           academicYear,
           semester,
-          records: rows,
+          programs: rows, // ✅ Ensuring this says 'programs', not 'records'
         });
       }
     });

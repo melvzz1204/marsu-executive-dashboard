@@ -67,12 +67,6 @@ export default function EnrollmentDashboard() {
 
   const campuses = ["Boac", "Gasan", "Santa Cruz", "Torrijos"];
 
-  // ==========================================
-  // FETCH DYNAMIC DATA FROM BACKEND
-  // ==========================================
-  // ==========================================
-  // FETCH DYNAMIC DATA FROM BACKEND
-  // ==========================================
   useEffect(() => {
     let isMounted = true;
 
