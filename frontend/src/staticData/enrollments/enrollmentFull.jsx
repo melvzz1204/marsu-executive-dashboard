@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -11,8 +11,7 @@ import {
   Legend,
   Filler,
 } from "chart.js";
-import { Chart } from "react-chartjs-2";
-import { enrollmentFull } from "./enrollmentFull.js";
+import { Chart as ReactChart } from "react-chartjs-2";
 
 ChartJS.register(
   CategoryScale,
@@ -26,13 +25,13 @@ ChartJS.register(
   Filler,
 );
 
-// Balanced 60-30-10 Institutional Color Strategy
+const API_BASE_URL = "http://localhost:5000/api/v1/enrollment";
+
 const PALETTE = {
   maroon: "#660033",
   gold: "#D4AF37",
   slateDark: "#0f172a",
   slateMuted: "#64748b",
-  bgSlate: "#f8fafc",
   categories: {
     Engineering: "#660033",
     Business: "#1e293b",
@@ -40,111 +39,188 @@ const PALETTE = {
     Sciences: "#475569",
     Education: "#64748b",
     Agriculture: "#8492a6",
-    Other: "#94a3b8",
-    Aggregated: "#cbd5e1",
+    General: "#94a3b8",
+    Other: "#cbd5e1",
   },
 };
 
-// COMPREHENSIVE ACADEMIC ABBREVIATION DICTIONARY
 const PROGRAM_ABBREVIATIONS = {
-  "Bachelor of Science in Industrial Technology": "BS Industrial Technolgy",
+  "Bachelor of Science in Industrial Technology": "BS Industrial Technology",
   "Bachelor of Science in Information Technology": "BS Information Technology",
   "Bachelor of Science in Business Administration":
-    "BS  Business Administration",
+    "BS Business Administration",
   "Bachelor of Science in Civil Engineering": "BS Civil Engineering",
   "Bachelor of Science in Nursing": "BS Nursing",
   "Bachelor of Secondary Education": "BS Education",
-  "Bachelor of Science in Tourism Management": "BS Tourism Management",
-  "Bachelor of Science in Law Enforcement Administration":
-    "BS Law Enforcement Administration",
-  "Bachelor of Science in Social Works": "BS Social Works",
-  "Bachelor of Science in Entrepreneurship-Entrepreneurial Management":
-    "BS Entrepreneurship-Entrepreneurial Management",
-  "Bachelor of Science in Information Systems": "BS Information Systems",
-  "Bachelor of Science in Public Administration": "BS Public Administration",
-  "Bachelor of Arts in Communication": "BA Communication",
-  "Bachelor of Arts in English Language Studies": "BA English Language Studies",
-  "Bachelor of Arts major in English Language Studies":
-    "BA English Language Studies",
-  "Bachelor of Science in Electrical Engineering": "BS Electrical Engineering",
-  "Bachelor of Science in Mechanical Engineering": "BS Mechanical Engineering",
-  "Bachelor of Science in Computer Engineering": "BS Computer Engineering",
-  "Bachelor of Science in Environmental Science": "BS Environmental Science",
   "Bachelor of Science in Accountancy": "BS Accountancy",
-  "Bachelor of Science in Accounting Information System":
-    "BS Accounting Information System",
-  "Bachelor of Culture and Arts Education": "BC Culture and Arts Education",
-  "Bachelor of Technology and Livelihood Education": "BTLED",
-  "Bachelor of Science in Fisheries": "BS Fisheries",
-  "Bachelor of Arts in Political Science": "BA Political Science",
-  "Bachelor of Elementary Education": "BE Elementary Education",
-  "Diploma in Agricultural Technology": "DAT",
-  "Bachelor in Agricultural Technology": "BAT",
-  "Certificate in Agricultural Science": "CAS",
-  "Bachelor of Science in Agriculture": "BSAgr",
-  "Bachelor of Science in Entrepreneurship-Agri-Business": "BSEntrep-AB",
-  "Diploma in Midwifery": "DipMid",
-  "Bachelor of Science in Midwifery": "BSMid",
 };
 
 export default function EnrollmentDashboard() {
-  const [selectedYear, setSelectedYear] = useState(2023);
+  const [selectedYear, setSelectedYear] = useState(null);
   const [selectedCampus, setSelectedCampus] = useState("Boac");
 
-  const years = [2021, 2022, 2023];
-  const campuses = ["Boac", "Gasan", "Sta. Cruz", "Torrijos"];
+  const [years, setYears] = useState([]);
+  const [snapshot, setSnapshot] = useState(null);
+  const [trendData, setTrendData] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const campuses = ["Boac", "Gasan", "Santa Cruz", "Torrijos"];
 
   // ==========================================
-  // DATA PIPELINES
+  // FETCH DYNAMIC DATA FROM BACKEND
   // ==========================================
-  const currentData = useMemo(() => {
-    return (enrollmentFull.time_series || []).find(
-      (item) => item.year === selectedYear && item.campus === selectedCampus,
-    );
+  // ==========================================
+  // FETCH DYNAMIC DATA FROM BACKEND
+  // ==========================================
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchData = async () => {
+      setLoading(true);
+      setError(null);
+
+      try {
+        const token = localStorage.getItem("token");
+        const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
+
+        // 1. Fetch Multi-Year Trend for current campus
+        const trendRes = await fetch(
+          `${API_BASE_URL}/trend?campus=${encodeURIComponent(selectedCampus)}`,
+          { headers: authHeaders },
+        );
+        const trendJson = await trendRes.json();
+
+        let extractedYears = [];
+        if (trendRes.ok && trendJson.success && Array.isArray(trendJson.data)) {
+          if (isMounted) {
+            // Normalize trend data to ensure 'label' exists for Chart.js
+            const normalizedTrend = trendJson.data.map((item) => ({
+              ...item,
+              label: item.label || item._id || item.academicYear || item.year,
+              totalStudents: item.totalStudents || 0,
+            }));
+            setTrendData(normalizedTrend);
+          }
+
+          // 💡 Extract 4-digit year cleanly (checking _id, academicYear, year, and label)
+          extractedYears = [
+            ...new Set(
+              trendJson.data
+                .map((item) => {
+                  const raw =
+                    item._id ||
+                    item.academicYear ||
+                    item.year ||
+                    item.label ||
+                    "";
+                  const match = String(raw).match(/\b(20\d{2})\b/);
+                  return match ? parseInt(match[1], 10) : null;
+                })
+                .filter((y) => y !== null),
+            ),
+          ].sort((a, b) => a - b);
+
+          if (isMounted) setYears(extractedYears);
+        }
+
+        // Determine target year to query for snapshot
+        let targetYear = selectedYear;
+
+        // Auto-select latest year if current selection is invalid or null
+        if (extractedYears.length > 0) {
+          if (!targetYear || !extractedYears.includes(Number(targetYear))) {
+            targetYear = extractedYears[extractedYears.length - 1];
+            if (isMounted) setSelectedYear(targetYear);
+          }
+        }
+
+        // 2. Fetch Snapshot for active campus & targetYear
+        if (targetYear) {
+          // 💡 Pass both 'academicYear' and 'year' to avoid backend key mismatches
+          const snapshotRes = await fetch(
+            `${API_BASE_URL}?academicYear=${targetYear}&year=${targetYear}&campus=${encodeURIComponent(
+              selectedCampus,
+            )}`,
+            { headers: authHeaders },
+          );
+          const snapshotJson = await snapshotRes.json();
+
+          if (isMounted) {
+            if (snapshotRes.ok && snapshotJson.success && snapshotJson.data) {
+              // Handle array or object return format from backend
+              const activeData = Array.isArray(snapshotJson.data)
+                ? snapshotJson.data[0]
+                : snapshotJson.data;
+              setSnapshot(activeData || null);
+            } else {
+              setSnapshot(null);
+              setError(
+                snapshotJson.error || "No data recorded for this selection.",
+              );
+            }
+          }
+        } else {
+          if (isMounted) {
+            setSnapshot(null);
+            setError("No uploaded enrollment data available for this campus.");
+          }
+        }
+      } catch (err) {
+        if (isMounted) {
+          setError("Failed to connect to the backend server.");
+          setSnapshot(null);
+        }
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+
+    fetchData();
+
+    return () => {
+      isMounted = false;
+    };
   }, [selectedYear, selectedCampus]);
-
-  const summaryData = useMemo(() => {
-    return (enrollmentFull.summary || []).find((s) => s.year === selectedYear);
-  }, [selectedYear]);
-
-  // Reverse mapping for restoring full text names inside tooltips dynamically
   const labelToFullNameMap = useMemo(() => {
     const map = new Map();
-    if (currentData && currentData.programs) {
-      currentData.programs.forEach((p) => {
-        const abbrev = PROGRAM_ABBREVIATIONS[p.name] || p.name;
-        map.set(abbrev, p.name);
+    if (snapshot && snapshot.programs) {
+      snapshot.programs.forEach((p) => {
+        const abbrev =
+          PROGRAM_ABBREVIATIONS[p.programName] ||
+          p.programCode ||
+          p.programName;
+        map.set(abbrev, p.programName);
       });
     }
     return map;
-  }, [currentData]);
+  }, [snapshot]);
 
-  // Dynamic Abbreviated Bar Allocation Engine
   const dynamicTopChartData = useMemo(() => {
-    if (!currentData || !currentData.programs)
+    if (!snapshot || !snapshot.programs || snapshot.programs.length === 0) {
       return { labels: [], datasets: [] };
+    }
 
-    const sorted = [...currentData.programs].sort(
-      (a, b) => b.enrollment - a.enrollment,
+    const sorted = [...snapshot.programs].sort(
+      (a, b) => b.studentCount - a.studentCount,
     );
-
-    // Displaying top 6 items
     const top6 = sorted.slice(0, 6);
     const remainder = sorted.slice(6);
-    const remainderSum = remainder.reduce(
-      (acc, curr) => acc + curr.enrollment,
-      0,
+    const remainderSum = remainder.reduce((acc, p) => acc + p.studentCount, 0);
+
+    const labels = top6.map(
+      (p) =>
+        PROGRAM_ABBREVIATIONS[p.programName] || p.programCode || p.programName,
     );
-    const labels = top6.map((p) => PROGRAM_ABBREVIATIONS[p.name] || p.name);
-    const values = top6.map((p) => p.enrollment);
+    const values = top6.map((p) => p.studentCount);
     const backgroundColors = top6.map(
-      (p) => PALETTE.categories[p.category] || PALETTE.categories.Other,
+      (p) => PALETTE.categories[p.department] || PALETTE.categories.General,
     );
 
     if (remainderSum > 0) {
       labels.push("Other Programs");
       values.push(remainderSum);
-      backgroundColors.push(PALETTE.categories.Aggregated);
+      backgroundColors.push(PALETTE.categories.Other);
     }
 
     return {
@@ -159,17 +235,16 @@ export default function EnrollmentDashboard() {
         },
       ],
     };
-  }, [currentData]);
+  }, [snapshot]);
 
   const macroTrendData = useMemo(() => {
-    const historicalSummary = enrollmentFull.summary || [];
     return {
-      labels: historicalSummary.map((s) => `AY ${s.year}`),
+      labels: trendData.map((t) => t.label),
       datasets: [
         {
           type: "line",
-          label: "Total Enrollment",
-          data: historicalSummary.map((s) => s.total_enrollment),
+          label: "Total Campus Enrollment",
+          data: trendData.map((t) => t.totalStudents),
           borderColor: PALETTE.gold,
           borderWidth: 4,
           pointBackgroundColor: "#ffffff",
@@ -181,11 +256,8 @@ export default function EnrollmentDashboard() {
         },
       ],
     };
-  }, []);
+  }, [trendData]);
 
-  // ==========================================
-  // CHART CONFIGURATIONS
-  // ==========================================
   const horizontalOptions = {
     responsive: true,
     maintainAspectRatio: false,
@@ -196,36 +268,25 @@ export default function EnrollmentDashboard() {
         backgroundColor: PALETTE.slateDark,
         padding: 12,
         cornerRadius: 8,
-        titleFont: { size: 12, weight: "bold" },
-        bodyFont: { size: 12 },
         callbacks: {
-          title: function (context) {
-            const shortLabel = context[0].label;
-            return labelToFullNameMap.get(shortLabel) || shortLabel;
-          },
+          title: (context) =>
+            labelToFullNameMap.get(context[0].label) || context[0].label,
         },
       },
     },
     scales: {
-      x: {
-        grid: { color: "#f1f5f9" },
-        ticks: { color: PALETTE.slateMuted, font: { size: 11 } },
-      },
+      x: { grid: { color: "#f1f5f9" }, ticks: { color: PALETTE.slateMuted } },
       y: {
         grid: { display: false },
-        ticks: {
-          color: PALETTE.slateDark,
-          font: { size: 12, weight: "700" },
-          autoSkip: false,
-        },
+        ticks: { color: PALETTE.slateDark, font: { weight: "700" } },
       },
     },
   };
 
   return (
-    <div className="bg-white p-6 md:p-8 rounded-2xl shadow-[0_30px_60px_-15px_rgba(15,23,42,0.02)] border border-slate-100 flex flex-col gap-6 font-oswald animate-fade-in">
-      <div className="max-w-7xl mx-auto space-y-6">
-        {/* TOP COMPACT CONTROL LAYER */}
+    <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-100 flex flex-col gap-6 font-oswald">
+      <div className="max-w-7xl mx-auto space-y-6 w-full">
+        {/* CONTROLS HEADER */}
         <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
           <div>
             <span className="text-[10px] uppercase tracking-widest font-bold text-[#660033]">
@@ -237,28 +298,36 @@ export default function EnrollmentDashboard() {
           </div>
 
           <div className="flex flex-wrap items-center gap-4 w-full lg:w-auto">
-            <div className="bg-slate-100 p-1 rounded-xl flex gap-1">
-              {years.map((year) => (
-                <button
-                  key={year}
-                  onClick={() => setSelectedYear(year)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                    selectedYear === year
-                      ? "bg-[#660033] text-white shadow"
-                      : "text-slate-600 hover:text-slate-900"
-                  }`}
-                >
-                  {year}
-                </button>
-              ))}
+            {/* Dynamic Academic Year Selector */}
+            <div className="bg-slate-100 p-1 rounded-xl flex gap-1 flex-wrap">
+              {years.length > 0 ? (
+                years.map((year) => (
+                  <button
+                    key={year}
+                    onClick={() => setSelectedYear(year)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      selectedYear === year
+                        ? "bg-[#660033] text-white shadow"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    {year}
+                  </button>
+                ))
+              ) : (
+                <span className="text-xs text-slate-400 px-3 py-1.5 font-sans">
+                  No uploaded years
+                </span>
+              )}
             </div>
 
+            {/* Campus Selector */}
             <div className="bg-slate-100 p-1 rounded-xl flex gap-1">
               {campuses.map((campus) => (
                 <button
                   key={campus}
                   onClick={() => setSelectedCampus(campus)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                     selectedCampus === campus
                       ? "bg-[#660033] text-white shadow"
                       : "text-slate-600 hover:text-slate-900"
@@ -271,96 +340,106 @@ export default function EnrollmentDashboard() {
           </div>
         </div>
 
-        {/* SUMMARY KPI BLOCKS */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
-          {/* CARD 1: Total Campus Enrollment */}
-          <div className="relative bg-[#660033] text-white p-6 rounded-2xl shadow-[0_4px_0_0_#D4AF37] flex flex-col justify-between min-h-[140px]">
-            <div>
-              <span className="text-[10px] font-extrabold tracking-wider text-slate-300 block uppercase font-sans mb-1">
-                Campus Enrollment
-              </span>
-              <span className="text-3xl font-black text-[#FFD700] leading-none block mt-1 tracking-tight my-1">
-                {currentData?.metadata?.total_enrollment?.toLocaleString() || 0}
-              </span>
-            </div>
+        {/* LOADING & ERROR INDICATORS */}
+        {loading && (
+          <div className="p-8 text-center bg-slate-50 rounded-2xl border border-slate-200 text-slate-500 font-sans text-xs">
+            Fetching metrics for {selectedCampus} Campus...
+          </div>
+        )}
 
-            <div className="flex items-center justify-between mt-4 pt-2 border-t border-white/10">
-              <span className="text-[11px] font-medium text-slate-200/90 font-sans lowercase tracking-wide">
-                total students on campus
-              </span>
-              {summaryData?.yoy_growth && (
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-[#D4AF37] text-[#660033] ">
-                  ▲ {(summaryData.yoy_growth * 100).toFixed(1)}% YoY Growth
+        {error && !loading && (
+          <div className="p-6 bg-rose-50 rounded-2xl border border-rose-200 text-rose-700 font-sans text-xs flex justify-between items-center">
+            <span>⚠ {error}</span>
+            <span className="font-mono text-[10px] uppercase bg-rose-100 px-2 py-1 rounded">
+              {selectedYear ? `AY ${selectedYear}` : "N/A"} / {selectedCampus}
+            </span>
+          </div>
+        )}
+
+        {/* SUMMARY KPI CARDS */}
+        {snapshot && !loading && (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* Total Headcount */}
+              <div className="bg-[#660033] text-white p-6 rounded-2xl shadow-[0_4px_0_0_#D4AF37] flex flex-col justify-between">
+                <div>
+                  <span className="text-[10px] font-extrabold tracking-wider text-slate-300 block uppercase font-sans">
+                    Campus Enrollment
+                  </span>
+                  <span className="text-3xl font-black text-[#FFD700] leading-none block my-2">
+                    {snapshot.summaryKpis?.totalStudents?.toLocaleString() || 0}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between pt-2 border-t border-white/10 font-sans text-[11px]">
+                  <span className="text-slate-200">Total students</span>
+                  <span className="px-2 py-0.5 rounded bg-[#D4AF37] text-[#660033] font-bold">
+                    {snapshot.summaryKpis?.yoYGrowthPercentage >= 0 ? "▲" : "▼"}{" "}
+                    {snapshot.summaryKpis?.yoYGrowthPercentage}% YoY Growth
+                  </span>
+                </div>
+              </div>
+
+              {/* Active Programs */}
+              <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col justify-between">
+                <div>
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 font-sans block">
+                    Active Programs
+                  </span>
+                  <h3 className="text-3xl font-black text-slate-900 font-sans mt-1.5">
+                    {snapshot.summaryKpis?.activeProgramsCount || 0}
+                  </h3>
+                </div>
+                <span className="text-[11px] font-semibold text-slate-400 font-sans border-t border-slate-100 pt-2">
+                  CHED Priority:{" "}
+                  {snapshot.summaryKpis?.priorityEnrollmentPercentage}%
                 </span>
-              )}
-            </div>
-          </div>
+              </div>
 
-          {/* CARD 2: ACTIVE CAMPUS PROGRAMS */}
-          <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-[0_4px_20px_rgba(0,0,0,0.01)] flex flex-col justify-between min-h-[140px]">
-            <div>
-              <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 font-sans block mb-1">
-                Active Programs
-              </span>
-              <h3 className="text-3xl font-black text-slate-900 font-sans tracking-tight mt-1.5">
-                {currentData?.metadata?.program_count || 0}
-              </h3>
+              {/* Top Degree Track */}
+              <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col justify-between">
+                <div>
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 font-sans block">
+                    Largest Program
+                  </span>
+                  <h3 className="text-base font-black text-[#660033] mt-2 truncate font-sans">
+                    {snapshot.summaryKpis?.largestProgramName || "N/A"}
+                  </h3>
+                </div>
+                <span className="text-[11px] font-semibold text-slate-400 font-sans border-t border-slate-100 pt-2">
+                  Highest student count track
+                </span>
+              </div>
             </div>
-            <span className="text-[11px] font-semibold text-slate-400 capitalize tracking-wide mt-auto pt-2 border-t border-slate-100">
-              degree offerings this campus
-            </span>
-          </div>
 
-          {/* CARD 3: LEADING CAMPUS ARRAY */}
-          <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-[0_4px_20px_rgba(0,0,0,0.01)] flex flex-col justify-between min-h-[140px] min-w-0">
-            <div>
-              <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 font-sans block mb-1">
-                Largest Program
-              </span>
-              <h3
-                className="text-base font-black text-[#660033] mt-2 block truncate font-sans tracking-tight"
-                title={currentData?.metadata?.top_program}
-              >
-                {currentData?.metadata?.top_program || "None Listed"}
-              </h3>
-            </div>
-            <span className="text-[11px] font-semibold text-slate-400 capitalize tracking-wide mt-auto pt-2 border-t border-slate-100">
-              highest student count
-            </span>
-          </div>
-        </div>
-
-        {/* FULL WIDTH OPTIMIZED BAR GRAPH */}
-        <div className="grid grid-cols-1 gap-6">
-          <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col">
-            <div className="mb-4">
+            {/* TOP PROGRAM BAR CHART */}
+            <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
               <h4 className="text-base font-bold text-slate-900">
                 Highest Enrollment Programs
               </h4>
-              <p className="text-xs text-slate-400">Top courses by headcount</p>
+              <p className="text-xs text-slate-400 mb-4">
+                Top degree tracks by headcount
+              </p>
+              <div className="h-[340px] relative">
+                <ReactChart
+                  type="bar"
+                  data={dynamicTopChartData}
+                  options={horizontalOptions}
+                />
+              </div>
             </div>
-            <div className="h-[340px] relative flex-1">
-              <Chart
-                type="bar"
-                data={dynamicTopChartData}
-                options={horizontalOptions}
-              />
-            </div>
-          </div>
-        </div>
+          </>
+        )}
 
-        {/* LONGITUDINAL TRAJECTORY */}
+        {/* LONGITUDINAL TREND CHART */}
         <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
-          <div className="mb-4">
-            <h4 className="text-base font-bold text-slate-900">
-              Multi-Year Enrollment Growth
-            </h4>
-            <p className="text-xs text-slate-400">
-              Overall university system student registration trace
-            </p>
-          </div>
-          <div className="h-[160px] relative">
-            <Chart
+          <h4 className="text-base font-bold text-slate-900">
+            Multi-Year Enrollment Growth
+          </h4>
+          <p className="text-xs text-slate-400 mb-4">
+            Historical enrollment trajectory for {selectedCampus}
+          </p>
+          <div className="h-[180px] relative">
+            <ReactChart
               type="line"
               data={macroTrendData}
               options={{
@@ -368,91 +447,72 @@ export default function EnrollmentDashboard() {
                 maintainAspectRatio: false,
                 plugins: { legend: { display: false } },
                 scales: {
-                  x: {
-                    grid: { display: false },
-                    ticks: { color: PALETTE.slateMuted, font: { size: 11 } },
-                  },
-                  y: {
-                    grid: { color: "#f1f5f9" },
-                    ticks: { color: PALETTE.slateMuted, font: { size: 11 } },
-                  },
+                  x: { grid: { display: false } },
+                  y: { grid: { color: "#f1f5f9" } },
                 },
               }}
             />
           </div>
         </div>
 
-        {/* AUDIT MATRIX */}
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-          <div className="p-5 border-b border-slate-100">
-            <h4 className="text-base font-bold text-slate-900">
-              Complete Course & Program List
-            </h4>
-            <p className="text-xs text-slate-400">
-              Detailed campus reference directory
-            </p>
-          </div>
+        {/* FULL AUDIT DATA TABLE */}
+        {snapshot && snapshot.programs && snapshot.programs.length > 0 && (
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+            <div className="p-5 border-b border-slate-100">
+              <h4 className="text-base font-bold text-slate-900">
+                Complete Program Directory
+              </h4>
+              <p className="text-xs text-slate-400">
+                AY {selectedYear} campus matrix breakdowns
+              </p>
+            </div>
 
-          <div className="max-h-[350px] overflow-y-auto relative">
-            <table className="w-full text-left border-collapse text-sm">
-              <thead className="bg-slate-50 sticky top-0 border-b border-slate-200 text-slate-400 font-semibold text-[11px] uppercase tracking-wider z-10">
-                <tr>
-                  <th className="px-6 py-3 w-16">Rank</th>
-                  <th className="px-6 py-3 min-w-[240px]">Program Title</th>
-                  <th className="px-6 py-3">Department</th>
-                  <th className="px-6 py-3 text-right">Students</th>
-                  <th className="px-6 py-3 text-center">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 text-slate-600 bg-white">
-                {(currentData?.programs || [])
-                  .sort((a, b) => a.rank - b.rank)
-                  .map((program, idx) => (
-                    <tr
-                      key={idx}
-                      className="hover:bg-slate-50/60 transition-colors"
-                    >
-                      <td className="px-6 py-4 font-mono text-slate-400 text-xs font-semibold">
-                        #{String(program.rank).padStart(2, "0")}
+            <div className="max-h-[350px] overflow-y-auto">
+              <table className="w-full text-left border-collapse text-sm">
+                <thead className="bg-slate-50 sticky top-0 border-b border-slate-200 text-slate-400 text-[11px] uppercase tracking-wider">
+                  <tr>
+                    <th className="px-6 py-3">Code</th>
+                    <th className="px-6 py-3">Program Title</th>
+                    <th className="px-6 py-3">Department</th>
+                    <th className="px-6 py-3 text-right">Headcount</th>
+                    <th className="px-6 py-3 text-center">CHED Priority</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-sans">
+                  {snapshot.programs.map((program, idx) => (
+                    <tr key={idx} className="hover:bg-slate-50/60">
+                      <td className="px-6 py-4 font-mono font-bold text-slate-400 text-xs">
+                        {program.programCode}
                       </td>
-
-                      <td className="px-6 py-4 font-medium text-slate-900 max-w-md break-words leading-relaxed">
-                        {program.name}
+                      <td className="px-6 py-4 font-semibold text-slate-900">
+                        {program.programName}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="inline-flex px-2 py-0.5 text-[10px] font-semibold rounded bg-slate-100 text-slate-600">
-                          {program.category}
+                      <td className="px-6 py-4">
+                        <span className="px-2 py-0.5 text-[10px] font-semibold rounded bg-slate-100 text-slate-600">
+                          {program.department}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-right font-mono text-[#660033] font-bold whitespace-nowrap">
-                        {program.enrollment?.toLocaleString()}
+                      <td className="px-6 py-4 text-right font-mono text-[#660033] font-bold">
+                        {program.studentCount?.toLocaleString()}
                       </td>
-                      <td className="px-6 py-4 text-center whitespace-nowrap">
+                      <td className="px-6 py-4 text-center">
                         <span
-                          className={`inline-flex px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${
-                            program.status === "active"
+                          className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${
+                            program.isPriorityProgram
                               ? "bg-emerald-50 text-emerald-700 border-emerald-100"
-                              : "bg-rose-50 text-rose-700 border-rose-100"
+                              : "bg-slate-50 text-slate-500 border-slate-200"
                           }`}
                         >
-                          {program.status}
+                          {program.isPriorityProgram ? "Priority" : "Standard"}
                         </span>
                       </td>
                     </tr>
                   ))}
-              </tbody>
-            </table>
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
-
-        {/* FOOTER */}
-        <div className="flex justify-between items-center text-[10px] text-slate-400 font-semibold tracking-wider uppercase">
-          <span>Office of the University Registrar // MarSU</span>
-          <span className="text-[#D4AF37] flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#D4AF37]"></span>
-            Active System Online
-          </span>
-        </div>
+        )}
       </div>
     </div>
   );

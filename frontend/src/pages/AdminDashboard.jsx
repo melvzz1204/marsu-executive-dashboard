@@ -1,13 +1,11 @@
 import React, { useState } from "react";
 
+const API_BASE_URL = "http://localhost:5000/api/v1/enrollment";
+
 export default function AdminDashboard() {
-  // Sidebar expand/collapse state for logout button
   const [isOpen, setIsOpen] = useState(true);
+  const [activeTab, setActiveTab] = useState("enrollments");
 
-  // Navigation state matching your exact categories
-  const [activeTab, setActiveTab] = useState("higher-ed");
-
-  // Track accordion state for sub-navigation dropdowns (Set to false by default)
   const [openSubmenus, setOpenSubmenus] = useState({
     "support-op": false,
     gass: false,
@@ -18,14 +16,20 @@ export default function AdminDashboard() {
   const [selectedFile, setSelectedFile] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState(false);
+  const [uploadError, setUploadError] = useState(null);
 
-  // Logout Handler
+  // Academic Year Modal States
+  const [isYearModalOpen, setIsYearModalOpen] = useState(false);
+  const [academicYearInput, setAcademicYearInput] = useState("2021-2022");
+
+  // Dynamic Ingestion History Log State (Empty by default for fresh DB)
+  const [uploadHistory, setUploadHistory] = useState([]);
+
   const handleLogout = () => {
-    // Perform logout logic (e.g., clearing session, redirecting)
+    localStorage.removeItem("token");
     window.location.href = "/";
   };
 
-  // Exact Sidebar Categories with Added Sub-navigation
   const navItems = [
     {
       id: "higher-ed",
@@ -144,14 +148,8 @@ export default function AdminDashboard() {
         </svg>
       ),
       children: [
-        {
-          id: "financial-services",
-          label: "Financial Services",
-        },
-        {
-          id: "administrative-services",
-          label: "Administrative Services",
-        },
+        { id: "financial-services", label: "Financial Services" },
+        { id: "administrative-services", label: "Administrative Services" },
       ],
     },
     {
@@ -213,7 +211,6 @@ export default function AdminDashboard() {
     },
   ];
 
-  // Helper to find parent or child active category
   const getActiveCategory = (id) => {
     for (const item of navItems) {
       if (item.id === id) return item;
@@ -227,7 +224,6 @@ export default function AdminDashboard() {
 
   const activeCategory = getActiveCategory(activeTab);
 
-  // Toggle dropdown submenus
   const toggleSubmenu = (id) => {
     setOpenSubmenus((prev) => ({ ...prev, [id]: !prev[id] }));
   };
@@ -247,6 +243,7 @@ export default function AdminDashboard() {
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       setSelectedFile(e.dataTransfer.files[0]);
       setUploadSuccess(false);
+      setUploadError(null);
     }
   };
 
@@ -254,30 +251,87 @@ export default function AdminDashboard() {
     if (e.target.files && e.target.files[0]) {
       setSelectedFile(e.target.files[0]);
       setUploadSuccess(false);
+      setUploadError(null);
     }
   };
 
-  const handleUpload = () => {
+  const resetUploadState = () => {
+    setSelectedFile(null);
+    setUploadSuccess(false);
+    setUploadError(null);
+  };
+
+  // EXECUTE BACKEND INGESTION WITH USER SELECTED ACADEMIC YEAR
+  const executeUpload = async () => {
     if (!selectedFile) return;
+
     setIsUploading(true);
-    setTimeout(() => {
-      setIsUploading(false);
+    setUploadError(null);
+    setUploadSuccess(false);
+    setIsYearModalOpen(false);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", selectedFile);
+      formData.append("category", activeTab);
+      formData.append("academicYear", academicYearInput);
+
+      const token = localStorage.getItem("token");
+
+      const response = await fetch(`${API_BASE_URL}/upload`, {
+        method: "POST",
+        headers: {
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+        body: formData,
+      });
+
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        const detailMsg =
+          data?.error ||
+          data?.message ||
+          `HTTP Error ${response.status}: Failed to process spreadsheet ingestion.`;
+        throw new Error(detailMsg);
+      }
+
+      // Append newly uploaded file to dynamic history log
+      const newHistoryRecord = {
+        id: `hist-${Date.now()}`,
+        filename: selectedFile.name,
+        category: `Enrollments (${academicYearInput})`,
+        date: new Date().toLocaleString("en-US", {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+        size: `${(selectedFile.size / 1024).toFixed(1)} KB`,
+        status: "Ingested",
+      };
+
+      setUploadHistory((prev) => [newHistoryRecord, ...prev]);
       setUploadSuccess(true);
-    }, 1800);
+    } catch (err) {
+      setUploadError(err.message);
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const handleNavClick = (id) => {
     setActiveTab(id);
-    setSelectedFile(null);
-    setUploadSuccess(false);
+    resetUploadState();
   };
 
   return (
-    <div className="flex h-screen bg-slate-100 font-sans text-slate-800 overflow-hidden">
-      {/* ================= 1. MAROON SIDEBAR ================= */}
+    <div className="flex h-screen bg-slate-100 font-sans text-slate-800 overflow-hidden relative">
+      {/* MAROON SIDEBAR */}
       <aside className="w-80 bg-[#580017] text-white flex flex-col justify-between border-r border-[#D4AF37]/20 shadow-2xl flex-shrink-0">
         <div className="flex flex-col h-full overflow-y-auto">
-          {/* Sidebar Top Title */}
+          {/* Header Title */}
           <div className="p-6 border-b border-white/10 flex items-center justify-between">
             <div>
               <h2 className="text-base font-black font-oswald uppercase tracking-wider text-white">
@@ -290,7 +344,7 @@ export default function AdminDashboard() {
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
           </div>
 
-          {/* Sidebar Navigation Items with Nested Submenu */}
+          {/* Navigation Items */}
           <nav className="p-3 space-y-1 my-2">
             {navItems.map((item) => {
               const hasChildren = Boolean(
@@ -306,11 +360,8 @@ export default function AdminDashboard() {
                 <div key={item.id} className="space-y-1">
                   <button
                     onClick={() => {
-                      if (hasChildren) {
-                        toggleSubmenu(item.id);
-                      } else {
-                        handleNavClick(item.id);
-                      }
+                      if (hasChildren) toggleSubmenu(item.id);
+                      else handleNavClick(item.id);
                     }}
                     className={`w-full flex items-center justify-between px-4 py-3.5 rounded-xl transition-all duration-200 text-left cursor-pointer ${
                       isParentActive
@@ -344,7 +395,6 @@ export default function AdminDashboard() {
                     )}
                   </button>
 
-                  {/* Sub-navigation Items */}
                   {hasChildren && isOpen && (
                     <div className="pl-9 pr-1 py-1 space-y-1 border-l-2 border-[#D4AF37]/20 ml-5">
                       {item.children.map((child) => {
@@ -372,18 +422,13 @@ export default function AdminDashboard() {
           </nav>
         </div>
 
-        {/* Sidebar Footer - Custom Logout Button */}
+        {/* Logout Button */}
         <div className="px-3 pt-4 pb-4 mt-auto border-t border-white/10 bg-[#4a0013]">
           <button
             onClick={handleLogout}
-            className={`flex items-center rounded-xl text-xs tracking-wide text-rose-200 hover:text-white bg-rose-500/10 hover:bg-rose-600/30 border border-rose-500/20 hover:border-rose-500/40 transition-all duration-200 group cursor-pointer ${
-              isOpen
-                ? "px-4 py-3.5 gap-4 w-full"
-                : "p-3.5 justify-center mx-auto"
-            }`}
-            title={!isOpen ? "Logout" : ""}
+            className="flex items-center gap-4 px-4 py-3.5 rounded-xl text-xs tracking-wide text-rose-200 hover:text-white bg-rose-500/10 hover:bg-rose-600/30 border border-rose-500/20 hover:border-rose-500/40 transition-all duration-200 w-full cursor-pointer"
           >
-            <span className="text-rose-400 group-hover:text-rose-200 transition-colors">
+            <span className="text-rose-400">
               <svg
                 className="w-5 h-5"
                 fill="none"
@@ -398,18 +443,15 @@ export default function AdminDashboard() {
                 />
               </svg>
             </span>
-            {isOpen && (
-              <span className="font-oswald tracking-wide text-sm uppercase whitespace-nowrap animate-fade-in">
-                Logout
-              </span>
-            )}
+            <span className="font-oswald tracking-wide text-sm uppercase">
+              Logout
+            </span>
           </button>
         </div>
       </aside>
 
-      {/* ================= 2. RIGHT WORKSPACE (UPLOAD AREA) ================= */}
+      {/* WORKSPACE AREA */}
       <main className="flex-1 flex flex-col min-w-0 overflow-y-auto bg-slate-50">
-        {/* Top Header */}
         <header className="bg-white border-b border-slate-200/80 px-8 py-5 flex items-center justify-between sticky top-0 z-10 shadow-sm">
           <div>
             <div className="flex items-center gap-2">
@@ -435,176 +477,299 @@ export default function AdminDashboard() {
           </div>
         </header>
 
-        {/* Main Content Body */}
-        <div className="p-8 max-w-4xl w-full mx-auto space-y-6">
-          {/* DYNAMIC DRAG AND DROP UPLOAD ZONE */}
-          <div
-            onDragEnter={handleDrag}
-            onDragLeave={handleDrag}
-            onDragOver={handleDrag}
-            onDrop={handleDrop}
-            className={`relative bg-white rounded-3xl border-2 border-dashed p-12 text-center transition-all shadow-sm ${
-              dragActive
-                ? "border-[#580017] bg-[#580017]/[0.02]"
-                : selectedFile
-                  ? "border-emerald-400 bg-emerald-50/20"
-                  : "border-slate-200 hover:border-slate-300"
-            }`}
-          >
-            <input
-              type="file"
-              accept=".xlsx, .xls, .csv"
-              onChange={handleFileChange}
-              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-            />
+        <div className="p-8 max-w-4xl w-full mx-auto space-y-8">
+          {/* UPLOAD FILE ZONE */}
+          <div className="space-y-4">
+            <div
+              onDragEnter={handleDrag}
+              onDragLeave={handleDrag}
+              onDragOver={handleDrag}
+              onDrop={handleDrop}
+              className={`relative bg-white rounded-3xl border-2 border-dashed p-10 text-center transition-all shadow-sm ${
+                dragActive
+                  ? "border-[#580017] bg-[#580017]/[0.02]"
+                  : selectedFile
+                    ? "border-emerald-400 bg-emerald-50/20"
+                    : "border-slate-200 hover:border-slate-300"
+              }`}
+            >
+              <input
+                type="file"
+                accept=".xlsx, .xls"
+                onChange={handleFileChange}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+              />
 
-            <div className="flex flex-col items-center justify-center space-y-4">
-              <div className="w-16 h-16 rounded-2xl bg-slate-50 text-[#580017] flex items-center justify-center border border-slate-200 shadow-sm">
-                <svg
-                  className="w-8 h-8"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={1.5}
-                    d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m6.75 12-3-3m0 0-3 3m3-3v6m-1.5-15H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9Z"
-                  />
-                </svg>
-              </div>
-
-              {selectedFile ? (
-                <div className="space-y-1">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block font-mono">
-                    Ready to Ingest
-                  </span>
-                  <p className="text-base font-bold text-slate-900 font-mono">
-                    {selectedFile.name}
-                  </p>
-                  <span className="text-xs text-slate-400 block font-mono">
-                    {(selectedFile.size / 1024).toFixed(1)} KB
-                  </span>
+              <div className="flex flex-col items-center justify-center space-y-3">
+                <div className="w-14 h-14 rounded-2xl bg-slate-50 text-[#580017] flex items-center justify-center border border-slate-200 shadow-sm">
+                  <svg
+                    className="w-7 h-7"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={1.5}
+                      d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m6.75 12-3-3m0 0-3 3m3-3v6m-1.5-15H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9Z"
+                    />
+                  </svg>
                 </div>
-              ) : (
-                <div className="space-y-1">
-                  <p className="text-base font-bold text-slate-800">
-                    Drop file here or click to browse
-                  </p>
-                  <p className="text-xs text-slate-400">
-                    Upload official{" "}
-                    <span className="font-semibold text-slate-600">.XLSX</span>{" "}
-                    or{" "}
-                    <span className="font-semibold text-slate-600">.CSV</span>{" "}
-                    files for {activeCategory?.label}
-                  </p>
-                </div>
-              )}
 
-              {!selectedFile && (
-                <span className="inline-block mt-2 px-5 py-2.5 text-xs font-bold text-[#580017] bg-[#580017]/5 rounded-xl border border-[#580017]/10 uppercase font-oswald tracking-wider">
-                  Select Excel File
-                </span>
-              )}
-            </div>
-          </div>
-
-          {/* Action Bar */}
-          <div className="flex items-center justify-between bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm">
-            <span className="text-xs text-slate-500 font-medium">
-              {uploadSuccess
-                ? "✓ Data processed and synchronized with cluster."
-                : selectedFile
-                  ? "File attached. Click process to commit changes."
-                  : "No file selected."}
-            </span>
-
-            <div className="flex gap-3">
-              {selectedFile && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedFile(null);
-                    setUploadSuccess(false);
-                  }}
-                  className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-500 hover:text-slate-800 transition-colors uppercase font-oswald cursor-pointer"
-                >
-                  Clear File
-                </button>
-              )}
-
-              <button
-                type="button"
-                disabled={!selectedFile || isUploading}
-                onClick={handleUpload}
-                className="px-6 py-3 rounded-xl bg-[#580017] text-white text-xs font-bold uppercase tracking-wider font-oswald shadow-md hover:bg-[#6e001d] transition-all disabled:opacity-40 disabled:cursor-not-allowed border border-[#D4AF37]/30 flex items-center gap-2 cursor-pointer"
-              >
-                {isUploading ? (
-                  <>
-                    <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                    Executing ETL Ingestion...
-                  </>
-                ) : uploadSuccess ? (
-                  "✓ Ingested Successfully"
+                {selectedFile ? (
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block font-mono">
+                      Ready to Ingest
+                    </span>
+                    <p className="text-base font-bold text-slate-900 font-mono">
+                      {selectedFile.name}
+                    </p>
+                    <span className="text-xs text-slate-400 block font-mono">
+                      {(selectedFile.size / 1024).toFixed(1)} KB
+                    </span>
+                  </div>
                 ) : (
-                  "Upload Data"
+                  <div className="space-y-1">
+                    <p className="text-base font-bold text-slate-800">
+                      Drop spreadsheet file here or click to browse
+                    </p>
+                    <p className="text-xs text-slate-400">
+                      Upload official{" "}
+                      <span className="font-semibold text-slate-600">
+                        .XLSX
+                      </span>{" "}
+                      files for {activeCategory?.label}
+                    </p>
+                  </div>
                 )}
-              </button>
+
+                {!selectedFile && (
+                  <span className="inline-block mt-2 px-5 py-2 text-xs font-bold text-[#580017] bg-[#580017]/5 rounded-xl border border-[#580017]/10 uppercase font-oswald tracking-wider">
+                    Select Excel File
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Upload Error Display */}
+            {uploadError && (
+              <div className="p-4 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-xl font-medium flex items-center justify-between">
+                <span>⚠ {uploadError}</span>
+                <button
+                  onClick={() => setUploadError(null)}
+                  className="text-rose-500 hover:text-rose-800 text-xs font-bold cursor-pointer"
+                >
+                  Dismiss
+                </button>
+              </div>
+            )}
+
+            {/* ACTION STATUS & CONTINUOUS UPLOAD BAR */}
+            <div className="flex items-center justify-between bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm">
+              <span className="text-xs text-slate-500 font-medium">
+                {uploadSuccess
+                  ? "✓ Spreadsheet processed and synchronized with cluster."
+                  : selectedFile
+                    ? "File attached. Click Upload Data to specify year and ingest."
+                    : "Ready for continuous file upload."}
+              </span>
+
+              <div className="flex gap-3">
+                {/* Clear / Reset Button */}
+                {selectedFile && !uploadSuccess && (
+                  <button
+                    type="button"
+                    onClick={resetUploadState}
+                    className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-500 hover:text-slate-800 transition-colors uppercase font-oswald cursor-pointer"
+                  >
+                    Clear File
+                  </button>
+                )}
+
+                {/* Upload Action Button - Opens Modal */}
+                {uploadSuccess ? (
+                  <button
+                    type="button"
+                    onClick={resetUploadState}
+                    className="px-6 py-3 rounded-xl bg-emerald-700 text-white text-xs font-bold uppercase tracking-wider font-oswald shadow-md hover:bg-emerald-800 transition-all flex items-center gap-2 cursor-pointer"
+                  >
+                    <span>+ Upload Another File</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={!selectedFile || isUploading}
+                    onClick={() => setIsYearModalOpen(true)}
+                    className="px-6 py-3 rounded-xl bg-[#580017] text-white text-xs font-bold uppercase tracking-wider font-oswald shadow-md hover:bg-[#6e001d] transition-all disabled:opacity-40 disabled:cursor-not-allowed border border-[#D4AF37]/30 flex items-center gap-2 cursor-pointer"
+                  >
+                    {isUploading ? (
+                      <>
+                        <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                        Executing Ingestion...
+                      </>
+                    ) : (
+                      "Upload Data"
+                    )}
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 
-          {/* Category Upload Audit History */}
+          {/* DYNAMIC UPLOAD HISTORY LOG (BOTTOM TABLE) */}
           <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
-            <h3 className="text-sm font-bold uppercase font-oswald text-slate-900 tracking-wider">
-              Data History
-            </h3>
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="text-sm font-bold uppercase font-oswald text-slate-900 tracking-wider">
+                  Ingestion History & File Log
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Track of all processed spreadsheet files in this workspace
+                  session
+                </p>
+              </div>
+              <span className="text-[10px] font-mono font-bold uppercase bg-slate-100 text-slate-600 px-2.5 py-1 rounded-full">
+                {uploadHistory.length} File
+                {uploadHistory.length !== 1 ? "s" : ""}
+              </span>
+            </div>
 
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead>
                   <tr className="border-b border-slate-100 text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">
                     <th className="py-2.5 px-3">Filename</th>
-                    <th className="py-2.5 px-3">Records Ingested</th>
-                    <th className="py-2.5 px-3">Date</th>
+                    <th className="py-2.5 px-3">Category Target</th>
+                    <th className="py-2.5 px-3">Date / Time</th>
+                    <th className="py-2.5 px-3">Size</th>
                     <th className="py-2.5 px-3 text-right">Status</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-slate-700">
-                  <tr className="hover:bg-slate-50/50">
-                    <td className="py-3 px-3 font-mono font-semibold text-slate-900">
-                      {activeCategory?.id}_2021_2026_Final.xlsx
-                    </td>
-                    <td className="py-3 px-3 font-mono">1,420 rows</td>
-                    <td className="py-3 px-3 text-slate-400 text-[11px]">
-                      Jul 20, 2026
-                    </td>
-                    <td className="py-3 px-3 text-right">
-                      <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-50 text-emerald-700">
-                        ● uploaded
-                      </span>
-                    </td>
-                  </tr>
-                  <tr className="hover:bg-slate-50/50">
-                    <td className="py-3 px-3 font-mono font-semibold text-slate-900">
-                      {activeCategory?.id}_2025_Archive.csv
-                    </td>
-                    <td className="py-3 px-3 font-mono">890 rows</td>
-                    <td className="py-3 px-3 text-slate-400 text-[11px]">
-                      Jan 14, 2026
-                    </td>
-                    <td className="py-3 px-3 text-right">
-                      <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-50 text-emerald-700">
-                        ● uploaded
-                      </span>
-                    </td>
-                  </tr>
+                  {uploadHistory.length > 0 ? (
+                    uploadHistory.map((item) => (
+                      <tr
+                        key={item.id}
+                        className="hover:bg-slate-50/60 transition-colors"
+                      >
+                        <td className="py-3.5 px-3 font-mono font-semibold text-slate-900 flex items-center gap-2">
+                          <svg
+                            className="w-4 h-4 text-emerald-600 flex-shrink-0"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                            />
+                          </svg>
+                          {item.filename}
+                        </td>
+                        <td className="py-3.5 px-3 font-mono">
+                          <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-600 text-[11px]">
+                            {item.category}
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-3 text-slate-400 text-[11px] font-mono">
+                          {item.date}
+                        </td>
+                        <td className="py-3.5 px-3 text-slate-400 text-[11px] font-mono">
+                          {item.size}
+                        </td>
+                        <td className="py-3.5 px-3 text-right">
+                          <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            ● {item.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td
+                        colSpan={5}
+                        className="py-8 text-center text-slate-400 font-mono text-xs"
+                      >
+                        No files ingested yet in this workspace session.
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
           </div>
         </div>
       </main>
+
+      {/* ACADEMIC YEAR INPUT MODAL */}
+      {isYearModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-6 animate-in fade-in zoom-in duration-150">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <div>
+                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#580017]">
+                  Ingestion Metadata
+                </span>
+                <h3 className="text-xl font-black font-oswald text-slate-900 uppercase">
+                  Specify Academic Year
+                </h3>
+              </div>
+              <button
+                onClick={() => setIsYearModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 font-bold text-lg cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-4 font-sans">
+              <p className="text-xs text-slate-500">
+                Please specify the target academic year for this spreadsheet.
+                This value updates the active academic year tabs on the public
+                Enrollment Dashboard.
+              </p>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase font-oswald mb-1">
+                  Academic Year Target (e.g. 2021-2022, 2022-2023)
+                </label>
+                <input
+                  type="text"
+                  value={academicYearInput}
+                  onChange={(e) => setAcademicYearInput(e.target.value)}
+                  placeholder="2022-2023"
+                  className="w-full px-4 py-3 rounded-xl border border-slate-300 font-mono text-sm font-bold text-slate-900 focus:outline-none focus:border-[#580017] bg-slate-50"
+                  autoFocus
+                />
+              </div>
+
+              <div className="bg-amber-50 border border-amber-200 text-amber-800 p-3 rounded-xl text-xs font-mono">
+                ℹ File: <span className="font-bold">{selectedFile?.name}</span>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setIsYearModalOpen(false)}
+                className="px-5 py-2.5 rounded-xl text-xs font-bold font-oswald text-slate-500 hover:text-slate-800 uppercase cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={executeUpload}
+                className="px-6 py-2.5 rounded-xl bg-[#580017] text-white text-xs font-bold uppercase font-oswald shadow-md hover:bg-[#6e001d] cursor-pointer"
+              >
+                Confirm & Upload Data
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

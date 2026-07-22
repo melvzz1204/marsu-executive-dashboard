@@ -1,95 +1,124 @@
-// controllers/enrollment/enrollmentController.js
+const ExcelJS = require("exceljs");
 const EnrollmentAnalytics = require("../../models/enrollment/enrollmentAnalyticsModel");
 
-// @desc    Get Campus Enrollment Snapshot (KPI Cards, Bar Chart, & Program Table Grid)
-// @route   GET /api/v1/enrollment
-// @access  Private
-exports.getEnrollmentSnapshot = async (req, res) => {
+// 1. Spreadsheet Upload Handler
+exports.uploadEnrollment = async (req, res) => {
   try {
-    const year = req.query.year ? Number(req.query.year) : 2023;
-    const campus = req.query.campus || "Boac";
-
-    const snapshot = await EnrollmentAnalytics.findOne({ academicYear: year, campus: campus });
-
-    if (!snapshot) {
-      return res.status(404).json({
-        success: false,
-        error: `No enrollment baseline matrix profile logged for ${campus} campus in AY ${year}.`
-      });
-    }
-
-    return res.status(200).json({
-      success: true,
-      data: snapshot
-    });
-  } catch (error) {
-    return res.status(500).json({ success: false, error: error.message });
-  }
-};
-
-// @desc    Get Multi-Year Growth Registration Trace (Powers the Line Chart Trend Component)
-// @route   GET /api/v1/enrollment/trend
-// @access  Private
-exports.getEnrollmentTrend = async (req, res) => {
-  try {
-    const campus = req.query.campus || "Boac";
-
-    // Queries all historical records for a campus and sorts chronologically by Academic Year
-    const trends = await EnrollmentAnalytics.find({ campus: campus })
-      .sort({ academicYear: 1 })
-      .select("academicYear summaryKpis.totalStudents");
-
-    // Formats payload to map effortlessly onto a Recharts/Chart.js continuous line coordinate dataset
-    const formattedTrendData = trends.map((record) => ({
-      academicYear: record.academicYear, // ✨ Add this raw integer back for the frontend filters!
-      label: `AY ${record.academicYear}`,
-      totalStudents: record.summaryKpis ? record.summaryKpis.totalStudents : 0 // Defensive fallback
-    }));
-
-    return res.status(200).json({
-      success: true,
-      campus,
-      data: formattedTrendData
-    });
-  } catch (error) {
-    return res.status(500).json({ success: false, error: error.message });
-  }
-};
-
-// @desc    Upsert/Create Enrollment Snapshot Ledger (Admin Data Ingestion Matrix)
-// @route   POST /api/v1/enrollment
-// @access  Private/Admin
-exports.upsertEnrollmentAnalytics = async (req, res) => {
-  try {
-    const { academicYear, campus, programs } = req.body;
-
-    if (!academicYear || !campus) {
+    if (!req.file || !req.file.buffer) {
       return res.status(400).json({
         success: false,
-        error: "Missing required query parameter bounds: academicYear and campus references are required."
+        error: "Please upload an Excel spreadsheet (.xlsx) file.",
       });
     }
 
-    let record = await EnrollmentAnalytics.findOne({ academicYear, campus });
+    const academicYear = req.body.academicYear || "2021-2022";
+    const semester = req.body.semester || "1st Sem";
 
-    if (record) {
-      if (programs) record.programs = programs;
-    } else {
-      record = new EnrollmentAnalytics({
-        academicYear,
-        campus,
-        programs
+    const processedCampuses = [];
+
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(req.file.buffer);
+
+    workbook.eachSheet((worksheet) => {
+      const campusName = worksheet.name;
+      const rows = [];
+
+      const headerRow = worksheet.getRow(1);
+      const headers = [];
+      headerRow.eachCell((cell, colNumber) => {
+        headers[colNumber] = cell.value
+          ? cell.value.toString().trim()
+          : `col_${colNumber}`;
       });
-    }
 
-    // Save automatically runs our pre-save engine to calculate KPIs, find the top course, and lookup YoY growth
-    await record.save();
+      worksheet.eachRow((row, rowNumber) => {
+        if (rowNumber === 1) return;
+
+        const rowData = {};
+        let hasValue = false;
+
+        row.eachCell((cell, colNumber) => {
+          const headerKey = headers[colNumber] || `col_${colNumber}`;
+
+          let val = cell.value;
+          if (val && typeof val === "object" && val.result !== undefined) {
+            val = val.result;
+          }
+
+          rowData[headerKey] = val;
+          hasValue = true;
+        });
+
+        if (hasValue) {
+          rows.push(rowData);
+        }
+      });
+
+      if (rows.length > 0) {
+        processedCampuses.push({
+          campus: campusName,
+          academicYear,
+          semester,
+          records: rows,
+        });
+      }
+    });
+
+    for (const data of processedCampuses) {
+      await EnrollmentAnalytics.findOneAndUpdate(
+        {
+          campus: data.campus,
+          academicYear: data.academicYear,
+          semester: data.semester,
+        },
+        data,
+        { upsert: true, new: true, setDefaultsOnInsert: true },
+      );
+    }
 
     return res.status(200).json({
       success: true,
-      message: `Enrollment metadata metrics ledger for ${campus} (AY ${academicYear}) synced successfully.`,
-      data: record
+      message: `Successfully imported data for Academic Year ${academicYear}!`,
+      academicYear,
+      processedCount: processedCampuses.length,
+      data: processedCampuses,
     });
+  } catch (error) {
+    console.error("ExcelJS Upload Failure:", error);
+    return res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+// 2. 💡 ADDED: Snapshot Fetch Handler
+exports.getEnrollmentSnapshot = async (req, res) => {
+  try {
+    const data = await EnrollmentAnalytics.find();
+    return res.status(200).json({ success: true, data });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+// 3. 💡 ADDED: Multi-Year Trend Line Handler
+exports.getEnrollmentTrend = async (req, res) => {
+  try {
+    const data = await EnrollmentAnalytics.find().sort({ academicYear: 1 });
+    return res.status(200).json({ success: true, data });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+// 4. 💡 ADDED: Manual Ingestion / Upsert Handler
+exports.upsertEnrollmentAnalytics = async (req, res) => {
+  try {
+    const { campus, academicYear, semester, records } = req.body;
+    const updated = await EnrollmentAnalytics.findOneAndUpdate(
+      { campus, academicYear, semester },
+      req.body,
+      { upsert: true, new: true, setDefaultsOnInsert: true },
+    );
+    return res.status(200).json({ success: true, data: updated });
   } catch (error) {
     return res.status(500).json({ success: false, error: error.message });
   }
