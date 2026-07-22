@@ -2,6 +2,23 @@
 const ExcelJS = require("exceljs");
 const EnrollmentAnalytics = require("../../models/enrollment/enrollmentAnalyticsModel");
 
+/**
+ * Safely extracts string content from ExcelJS cell values regardless of cell type
+ * (handles string, number, formula object, rich text object, etc.)
+ */
+function extractCellValue(cell) {
+  if (!cell || cell.value === null || cell.value === undefined) return "";
+  if (typeof cell.value === "object") {
+    if (cell.value.result !== undefined && cell.value.result !== null) {
+      return String(cell.value.result).trim();
+    }
+    if (cell.value.richText) {
+      return cell.value.richText.map((t) => t.text).join("").trim();
+    }
+  }
+  return String(cell.value).trim();
+}
+
 // @desc    Upload and parse Consolidated Enrollment Excel sheet safely using ExcelJS
 // @route   POST /api/v1/enrollment/upload
 // @access  Private/Admin
@@ -9,14 +26,14 @@ exports.uploadEnrollmentExcel = async (req, res) => {
   try {
     // 1. Defend against missing file payload
     if (!req.file) {
-      return res.status(400).json({ 
-        success: false, 
-        error: "Please upload an Excel spreadsheet (.xlsx) file." 
+      return res.status(400).json({
+        success: false,
+        error: "Please upload an Excel spreadsheet (.xlsx) file.",
       });
     }
 
     // 2. Dynamic Year Extraction with solid fallback defaults
-    let academicYear = 2021; // Default fallback to match database schema integer requirements
+    let academicYear = 2021; // Default fallback integer
     if (req.file.originalname) {
       const match = req.file.originalname.match(/\b(20\d{2})\b/);
       if (match) {
@@ -30,26 +47,31 @@ exports.uploadEnrollmentExcel = async (req, res) => {
     const worksheet = workbook.worksheets[0];
 
     if (!worksheet) {
-      return res.status(400).json({ success: false, error: "The uploaded workbook contains no active worksheets." });
+      return res.status(400).json({
+        success: false,
+        error: "The uploaded workbook contains no active worksheets.",
+      });
     }
 
     let currentCampus = "";
-    const campusDataMap = {}; 
+    const campusDataMap = {};
 
-    // Defensive Row Iteration
+    // 4. Defensive Row Iteration
     worksheet.eachRow((row, rowNumber) => {
       try {
-        const firstCellVal = row.getCell(1).value;
-        if (firstCellVal === null || firstCellVal === undefined) return;
+        const colA = extractCellValue(row.getCell(1));
+        const colB = extractCellValue(row.getCell(2));
 
-        const firstCell = String(firstCellVal).trim();
-        if (!firstCell) return;
+        if (!colA && !colB) return;
 
-        // Detect Campus Header boundaries safely (e.g., "BOAC CAMPUS-Tanza...")
-        if (firstCell.toUpperCase().includes("CAMPUS-") || firstCell.toUpperCase().includes("CAMPUS")) {
-          let rawName = firstCell.split(/CAMPUS-/i)[0].trim();
-          if (!rawName) rawName = firstCell.replace(/CAMPUS/i, "").trim();
-          
+        // --- Detect Campus Header boundaries ---
+        // Headers may appear in Col A (e.g., "BOAC CAMPUS-Tanza...") or Col B
+        const targetHeaderStr = colA.toUpperCase().includes("CAMPUS") ? colA : colB;
+
+        if (targetHeaderStr && targetHeaderStr.toUpperCase().includes("CAMPUS")) {
+          let rawName = targetHeaderStr.split(/CAMPUS/i)[0].replace(/[-_]/g, "").trim();
+          if (!rawName) rawName = targetHeaderStr.replace(/CAMPUS/i, "").trim();
+
           if (rawName.toUpperCase().includes("SANTA CRUZ")) {
             currentCampus = "Santa Cruz";
           } else {
@@ -62,17 +84,27 @@ exports.uploadEnrollmentExcel = async (req, res) => {
           return;
         }
 
-        // If no campus header context block has been established yet, skip data ingestion
+        // Skip rows until a campus context block is established
         if (!currentCampus) return;
 
-        // Ensure row represents a valid program data item (checking for text title presence in cell 2)
-        const secondCellVal = row.getCell(2).value;
-        if (!secondCellVal) return; 
+        // --- Extract Program Data ---
+        // In the Excel matrix, program titles are located in Column B (Cell 2)
+        const programName = colB;
 
-        const programName = String(secondCellVal).trim();
-        if (!programName || !isNaN(programName)) return; // Skip numeric headers or empty structural spacers
+        // Skip header titles, instructions, empty spacer rows, or pure numeric strings
+        if (
+          !programName ||
+          !isNaN(programName) ||
+          programName.toUpperCase().includes("PROGRAM NAME") ||
+          programName.toUpperCase().includes("LIST UNDERGRADUATE") ||
+          programName.toUpperCase().includes("SPELL OUT") ||
+          programName.toUpperCase().includes("INCOMPLETE ENTRIES") ||
+          programName.toUpperCase().includes("MEANS OF VERIFICATION")
+        ) {
+          return;
+        }
 
-        // Dynamically deduce department acronym groups safely
+        // Dynamically deduce department group
         let department = "General";
         if (programName.includes("Engineering")) department = "Engineering";
         else if (programName.includes("Education") || programName.includes("Teacher")) department = "Education";
@@ -80,19 +112,19 @@ exports.uploadEnrollmentExcel = async (req, res) => {
         else if (programName.includes("Business") || programName.includes("Accountancy")) department = "Business";
         else if (programName.includes("Nursing") || programName.includes("Midwifery")) department = "Sciences";
 
-        // Extract value mappings out of column matrices safely
+        // Extract value mappings: Col C (Cell 3) = Priority, Col D (Cell 4) = Neither
         const priorityVal = row.getCell(3).value;
         const neitherVal = row.getCell(4).value;
 
-        const priorityCount = (priorityVal && !isNaN(priorityVal)) ? Number(priorityVal) : 0;
-        const neitherCount = (neitherVal && !isNaN(neitherVal)) ? Number(neitherVal) : 0;
+        const priorityCount = priorityVal !== null && priorityVal !== undefined && !isNaN(priorityVal) ? Number(priorityVal) : 0;
+        const neitherCount = neitherVal !== null && neitherVal !== undefined && !isNaN(neitherVal) ? Number(neitherVal) : 0;
 
         const studentCount = priorityCount > 0 ? priorityCount : neitherCount;
         const isPriorityProgram = priorityCount > 0;
 
-        // Safeguard against text manipulation crashes during shortcode abbreviations creation
+        // Generate program shortcode abbreviation
         const words = programName.replace("Bachelor of Science", "BS").replace("Bachelor of", "B").split(" ");
-        const programCode = words.map(w => w ? w.charAt(0).toUpperCase() : "").join("").substring(0, 6);
+        const programCode = words.map((w) => (w ? w.charAt(0).toUpperCase() : "")).join("").substring(0, 6);
 
         if (studentCount >= 0) {
           campusDataMap[currentCampus].push({
@@ -101,53 +133,51 @@ exports.uploadEnrollmentExcel = async (req, res) => {
             department,
             studentCount,
             isPriorityProgram,
-            isActive: studentCount > 0
+            isActive: studentCount > 0,
           });
         }
       } catch (rowErr) {
-        // Log individual row anomaly errors without stopping the loop from reading other records
         console.warn(`Skipping row context at index line ${rowNumber}:`, rowErr.message);
       }
     });
 
-    // 4. Terminate processing chain cleanly if spreadsheet layouts yielded zero valid rows
-    const processedCampuses = Object.keys(campusDataMap);
+    // 5. Filter out any empty campus blocks before saving
+    const processedCampuses = Object.keys(campusDataMap).filter(
+      (campus) => campusDataMap[campus] && campusDataMap[campus].length > 0
+    );
+
     if (processedCampuses.length === 0) {
       return res.status(422).json({
         success: false,
-        error: "Could not parse any valid program rows. Please make sure your file contains headers with the term 'CAMPUS'."
+        error: "Could not parse any valid program rows. Please check your Excel headers and formatting.",
       });
     }
 
-    // 5. Build individual atomic operational saving cycles inside MongoDB
+    // 6. Build atomic save operations inside MongoDB
     const savePromises = processedCampuses.map(async (campusName) => {
       const programsArray = campusDataMap[campusName];
-      if (!programsArray || programsArray.length === 0) return;
 
-      // Ensure queries seek using uniform types matching your database values
-      let record = await EnrollmentAnalytics.findOne({ academicYear: academicYear, campus: campusName });
-      
+      let record = await EnrollmentAnalytics.findOne({ academicYear, campus: campusName });
+
       if (record) {
         record.programs = programsArray;
       } else {
         record = new EnrollmentAnalytics({
-          academicYear: academicYear,
+          academicYear,
           campus: campusName,
-          programs: programsArray
+          programs: programsArray,
         });
       }
-      return record.save(); 
+      return record.save();
     });
 
-    // Filter out undefined executions and resolve promises safely
     await Promise.all(savePromises.filter(Boolean));
 
     return res.status(201).json({
       success: true,
-      message: `Successfully processed spreadsheet matrix data metrics using ExcelJS! Imported ${processedCampuses.length} campus directories for Academic Year ${academicYear}.`,
-      campusesImported: processedCampuses
+      message: `Successfully processed enrollment metrics! Imported ${processedCampuses.length} campus directories for Academic Year ${academicYear}.`,
+      campusesImported: processedCampuses,
     });
-
   } catch (error) {
     console.error("Critical ExcelJS Data Processing Failure Exception:", error);
     return res.status(500).json({ success: false, error: error.message });
