@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import marsuLogo from "../assets/marsu-logo.png";
 
-function LoginTransition({ onComplete, userRole }) {
+function LoginTransition({ onComplete }) {
   const [progress, setProgress] = useState(0);
   const [currentStep, setCurrentStep] = useState(0);
 
@@ -33,34 +33,25 @@ function LoginTransition({ onComplete, userRole }) {
       if (currentStepCount >= steps) {
         clearInterval(timer);
         setTimeout(() => {
-          if (onComplete) {
-            // Determine the target route dynamically depending on the authenticated role
-            const redirectPath = (userRole === "admin" || userRole === "staff") 
-              ? "/admin/dashboard" 
-              : "/dashboard";
-            onComplete(redirectPath);
-          }
+          if (onComplete) onComplete();
         }, 300);
       }
     }, intervalTime);
 
     return () => clearInterval(timer);
-  }, [onComplete, userRole]);
+  }, [onComplete]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#f8fafc]/95 backdrop-blur-md animate-in fade-in duration-300">
-      {/* Soft branding ambient glow */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[50vw] h-[50vw] rounded-full bg-[#600018]/[0.03] blur-[120px]" />
 
       <div className="relative flex flex-col items-center max-w-sm w-full px-6">
-        {/* Animated Tech Terminal Core */}
         <div className="relative flex items-center justify-center w-14 h-14 mb-6">
           <div className="absolute inset-0 rounded-full border-2 border-slate-200" />
           <div className="absolute inset-0 rounded-full border-2 border-t-[#600018] border-r-transparent border-b-transparent border-l-transparent animate-spin" />
           <div className="w-2.5 h-2.5 rounded-full bg-[#D4AF37] animate-pulse" />
         </div>
 
-        {/* Dynamic Status Text */}
         <div className="w-full text-center space-y-1 mb-6 h-12">
           <h3 className="text-xs font-bold tracking-widest text-[#600018] uppercase font-oswald">
             System Initialization
@@ -70,7 +61,6 @@ function LoginTransition({ onComplete, userRole }) {
           </p>
         </div>
 
-        {/* Technical Loading Track */}
         <div className="w-full relative">
           <div className="h-1 w-full bg-slate-200 rounded-full overflow-hidden">
             <div
@@ -97,10 +87,8 @@ const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  // Track the authenticated user's role to coordinate redirection routing
-  const [userRole, setUserRole] = useState("");
-
-  // Intercept state to toggle the secure dashboard entry animation
+  // Dynamic destination route tracking
+  const [redirectPath, setRedirectPath] = useState("/dashboard");
   const [isTransitioning, setIsTransitioning] = useState(false);
 
   const handleChange = (e) => {
@@ -127,84 +115,49 @@ const Login = () => {
       const data = await response.json();
 
       if (data.success) {
+        // 1. Store authentication token
         if (data.token) {
           localStorage.setItem("token", data.token);
         }
-        
-        // =========================================================================
-        // ROBUST ROLE EXTRACTION
-        // Accounts for flat payloads (data.role), nested user profiles (data.user.role),
-        // JWT parsing fallbacks, and local keyword matching.
-        // =========================================================================
-        let detectedRole = "";
 
-        if (data.role) {
-          detectedRole = data.role;
-        } else if (data.user && data.user.role) {
-          detectedRole = data.user.role;
-        } else if (data.token) {
-          try {
-            // Attempt decoding JWT token payload manually if server didn't explicitly send role
-            const base64Url = data.token.split(".")[1];
-            const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
-            const jsonPayload = decodeURIComponent(
-              atob(base64)
-                .split("")
-                .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
-                .join("")
-            );
-            const decoded = JSON.parse(jsonPayload);
-            detectedRole = decoded.role || decoded.user?.role || "";
-          } catch (jwtError) {
-            console.error("JWT decoding error fallback:", jwtError);
-          }
+        // 2. Extract and store user details & role
+        const user = data.user || data.data?.user || {};
+        const role = user.role || data.role;
+
+        localStorage.setItem("user", JSON.stringify(user));
+
+        // 3. Determine target route based on user role
+        if (role === "admin") {
+          setRedirectPath("/admin-dashboard");
+        } else {
+          setRedirectPath("/dashboard");
         }
 
-        // Emergency fallback check in case of backend schema discrepancies
-        if (!detectedRole) {
-          const lowerEmail = formData.email.toLowerCase();
-          if (lowerEmail.includes("admin")) {
-            detectedRole = "admin";
-          } else {
-            detectedRole = "executive"; // Default standard fallback
-          }
-          console.warn(`No role returned from backend API. Falling back to guessed role: "${detectedRole}"`);
-        }
-
-        // Clean & normalize the role value to lowercase
-        detectedRole = detectedRole.toLowerCase().trim();
-
-        // Safe storage synchronization
-        localStorage.setItem("role", detectedRole);
-        setUserRole(detectedRole);
-        
-        // Instead of triggering window.location instantly, fire the loading animation screen
+        // 4. Trigger transition screen sequence
         setIsTransitioning(true);
       } else {
         setError(data.message || "Invalid email or password.");
       }
     } catch (err) {
-      console.error("Login request failed:", err);
       setError("Unable to establish a connection with the backend server.");
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleTransitionComplete = (targetRoute) => {
-    // Executes final routing once verification progress hits 100%
-    window.location.href = targetRoute;
+  const handleTransitionComplete = () => {
+    // Navigates directly to calculated route (admin or standard)
+    window.location.href = redirectPath;
   };
 
   return (
     <>
       {isTransitioning && (
-        <LoginTransition onComplete={handleTransitionComplete} userRole={userRole} />
+        <LoginTransition onComplete={handleTransitionComplete} />
       )}
 
       <div className="max-w-5xl w-full mx-auto grid grid-cols-1 md:grid-cols-12 overflow-hidden rounded-3xl border border-slate-200/70 bg-white shadow-2xl min-h-[620px]">
         <div className="md:col-span-5 bg-[#600018] relative p-10 flex flex-col justify-between text-white overflow-hidden border-r border-[#D4AF37]/20">
-          {/* Fine Decorative Background Patterns */}
           <div className="absolute inset-0 opacity-[0.03] pointer-events-none bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:16px_16px]"></div>
           <div className="absolute -bottom-20 -left-20 w-64 h-64 bg-[#D4AF37]/10 rounded-full blur-3xl"></div>
 
@@ -218,7 +171,6 @@ const Login = () => {
             </div>
           </div>
 
-          {/* Central Core System Pitch Descriptive Layer */}
           <div className="my-auto pt-12 pb-8 relative z-10">
             <h3 className="text-2xl font-black font-oswald tracking-tight uppercase leading-tight max-w-sm">
               Presidential Dashboard for Organizational Data and Insights
@@ -229,7 +181,6 @@ const Login = () => {
               performance.
             </p>
 
-            {/* Premium Bulleted Feature Metrics Matrix */}
             <div className="mt-8 space-y-4 border-t border-white/10 pt-6">
               <div className="flex items-start gap-3">
                 <span className="text-[#D4AF37] font-bold text-sm mt-0.5">
@@ -262,19 +213,15 @@ const Login = () => {
             </div>
           </div>
 
-          {/* Lower Regulatory/Compliance Footprint Tag */}
           <div className="text-[10px] text-slate-400 font-mono tracking-tighter relative z-10 pt-4 border-t border-white/5 flex justify-between">
             <span>SECURED CLOUD SERVER v2.6</span>
             <span className="text-[#D4AF37]/50">● ONLINE</span>
           </div>
         </div>
 
-        {/* ================= RIGHT SIDE: SECURITY AUTHORIZATION INPUTS ================= */}
         <div className="md:col-span-7 p-10 md:p-14 flex flex-col justify-center relative bg-white">
-          {/* Top Decorative Branding Accent Rule Line (Gold Gradient) */}
           <div className="absolute top-0 left-1/4 right-1/4 h-[1px] bg-gradient-to-r from-transparent via-[#D4AF37] to-transparent"></div>
 
-          {/* Header Title */}
           <div className="text-center md:text-left">
             <h2 className="text-3xl font-extrabold tracking-tight text-slate-900 font-oswald uppercase">
               Welcome Back
@@ -284,7 +231,6 @@ const Login = () => {
             </p>
           </div>
 
-          {/* Error Alert Banner Block */}
           {error && (
             <div className="mt-6 flex items-center gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4 text-xs font-medium text-rose-600 animate-in fade-in duration-300">
               <svg
@@ -305,9 +251,7 @@ const Login = () => {
             </div>
           )}
 
-          {/* Login Submission Context Form */}
           <form onSubmit={handleSubmit} className="mt-8 space-y-5">
-            {/* Email Input Field */}
             <div className="space-y-2">
               <label
                 htmlFor="email"
@@ -345,7 +289,6 @@ const Login = () => {
               </div>
             </div>
 
-            {/* Password Input Field */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <label
@@ -434,7 +377,6 @@ const Login = () => {
               </div>
             </div>
 
-            {/* Persistent Remember State Checklist Section */}
             <div className="flex items-center">
               <input
                 type="checkbox"
@@ -449,7 +391,6 @@ const Login = () => {
               </label>
             </div>
 
-            {/* Submit Action Button Core */}
             <button
               type="submit"
               disabled={isLoading}
@@ -461,7 +402,6 @@ const Login = () => {
             </button>
           </form>
 
-          {/* Visual Structural Rules Divider Section */}
           <div className="relative my-7 flex items-center justify-center">
             <div className="absolute inset-0 flex items-center">
               <div className="w-full border-t border-slate-200/80"></div>
@@ -471,7 +411,6 @@ const Login = () => {
             </span>
           </div>
 
-          {/* Institutional Contact Support Footer Context */}
           <p className="text-center text-xs text-slate-500">
             Need higher terminal clearance?{" "}
             <a

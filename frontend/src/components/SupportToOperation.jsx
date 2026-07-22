@@ -1,11 +1,11 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import CoreFrame from "./supportToOperation/coreFrame.jsx";
 import CapabilityFrame from "./supportToOperation/capabilityFrame.jsx";
 
 export default function SupportToOperation() {
   const [activeTab, setActiveTab] = useState("quality");
   return (
-    <div className="w-full max-w-5xl mx-auto space-y-6  bg-white p-5 rounded-2xl">
+    <div className="w-full  mx-auto space-y-6  bg-white p-5 rounded-2xl">
       {/* 1. TAB TOGGLE NAVIGATION */}
       <div className="flex flex-col sm:flex-row gap-6">
         {/* Tab 1: Quality System */}
@@ -54,8 +54,7 @@ export default function SupportToOperation() {
         </button>
       </div>
 
-      {/* 2. TAB CONTENT BOX (Forced Clean Background & Ultra-readable Text) */}
-      <div className="pt-8">
+      <div className="pt-4 w-full">
         {activeTab === "quality" ? <CoreFrame /> : <CapabilityFrame />}
       </div>
     </div>
