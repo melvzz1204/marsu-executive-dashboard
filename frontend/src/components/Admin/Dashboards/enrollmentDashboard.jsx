@@ -175,6 +175,15 @@ export default function EnrollmentDashboard() {
     return map;
   }, [currentData]);
 
+  // Permanently sorted from highest to lowest enrollment
+  const sortedPrograms = useMemo(() => {
+    if (!currentData || !Array.isArray(currentData.programs)) return [];
+
+    return [...currentData.programs].sort(
+      (a, b) => (b.enrollment || 0) - (a.enrollment || 0),
+    );
+  }, [currentData]);
+
   const dynamicTopChartData = useMemo(() => {
     if (!currentData || !Array.isArray(currentData.programs)) {
       return { labels: [], datasets: [] };
@@ -238,7 +247,6 @@ export default function EnrollmentDashboard() {
     };
   }, [trendData]);
 
-  // Helper function with bumped font size (text-xs) & high-visibility styling
   const renderYoYBadge = (growthVal, hasBaseline) => {
     if (!hasBaseline || growthVal === null || growthVal === undefined) {
       return (
@@ -270,6 +278,7 @@ export default function EnrollmentDashboard() {
       </span>
     );
   };
+
   const horizontalOptions = {
     responsive: true,
     maintainAspectRatio: false,
@@ -412,7 +421,7 @@ export default function EnrollmentDashboard() {
 
         {/* KPI SUMMARY CARDS */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
-          {/* CARD 1: Campus Enrollment (UPDATED DESIGN & BADGE) */}
+          {/* CARD 1: Campus Enrollment */}
           <div className="relative bg-[#660033] text-white p-6 rounded-2xl shadow-[0_4px_0_0_#D4AF37] flex flex-col justify-between min-h-[140px]">
             <div>
               <span className="text-[10px] font-extrabold tracking-wider text-slate-300 block uppercase font-sans mb-1">
@@ -465,6 +474,7 @@ export default function EnrollmentDashboard() {
             </span>
           </div>
         </div>
+
         {/* MULTI-YEAR TREND LINE CHART */}
         {trendData.length > 0 && (
           <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
@@ -547,7 +557,7 @@ export default function EnrollmentDashboard() {
             <table className="w-full text-left border-collapse text-sm">
               <thead className="bg-slate-50 sticky top-0 border-b border-slate-200 text-slate-400 font-semibold text-[11px] uppercase tracking-wider z-10">
                 <tr>
-                  <th className="px-6 py-3 w-16">Rank</th>
+                  <th className="px-6 py-3 w-16 text-center">Rank</th>
                   <th className="px-6 py-3 min-w-[240px]">Program Title</th>
                   <th className="px-6 py-3">Department</th>
                   <th className="px-6 py-3 text-right">Students</th>
@@ -564,56 +574,59 @@ export default function EnrollmentDashboard() {
                       Fetching program table data...
                     </td>
                   </tr>
-                ) : (currentData?.programs || []).length > 0 ? (
-                  currentData.programs
-                    .sort((a, b) => (a.rank || 0) - (b.rank || 0))
-                    .map((program, idx) => {
-                      const isPriority = Boolean(
-                        program.isPriority ?? program.is_priority,
-                      );
+                ) : sortedPrograms.length > 0 ? (
+                  sortedPrograms.map((program, idx) => {
+                    const isPriority = Boolean(
+                      program.isPriority ?? program.is_priority,
+                    );
 
-                      return (
-                        <tr
-                          key={program._id || idx}
-                          className="hover:bg-slate-50/60 transition-colors"
-                        >
-                          <td className="px-6 py-4 font-mono text-slate-400 text-xs font-semibold">
-                            #{String(program.rank || idx + 1).padStart(2, "0")}
-                          </td>
+                    return (
+                      <tr
+                        key={program._id || idx}
+                        className="hover:bg-slate-50/60 transition-colors"
+                      >
+                        {/* CLEAN NUMBERED RANK */}
+                        <td className="px-6 py-4 text-center font-mono text-slate-400 text-xs font-semibold">
+                          #{String(idx + 1).padStart(2, "0")}
+                        </td>
 
-                          <td className="px-6 py-4 font-medium text-slate-900 max-w-md break-words leading-relaxed">
-                            {program.name}
-                            {program.code && (
-                              <span className="ml-2 px-1.5 py-0.5 text-[9px] font-bold bg-slate-100 text-slate-500 rounded uppercase">
-                                {program.code}
-                              </span>
-                            )}
-                          </td>
-
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className="inline-flex px-2 py-0.5 text-[10px] font-semibold rounded bg-slate-100 text-slate-600">
-                              {program.category || "General"}
+                        {/* PROGRAM TITLE */}
+                        <td className="px-6 py-4 font-medium text-slate-900 max-w-md break-words leading-relaxed">
+                          {program.name}
+                          {program.code && (
+                            <span className="ml-2 px-1.5 py-0.5 text-[9px] font-bold bg-slate-100 text-slate-500 rounded uppercase">
+                              {program.code}
                             </span>
-                          </td>
+                          )}
+                        </td>
 
-                          <td className="px-6 py-4 text-right font-mono text-[#660033] font-bold whitespace-nowrap">
-                            {(program.enrollment || 0).toLocaleString()}
-                          </td>
+                        {/* DEPARTMENT */}
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="inline-flex px-2 py-0.5 text-[10px] font-semibold rounded bg-slate-100 text-slate-600">
+                            {program.category || "General"}
+                          </span>
+                        </td>
 
-                          <td className="px-6 py-4 text-center whitespace-nowrap">
-                            {isPriority ? (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                ★ Priority
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium uppercase tracking-wider bg-slate-100 text-slate-400 border border-slate-200">
-                                Standard
-                              </span>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })
+                        {/* STUDENT ENROLLMENT COUNT */}
+                        <td className="px-6 py-4 text-right font-mono text-[#660033] font-bold whitespace-nowrap">
+                          {(program.enrollment || 0).toLocaleString()}
+                        </td>
+
+                        {/* CHED PRIORITY */}
+                        <td className="px-6 py-4 text-center whitespace-nowrap">
+                          {isPriority ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200">
+                              ★ Priority
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium uppercase tracking-wider bg-slate-100 text-slate-400 border border-slate-200">
+                              Standard
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })
                 ) : (
                   <tr>
                     <td
