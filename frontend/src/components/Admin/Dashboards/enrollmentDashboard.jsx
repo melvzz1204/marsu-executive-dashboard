@@ -466,38 +466,6 @@ export default function EnrollmentDashboard() {
             </span>
           </div>
         </div>
-
-        {/* TOP PROGRAMS HORIZONTAL BAR CHART */}
-        <div className="grid grid-cols-1 gap-6">
-          <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col">
-            <div className="mb-4">
-              <h4 className="text-base font-bold text-slate-900">
-                Highest Enrollment Programs
-              </h4>
-              <p className="text-xs text-slate-400">
-                Top degree tracks by student headcount
-              </p>
-            </div>
-            <div className="h-[340px] relative flex-1">
-              {loading ? (
-                <div className="h-full flex items-center justify-center text-xs font-bold text-slate-400 uppercase">
-                  Loading Chart...
-                </div>
-              ) : dynamicTopChartData.labels.length > 0 ? (
-                <Chart
-                  type="bar"
-                  data={dynamicTopChartData}
-                  options={horizontalOptions}
-                />
-              ) : (
-                <div className="h-full flex items-center justify-center text-xs text-slate-400">
-                  No program data available for this selection.
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
         {/* MULTI-YEAR TREND LINE CHART */}
         {trendData.length > 0 && (
           <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
@@ -533,6 +501,37 @@ export default function EnrollmentDashboard() {
             </div>
           </div>
         )}
+
+        {/* TOP PROGRAMS HORIZONTAL BAR CHART */}
+        <div className="grid grid-cols-1 gap-6">
+          <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col">
+            <div className="mb-4">
+              <h4 className="text-base font-bold text-slate-900">
+                Highest Enrollment Programs
+              </h4>
+              <p className="text-xs text-slate-400">
+                Top degree tracks by student headcount
+              </p>
+            </div>
+            <div className="h-[340px] relative flex-1">
+              {loading ? (
+                <div className="h-full flex items-center justify-center text-xs font-bold text-slate-400 uppercase">
+                  Loading Chart...
+                </div>
+              ) : dynamicTopChartData.labels.length > 0 ? (
+                <Chart
+                  type="bar"
+                  data={dynamicTopChartData}
+                  options={horizontalOptions}
+                />
+              ) : (
+                <div className="h-full flex items-center justify-center text-xs text-slate-400">
+                  No program data available for this selection.
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
 
         {/* COMPLETE PROGRAM MATRIX TABLE */}
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
