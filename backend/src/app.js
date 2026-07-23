@@ -8,17 +8,16 @@ const licensurePerformanceRoutes = require("./routes/achievements/licensurePerfo
 const reportRoutes = require("./routes/reports/reportRoutes");
 const researchAnalyticsRouter = require("./routes/research/researchRoutes");
 const enrollmentRoutes = require("./routes/enrollment/enrollmentRoutes");
-/* const analyticsRoutes = require("./routes/analyticsRoutes"); */
 
 const app = express();
 const corsOptions = {
   origin: ["http://localhost:5173", "http://127.0.0.1:5173"],
-  methods: ["GET", "POST", "PUT", "PATCH", "DELETE"], // 💡 Added "PATCH" to allowed methods
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
   credentials: true,
 };
 
 // Global Middleware
-app.use(cors(corsOptions)); // Keep this custom configuration
+app.use(cors(corsOptions));
 app.use(express.json());
 
 app.use((req, res, next) => {
@@ -28,19 +27,19 @@ app.use((req, res, next) => {
 
 // 2. Mount Route Files
 app.use("/api/v1/auth", authRoutes);
-app.use("/api/v1/global-recognition", globalRecognitionRoutes); 
+app.use("/api/v1/global-recognition", globalRecognitionRoutes);
 app.use("/api/v1/licensure-performance", licensurePerformanceRoutes);
 app.use("/api/v1/reports", reportRoutes);
 app.use("/api/v1/research", researchAnalyticsRouter);
 app.use("/api/v1/enrollment", enrollmentRoutes);
-// Catch-All 404 Middleware
+
+// Catch-All 404 Middleware (Returns JSON instead of plain text)
 app.use((req, res) => {
-  console.log(`[DEBUG LOG] Received a ${req.method} request to ${req.url}`);
-  res
-    .status(404)
-    .send(
-      `Backend saw a ${req.method} request to ${req.url} but nothing matches.`,
-    );
+  console.log(`[DEBUG LOG] 404 Unmatched request: ${req.method} ${req.url}`);
+  res.status(404).json({
+    success: false,
+    error: `Route ${req.method} ${req.url} was not found on this server.`,
+  });
 });
 
 module.exports = app;

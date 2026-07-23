@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 
-export default function EnrollmentsUpload() {
+export default function EnrollmentsUpload({ onUploadSuccess }) {
   // File Upload States
   const [dragActive, setDragActive] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
@@ -121,6 +121,11 @@ export default function EnrollmentsUpload() {
         },
         ...prev,
       ]);
+
+      // Notify parent component of the new uploaded data/years
+      if (typeof onUploadSuccess === "function") {
+        onUploadSuccess(result);
+      }
     } catch (err) {
       console.error("Enrollment upload error:", err);
       setUploadError(err.message || "Failed to upload enrollment file.");
