@@ -115,7 +115,6 @@ export default function EnrollmentDashboard() {
     fetchFilters();
   }, []);
 
-  // 2. Fetch Active Snapshot Data
   const fetchDashboardData = useCallback(async () => {
     if (!selectedYear || !selectedCampus) return;
 
@@ -126,9 +125,11 @@ export default function EnrollmentDashboard() {
       const token = localStorage.getItem("token");
       const headers = { Authorization: `Bearer ${token || ""}` };
 
+      // 1. Fetch Snapshot for Selected Year, Campus, AND Semester
       const snapshotUrl = `${API_BASE}?year=${selectedYear}&campus=${encodeURIComponent(
         selectedCampus,
       )}&semester=${encodeURIComponent(selectedSemester)}`;
+
       const snapshotRes = await fetch(snapshotUrl, { headers });
       const snapshotJson = await snapshotRes.json();
 
@@ -138,7 +139,11 @@ export default function EnrollmentDashboard() {
 
       setCurrentData(snapshotJson.data);
 
-      const trendUrl = `${API_BASE}/trend?campus=${encodeURIComponent(selectedCampus)}`;
+      // 2. Fetch Multi-Year Trend filtered by the SAME Semester (Apples-to-Apples)
+      const trendUrl = `${API_BASE}/trend?campus=${encodeURIComponent(
+        selectedCampus,
+      )}&semester=${encodeURIComponent(selectedSemester)}`;
+
       const trendRes = await fetch(trendUrl, { headers });
       const trendJson = await trendRes.json();
 
@@ -153,7 +158,6 @@ export default function EnrollmentDashboard() {
       setLoading(false);
     }
   }, [selectedYear, selectedCampus, selectedSemester]);
-
   useEffect(() => {
     fetchDashboardData();
   }, [fetchDashboardData]);

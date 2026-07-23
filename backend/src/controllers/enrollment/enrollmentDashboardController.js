@@ -1,23 +1,26 @@
 const EnrollmentAnalytics = require("../../models/enrollment/enrollmentAnalyticsModel");
 
-// GET /api/v1/enrollment
+// ==========================================
+// @desc    Get Current Snapshot Ledger (KPIs & Program Matrix)
+// @route   GET /api/v1/enrollment
+// @access  Public / Private
+// ==========================================
 exports.getEnrollmentSnapshot = async (req, res) => {
   try {
     const { year, campus, semester } = req.query;
 
-    // Parse params matching your Schema types
     const numericYear = year ? parseInt(year, 10) : 2023;
     const campusName = campus || "Boac";
-    const semesterName = semester || "1st Semester"; // Schema default is "1st Semester"
+    const semesterName = semester || "1st Semester";
 
-    // Query matching the compound index: { academicYear: 1, campus: 1, semester: 1 }
+    // Query matching compound index: { academicYear: 1, campus: 1, semester: 1 }
     const snapshot = await EnrollmentAnalytics.findOne({
       academicYear: numericYear,
       campus: campusName,
       semester: semesterName,
     }).lean();
 
-    // If no record exists for this year/campus, return empty state safely (200 OK)
+    // If no record exists for this term selection, return safe empty state (200 OK)
     if (!snapshot) {
       return res.status(200).json({
         success: true,
@@ -34,15 +37,15 @@ exports.getEnrollmentSnapshot = async (req, res) => {
       });
     }
 
-    // Map Schema sub-documents to normalized frontend properties
+    // Map sub-documents to frontend properties
     const mappedPrograms = (snapshot.programs || []).map((p, index) => ({
       _id: p._id,
-      name: p.programName || "Unnamed Program", // Schema: programName
-      code: p.programCode || "", // Schema: programCode
-      category: p.department || "General", // Schema: department
-      enrollment: p.studentCount || 0, // Schema: studentCount
-      isPriority: p.isPriorityProgram || false, // Schema: isPriorityProgram
-      status: p.isActive ? "active" : "inactive", // Schema: isActive
+      name: p.programName || "Unnamed Program",
+      code: p.programCode || "",
+      category: p.department || "General",
+      enrollment: p.studentCount || 0,
+      isPriority: p.isPriorityProgram || false,
+      status: p.isActive ? "active" : "inactive",
       rank: index + 1,
     }));
 
@@ -69,7 +72,11 @@ exports.getEnrollmentSnapshot = async (req, res) => {
   }
 };
 
-// GET /api/v1/enrollment/filters
+// ==========================================
+// @desc    Get Available Dynamic Filter Options
+// @route   GET /api/v1/enrollment/filters
+// @access  Public / Private
+// ==========================================
 exports.getEnrollmentFilters = async (req, res) => {
   try {
     const years = await EnrollmentAnalytics.distinct("academicYear");
@@ -79,10 +86,10 @@ exports.getEnrollmentFilters = async (req, res) => {
     return res.status(200).json({
       success: true,
       data: {
-        years: years.sort((a, b) => b - a),
+        years: (years || []).sort((a, b) => b - a), // Descending
         campuses:
           campuses.length > 0
-            ? campuses
+            ? campuses.sort()
             : ["Boac", "Gasan", "Santa Cruz", "Torrijos"],
         semesters:
           semesters.length > 0 ? semesters : ["1st Semester", "2nd Semester"],
@@ -93,49 +100,28 @@ exports.getEnrollmentFilters = async (req, res) => {
   }
 };
 
-// GET /api/v1/enrollment/trend
-exports.getEnrollmentTrend = async (req, res) => {
-  try {
-    const { campus } = req.query;
-    const campusName = campus || "Boac";
-
-    const trends = await EnrollmentAnalytics.find({ campus: campusName })
-      .sort({ academicYear: 1 })
-      .select("academicYear semester summaryKpis.totalStudents")
-      .lean();
-
-    const formattedTrends = trends.map((t) => ({
-      label: `AY ${t.academicYear}`,
-      academicYear: t.academicYear,
-      totalStudents: t.summaryKpis?.totalStudents || 0,
-    }));
-
-    return res.status(200).json({
-      success: true,
-      data: formattedTrends,
-    });
-  } catch (error) {
-    return res.status(500).json({ success: false, error: error.message });
-  }
-};
-// @desc    Get Multi-Year Growth Registration Trace (Powers the Line Chart Trend Component)
+// ==========================================
+// @desc    Get Multi-Year Growth Line Chart Trend Data (Isolates Semesters)
 // @route   GET /api/v1/enrollment/trend
-// @access  Private
+// @access  Public / Private
+// ==========================================
 exports.getEnrollmentTrend = async (req, res) => {
   try {
-    const { campus } = req.query;
+    const { campus, semester } = req.query;
+    const semesterName = semester || "1st Semester";
 
-    let matchQuery = {};
+    // Match by semester to prevent double-counting 1st + 2nd semesters per year
+    let matchQuery = { semester: semesterName };
+
     if (campus && campus.toLowerCase() !== "all") {
       matchQuery.campus = campus;
     }
 
-    // Queries historical records sorted chronologically by Academic Year
     const rawTrends = await EnrollmentAnalytics.find(matchQuery)
       .sort({ academicYear: 1 })
       .select("academicYear campus summaryKpis.totalStudents");
 
-    // Aggregate totals by Academic Year (handles per-campus or system-wide views)
+    // Aggregate totals by Academic Year (supports 'All Campuses' rollup)
     const trendMap = new Map();
 
     rawTrends.forEach((record) => {
@@ -149,7 +135,6 @@ exports.getEnrollmentTrend = async (req, res) => {
       }
     });
 
-    // Formats payload to map effortlessly onto Chart.js / Recharts continuous datasets
     const formattedTrendData = Array.from(trendMap.entries()).map(
       ([academicYear, totalStudents]) => ({
         academicYear,
@@ -162,6 +147,7 @@ exports.getEnrollmentTrend = async (req, res) => {
     return res.status(200).json({
       success: true,
       campus: campus || "All Campuses",
+      semester: semesterName,
       data: formattedTrendData,
     });
   } catch (error) {
@@ -169,32 +155,15 @@ exports.getEnrollmentTrend = async (req, res) => {
   }
 };
 
-// @desc    Get Available Dynamic Years and Campuses Filter Options
-// @route   GET /api/v1/enrollment/filters
-// @access  Private
-exports.getEnrollmentFilters = async (req, res) => {
-  try {
-    const years = await EnrollmentAnalytics.distinct("academicYear");
-    const campuses = await EnrollmentAnalytics.distinct("campus");
-
-    return res.status(200).json({
-      success: true,
-      data: {
-        years: years.sort((a, b) => b - a), // Descending order
-        campuses: campuses.sort(),
-      },
-    });
-  } catch (error) {
-    return res.status(500).json({ success: false, error: error.message });
-  }
-};
-
-// @desc    Upsert/Create Enrollment Snapshot Ledger (Admin Data Ingestion Matrix)
+// ==========================================
+// @desc    Upsert/Create Enrollment Snapshot Ledger
 // @route   POST /api/v1/enrollment
 // @access  Private/Admin
+// ==========================================
 exports.upsertEnrollmentAnalytics = async (req, res) => {
   try {
-    const { academicYear, campus, programs } = req.body;
+    const { academicYear, campus, semester, programs } = req.body;
+    const semesterName = semester || "1st Semester";
 
     if (!academicYear || !campus) {
       return res.status(400).json({
@@ -204,7 +173,12 @@ exports.upsertEnrollmentAnalytics = async (req, res) => {
       });
     }
 
-    let record = await EnrollmentAnalytics.findOne({ academicYear, campus });
+    // Include semester in query to allow separate 1st Sem & 2nd Sem entries
+    let record = await EnrollmentAnalytics.findOne({
+      academicYear,
+      campus,
+      semester: semesterName,
+    });
 
     if (record) {
       if (programs) record.programs = programs;
@@ -212,16 +186,17 @@ exports.upsertEnrollmentAnalytics = async (req, res) => {
       record = new EnrollmentAnalytics({
         academicYear,
         campus,
+        semester: semesterName,
         programs,
       });
     }
 
-    // Save automatically runs pre-save hooks to calculate KPIs and YoY growth
+    // Save triggers pre-save hooks for KPI calculations
     await record.save();
 
     return res.status(200).json({
       success: true,
-      message: `Enrollment metadata metrics ledger for ${campus} (AY ${academicYear}) synced successfully.`,
+      message: `Enrollment metadata metrics ledger for ${campus} (${semesterName}, AY ${academicYear}) synced successfully.`,
       data: record,
     });
   } catch (error) {
