@@ -1,5 +1,5 @@
-import Employability from "../staticData/advanceEducation/employability.jsx";
+import React from "react";
 
 export default function AdvanceEducation() {
-  return <Employability />;
+  return <div></div>;
 }
