@@ -4,7 +4,6 @@ const EnrollmentAnalytics = require("../../models/enrollment/enrollmentAnalytics
 
 /**
  * Safely extracts string content from ExcelJS cell values regardless of cell type
- * (handles string, number, formula object, rich text object, etc.)
  */
 function extractCellValue(cell) {
   if (!cell || cell.value === null || cell.value === undefined) return "";
@@ -19,7 +18,37 @@ function extractCellValue(cell) {
   return String(cell.value).trim();
 }
 
-// @desc    Upload and parse Consolidated Enrollment Excel sheet safely using ExcelJS
+/**
+ * Helper to parse a 4-digit start year from text (e.g., "2022-2023 Enrollment" -> 2022)
+ */
+function parseYearFromText(text) {
+  if (!text) return null;
+  const match = String(text).match(/\b(20\d{2})\b/);
+  return match ? Number(match[1]) : null;
+}
+
+/**
+ * Helper to normalize semester text extracted directly from sheet content/cells
+ */
+function normalizeSemesterFromContent(text) {
+  if (!text) return "1st Semester";
+  const cleanStr = String(text).toUpperCase().trim();
+
+  if (cleanStr.includes("2ND") || cleanStr.includes("SECOND") || cleanStr === "2") {
+    return "2nd Semester";
+  }
+  if (cleanStr.includes("1ST") || cleanStr.includes("FIRST") || cleanStr === "1") {
+    return "1st Semester";
+  }
+  if (cleanStr.includes("SUMMER") || cleanStr.includes("MIDYEAR")) {
+    return "Summer";
+  }
+  
+  // Return verbatim if already formatted (e.g., "1st Semester")
+  return text.trim();
+}
+
+// @desc    Upload and parse Consolidated Enrollment Excel sheet across valid year tabs
 // @route   POST /api/v1/enrollment/upload
 // @access  Private/Admin
 exports.uploadEnrollmentExcel = async (req, res) => {
@@ -32,151 +61,163 @@ exports.uploadEnrollmentExcel = async (req, res) => {
       });
     }
 
-    // 2. Dynamic Year Extraction with solid fallback defaults
-    let academicYear = 2021; // Default fallback integer
-    if (req.file.originalname) {
-      const match = req.file.originalname.match(/\b(20\d{2})\b/);
-      if (match) {
-        academicYear = Number(match[1]);
-      }
+    // 2. Extract target academic year from request body if specified
+    let targetYear = null;
+    const yearInput = req.body.academicYear || req.body.year;
+    if (yearInput) {
+      targetYear = parseYearFromText(yearInput);
     }
 
-    // 3. Extract the file memory buffer cleanly using ExcelJS
+    // 3. Load the Excel file buffer using ExcelJS
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.load(req.file.buffer);
-    const worksheet = workbook.worksheets[0];
 
-    if (!worksheet) {
+    if (!workbook.worksheets || workbook.worksheets.length === 0) {
       return res.status(400).json({
         success: false,
         error: "The uploaded workbook contains no active worksheets.",
       });
     }
 
-    let currentCampus = "";
-    const campusDataMap = {};
+    const datasetByYearCampusAndSemester = {};
 
-    // 4. Defensive Row Iteration
-    worksheet.eachRow((row, rowNumber) => {
-      try {
-        const colA = extractCellValue(row.getCell(1));
-        const colB = extractCellValue(row.getCell(2));
+    // 4. Loop through ALL worksheets/tabs in the file
+    workbook.worksheets.forEach((worksheet) => {
+      // Check ONLY if the TAB / SHEET NAME contains a 4-digit school year format
+      const tabYear = parseYearFromText(worksheet.name);
 
-        if (!colA && !colB) return;
+      // Skip tabs that do NOT have a school year in their name or have no data rows
+      if (!tabYear || worksheet.rowCount <= 1) {
+        return;
+      }
 
-        // --- Detect Campus Header boundaries ---
-        // Headers may appear in Col A (e.g., "BOAC CAMPUS-Tanza...") or Col B
-        const targetHeaderStr = colA.toUpperCase().includes("CAMPUS") ? colA : colB;
+      // Filter by targetYear if user specified one in request payload
+      if (targetYear && tabYear !== targetYear) {
+        return;
+      }
 
-        if (targetHeaderStr && targetHeaderStr.toUpperCase().includes("CAMPUS")) {
-          let rawName = targetHeaderStr.split(/CAMPUS/i)[0].replace(/[-_]/g, "").trim();
-          if (!rawName) rawName = targetHeaderStr.replace(/CAMPUS/i, "").trim();
+      // Identify Header Row Mapping for this sheet
+      const headerRow = worksheet.getRow(1);
+      const colIndexes = {};
 
-          if (rawName.toUpperCase().includes("SANTA CRUZ")) {
-            currentCampus = "Santa Cruz";
-          } else {
-            currentCampus = rawName.charAt(0).toUpperCase() + rawName.slice(1).toLowerCase();
+      headerRow.eachCell((cell, colNumber) => {
+        const headerText = extractCellValue(cell).toUpperCase().replace(/[\s_]+/g, "");
+        if (headerText.includes("SEMESTER") || headerText.includes("SEM")) colIndexes.semester = colNumber;
+        if (headerText.includes("CAMPUS")) colIndexes.campus = colNumber;
+        if (headerText.includes("PROGRAMCODE") || headerText.includes("CODE")) colIndexes.programCode = colNumber;
+        if (headerText.includes("PROGRAMNAME") || headerText.includes("NAME")) colIndexes.programName = colNumber;
+        if (headerText.includes("CLASSIFICATION") || headerText.includes("PRIORITY")) colIndexes.programClassification = colNumber;
+        if (headerText.includes("ENROLLEDCOUNT") || headerText.includes("ENROLLED") || headerText.includes("COUNT")) colIndexes.enrolledCount = colNumber;
+      });
+
+      // Header index fallbacks
+      if (!colIndexes.semester) colIndexes.semester = 2;
+      if (!colIndexes.campus) colIndexes.campus = 3;
+      if (!colIndexes.programCode) colIndexes.programCode = 4;
+      if (!colIndexes.programName) colIndexes.programName = 5;
+      if (!colIndexes.programClassification) colIndexes.programClassification = 6;
+      if (!colIndexes.enrolledCount) colIndexes.enrolledCount = 7;
+
+      worksheet.eachRow((row, rowNumber) => {
+        if (rowNumber === 1) return; // Skip header row
+
+        try {
+          // Read and normalize semester DIRECTLY from row content
+          const rawRowSemester = extractCellValue(row.getCell(colIndexes.semester));
+          const semester = normalizeSemesterFromContent(rawRowSemester);
+
+          const campus = extractCellValue(row.getCell(colIndexes.campus));
+          const programCode = extractCellValue(row.getCell(colIndexes.programCode));
+          const programName = extractCellValue(row.getCell(colIndexes.programName));
+          const classification = extractCellValue(row.getCell(colIndexes.programClassification));
+          const rawCount = extractCellValue(row.getCell(colIndexes.enrolledCount));
+
+          // Skip completely blank rows
+          if (!programName && !campus) return;
+
+          const studentCount = parseInt(rawCount, 10) || 0;
+          const isPriorityProgram =
+            classification.toUpperCase().includes("CHED") ||
+            classification.toUpperCase().includes("PRIORITY");
+
+          // Infer department group
+          let department = "General";
+          if (programName.includes("Engineering") || programCode.includes("CE") || programCode.includes("EE")) department = "Engineering";
+          else if (programName.includes("Education") || programName.includes("Teacher") || programName.includes("Arts")) department = "Education";
+          else if (programName.includes("Technology") || programName.includes("Information") || programName.includes("Computer")) department = "Technology";
+          else if (programName.includes("Business") || programName.includes("Accountancy")) department = "Business";
+          else if (programName.includes("Nursing") || programName.includes("Midwifery") || programName.includes("Agriculture")) department = "Sciences";
+
+          const formattedCampus = campus ? campus.charAt(0).toUpperCase() + campus.slice(1).toLowerCase() : "Boac";
+
+          // Group strictly by (School Year from Tab Name) + (Campus) + (Semester from Row Cell)
+          const groupKey = `${tabYear}_${formattedCampus}_${semester.replace(/\s+/g, "")}`;
+
+          if (!datasetByYearCampusAndSemester[groupKey]) {
+            datasetByYearCampusAndSemester[groupKey] = {
+              academicYear: tabYear,
+              campus: formattedCampus,
+              semester: semester,
+              programs: [],
+            };
           }
 
-          if (!campusDataMap[currentCampus]) {
-            campusDataMap[currentCampus] = [];
-          }
-          return;
-        }
-
-        // Skip rows until a campus context block is established
-        if (!currentCampus) return;
-
-        // --- Extract Program Data ---
-        // In the Excel matrix, program titles are located in Column B (Cell 2)
-        const programName = colB;
-
-        // Skip header titles, instructions, empty spacer rows, or pure numeric strings
-        if (
-          !programName ||
-          !isNaN(programName) ||
-          programName.toUpperCase().includes("PROGRAM NAME") ||
-          programName.toUpperCase().includes("LIST UNDERGRADUATE") ||
-          programName.toUpperCase().includes("SPELL OUT") ||
-          programName.toUpperCase().includes("INCOMPLETE ENTRIES") ||
-          programName.toUpperCase().includes("MEANS OF VERIFICATION")
-        ) {
-          return;
-        }
-
-        // Dynamically deduce department group
-        let department = "General";
-        if (programName.includes("Engineering")) department = "Engineering";
-        else if (programName.includes("Education") || programName.includes("Teacher")) department = "Education";
-        else if (programName.includes("Technology") || programName.includes("Information")) department = "Technology";
-        else if (programName.includes("Business") || programName.includes("Accountancy")) department = "Business";
-        else if (programName.includes("Nursing") || programName.includes("Midwifery")) department = "Sciences";
-
-        // Extract value mappings: Col C (Cell 3) = Priority, Col D (Cell 4) = Neither
-        const priorityVal = row.getCell(3).value;
-        const neitherVal = row.getCell(4).value;
-
-        const priorityCount = priorityVal !== null && priorityVal !== undefined && !isNaN(priorityVal) ? Number(priorityVal) : 0;
-        const neitherCount = neitherVal !== null && neitherVal !== undefined && !isNaN(neitherVal) ? Number(neitherVal) : 0;
-
-        const studentCount = priorityCount > 0 ? priorityCount : neitherCount;
-        const isPriorityProgram = priorityCount > 0;
-
-        // Generate program shortcode abbreviation
-        const words = programName.replace("Bachelor of Science", "BS").replace("Bachelor of", "B").split(" ");
-        const programCode = words.map((w) => (w ? w.charAt(0).toUpperCase() : "")).join("").substring(0, 6);
-
-        if (studentCount >= 0) {
-          campusDataMap[currentCampus].push({
+          datasetByYearCampusAndSemester[groupKey].programs.push({
             programName,
-            programCode,
+            programCode: programCode || programName.substring(0, 6).toUpperCase(),
             department,
+            semester,
+            programClassification: classification,
             studentCount,
             isPriorityProgram,
             isActive: studentCount > 0,
           });
+        } catch (rowErr) {
+          console.warn(`Skipping row at line ${rowNumber} in sheet '${worksheet.name}':`, rowErr.message);
         }
-      } catch (rowErr) {
-        console.warn(`Skipping row context at index line ${rowNumber}:`, rowErr.message);
-      }
+      });
     });
 
-    // 5. Filter out any empty campus blocks before saving
-    const processedCampuses = Object.keys(campusDataMap).filter(
-      (campus) => campusDataMap[campus] && campusDataMap[campus].length > 0
-    );
+    const groupsToSave = Object.values(datasetByYearCampusAndSemester);
 
-    if (processedCampuses.length === 0) {
+    if (groupsToSave.length === 0) {
       return res.status(422).json({
         success: false,
-        error: "Could not parse any valid program rows. Please check your Excel headers and formatting.",
+        error: targetYear
+          ? `No valid enrollment records found matching academic year ${targetYear}.`
+          : "Could not find any tabs matching a valid school year format with enrollment data.",
       });
     }
 
-    // 6. Build atomic save operations inside MongoDB
-    const savePromises = processedCampuses.map(async (campusName) => {
-      const programsArray = campusDataMap[campusName];
-
-      let record = await EnrollmentAnalytics.findOne({ academicYear, campus: campusName });
+    // 5. Save or update inside MongoDB
+    const savePromises = groupsToSave.map(async (group) => {
+      let record = await EnrollmentAnalytics.findOne({
+        academicYear: group.academicYear,
+        campus: group.campus,
+        semester: group.semester,
+      });
 
       if (record) {
-        record.programs = programsArray;
+        record.programs = group.programs;
       } else {
         record = new EnrollmentAnalytics({
-          academicYear,
-          campus: campusName,
-          programs: programsArray,
+          academicYear: group.academicYear,
+          campus: group.campus,
+          semester: group.semester,
+          programs: group.programs,
         });
       }
       return record.save();
     });
 
-    await Promise.all(savePromises.filter(Boolean));
+    await Promise.all(savePromises);
 
     return res.status(201).json({
       success: true,
-      message: `Successfully processed enrollment metrics! Imported ${processedCampuses.length} campus directories for Academic Year ${academicYear}.`,
-      campusesImported: processedCampuses,
+      message: `Successfully ingested enrollment dataset! Processed ${groupsToSave.length} campus/semester group(s)${
+        targetYear ? ` specifically for Academic Year ${targetYear}` : ""
+      }.`,
+      recordsIngested: groupsToSave.length,
     });
   } catch (error) {
     console.error("Critical ExcelJS Data Processing Failure Exception:", error);

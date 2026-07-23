@@ -17,6 +17,11 @@ const ProgramEnrollmentSchema = new mongoose.Schema({
     required: true,
     trim: true,
   },
+  semester: {
+    type: String, // e.g., "1st Semester", "2nd Semester"
+    default: "1st Semester",
+    trim: true,
+  },
   studentCount: {
     type: Number, // Total combined enrollment headcount for this course
     required: true,
@@ -24,7 +29,7 @@ const ProgramEnrollmentSchema = new mongoose.Schema({
     default: 0,
   },
   isPriorityProgram: {
-    type: Boolean, // 💡 True if listed under CHED/RDC priority columns, false if "NEITHER"
+    type: Boolean, // True if listed under CHED/RDC priority columns, false if "NEITHER"
     required: true,
     default: false,
   },
@@ -34,7 +39,7 @@ const ProgramEnrollmentSchema = new mongoose.Schema({
   },
 });
 
-// 2. Main schema capturing a campus snapshot for a specific Academic Year
+// 2. Main schema capturing a campus snapshot for a specific Academic Year & Semester
 const EnrollmentAnalyticsSchema = new mongoose.Schema({
   academicYear: {
     type: Number, // e.g., 2021 (Represents AY 2021-2022)
@@ -43,6 +48,12 @@ const EnrollmentAnalyticsSchema = new mongoose.Schema({
   campus: {
     type: String, // e.g., "Boac", "Gasan", "Santa Cruz", "Torrijos"
     required: [true, "Campus location filter is required"],
+    trim: true,
+  },
+  semester: {
+    type: String, // e.g., "1st Semester", "2nd Semester"
+    required: [true, "Semester is required"],
+    default: "1st Semester",
     trim: true,
   },
   summaryKpis: {
@@ -63,7 +74,7 @@ const EnrollmentAnalyticsSchema = new mongoose.Schema({
       default: "N/A",
     },
     priorityEnrollmentPercentage: {
-      type: Number, // 💡 Pre-computes the key institutional report mandate percentage
+      type: Number, // Pre-computes the key institutional report mandate percentage
       default: 0.0,
     },
   },
@@ -74,8 +85,11 @@ const EnrollmentAnalyticsSchema = new mongoose.Schema({
   },
 });
 
-// Compound unique index ensuring only one document ledger governs a campus-year combo window
-EnrollmentAnalyticsSchema.index({ academicYear: 1, campus: 1 }, { unique: true });
+// Compound unique index ensuring only one document governs a campus-year-semester combo
+EnrollmentAnalyticsSchema.index(
+  { academicYear: 1, campus: 1, semester: 1 },
+  { unique: true }
+);
 
 // Pre-save lifecycle automation engine to calculate summary blocks dynamically
 EnrollmentAnalyticsSchema.pre("save", async function () {
@@ -103,10 +117,10 @@ EnrollmentAnalyticsSchema.pre("save", async function () {
 
   // 4. Automated YoY Growth Percentage tracking lookup logic
   try {
-    // .lean() prevents Mongoose from hydrating the document, speeding up retrieval and avoiding save pipeline issues
     const previousYearRecord = await this.constructor.findOne({
       academicYear: this.academicYear - 1,
-      campus: this.campus
+      campus: this.campus,
+      semester: this.semester,
     }).lean();
 
     if (previousYearRecord && previousYearRecord.summaryKpis && previousYearRecord.summaryKpis.totalStudents > 0) {
@@ -122,7 +136,6 @@ EnrollmentAnalyticsSchema.pre("save", async function () {
   }
 
   this.updatedAt = Date.now();
-  // 💡 Reach the end of an async hook execution block to tell Mongoose to proceed with committing database save records
 });
 
 module.exports = mongoose.model("EnrollmentAnalytics", EnrollmentAnalyticsSchema);
