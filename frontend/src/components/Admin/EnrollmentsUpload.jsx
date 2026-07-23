@@ -21,6 +21,14 @@ export default function EnrollmentsUpload() {
     }
   };
 
+  // Clear selected file
+  const handleClearFile = () => {
+    setFile(null);
+    setStatusMessage(null);
+    const fileInput = document.getElementById("fileInput");
+    if (fileInput) fileInput.value = "";
+  };
+
   // ==========================================
   // DRAG AND DROP EVENT HANDLERS
   // ==========================================
@@ -106,7 +114,7 @@ export default function EnrollmentsUpload() {
         type: "success",
         text: json.message || "File uploaded and processed successfully!",
       });
-      setFile(null);
+      handleClearFile();
     } catch (err) {
       setStatusMessage({
         type: "error",
@@ -210,8 +218,18 @@ export default function EnrollmentsUpload() {
           </label>
         </div>
 
-        {/* Action Button */}
-        <div className="mt-6 flex justify-end">
+        {/* Action Buttons */}
+        <div className="mt-6 flex items-center justify-end gap-3">
+          {file && (
+            <button
+              onClick={handleClearFile}
+              disabled={uploading}
+              className="px-5 py-2.5 rounded-xl font-oswald uppercase tracking-wider text-xs font-bold border border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-slate-800 transition-all cursor-pointer disabled:opacity-50"
+            >
+              Clear File
+            </button>
+          )}
+
           <button
             onClick={() => handleUpload(false)}
             disabled={!file || uploading}
