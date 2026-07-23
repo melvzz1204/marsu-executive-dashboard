@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import marsuLogo from "../assets/marsu-logo.png";
 
-function LoginTransition({ onComplete }) {
+function LoginTransition({ onComplete, userRole }) {
   const [progress, setProgress] = useState(0);
   const [currentStep, setCurrentStep] = useState(0);
 
@@ -33,13 +33,19 @@ function LoginTransition({ onComplete }) {
       if (currentStepCount >= steps) {
         clearInterval(timer);
         setTimeout(() => {
-          if (onComplete) onComplete();
+          if (onComplete) {
+            // Determine the target route dynamically depending on the authenticated role
+            const redirectPath = (userRole === "admin" || userRole === "staff") 
+              ? "/admin/dashboard" 
+              : "/dashboard";
+            onComplete(redirectPath);
+          }
         }, 300);
       }
     }, intervalTime);
 
     return () => clearInterval(timer);
-  }, [onComplete]);
+  }, [onComplete, userRole]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#f8fafc]/95 backdrop-blur-md animate-in fade-in duration-300">
@@ -139,6 +145,7 @@ const Login = () => {
         setError(data.message || "Invalid email or password.");
       }
     } catch (err) {
+      console.error("Login request failed:", err);
       setError("Unable to establish a connection with the backend server.");
     } finally {
       setIsLoading(false);
@@ -153,7 +160,7 @@ const Login = () => {
   return (
     <>
       {isTransitioning && (
-        <LoginTransition onComplete={handleTransitionComplete} />
+        <LoginTransition onComplete={handleTransitionComplete} userRole={userRole} />
       )}
 
       <div className="max-w-5xl w-full mx-auto grid grid-cols-1 md:grid-cols-12 overflow-hidden rounded-3xl border border-slate-200/70 bg-white shadow-2xl min-h-[620px]">
