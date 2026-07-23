@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Sidebar from "../components/Admin/sideBar";
 
 export default function AdminDashboard() {
@@ -17,8 +17,25 @@ export default function AdminDashboard() {
   const [academicYearInput, setAcademicYearInput] = useState("");
   const [semester, setSemester] = useState("1st Sem");
 
-  // Dynamic Upload Audit History State
-  const [uploadHistory, setUploadHistory] = useState([]);
+  // Dynamic Upload Audit History State (Initializes from LocalStorage)
+  const [uploadHistory, setUploadHistory] = useState(() => {
+    try {
+      const saved = localStorage.getItem("uploadHistory");
+      return saved ? JSON.parse(saved) : [];
+    } catch (err) {
+      console.error("Failed to load upload history from localStorage:", err);
+      return [];
+    }
+  });
+
+  // Sync uploadHistory state to LocalStorage whenever it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem("uploadHistory", JSON.stringify(uploadHistory));
+    } catch (err) {
+      console.error("Failed to save upload history to localStorage:", err);
+    }
+  }, [uploadHistory]);
 
   // Display label mapping for headers & context text
   const categoryLabels = {
@@ -77,20 +94,9 @@ export default function AdminDashboard() {
     }
   };
 
-  // Enrollment Upload Execution
+  // Enrollment Upload Execution -> CONNECTED TO /api/v1/enrollment/upload
   const confirmAndExecuteEnrollmentUpload = async () => {
     if (!selectedFile) return;
-
-    let parsedYear = 2022;
-    const rangeMatch = academicYearInput.match(/20\d{2}[-_/](20\d{2})/);
-    if (rangeMatch && rangeMatch[1]) {
-      parsedYear = Number(rangeMatch[1]);
-    } else {
-      const singleMatch = academicYearInput.match(/(20\d{2})/);
-      if (singleMatch) {
-        parsedYear = Number(singleMatch[1]);
-      }
-    }
 
     setIsUploading(true);
     setUploadError(null);
@@ -99,7 +105,7 @@ export default function AdminDashboard() {
       const token = localStorage.getItem("token");
       const formData = new FormData();
       formData.append("file", selectedFile);
-      formData.append("academicYear", parsedYear);
+      formData.append("academicYear", academicYearInput);
       formData.append("semester", semester);
 
       const response = await fetch(
@@ -122,14 +128,14 @@ export default function AdminDashboard() {
       setUploadSuccess(true);
       setIsModalOpen(false);
 
-      // Record entry in local history
+      // Record entry in local state (useEffect will persist it to LocalStorage)
       setUploadHistory((prev) => [
         {
           id: Date.now(),
           category: activeTab,
           filename: selectedFile.name,
-          records: result.insertedCount
-            ? `${result.insertedCount} rows`
+          records: result.recordsIngested
+            ? `${result.recordsIngested} group(s)`
             : "Processed",
           date: new Date().toLocaleDateString("en-US", {
             month: "short",
@@ -179,14 +185,14 @@ export default function AdminDashboard() {
 
       setUploadSuccess(true);
 
-      // Record entry in local history
+      // Record entry in local state (useEffect will persist it to LocalStorage)
       setUploadHistory((prev) => [
         {
           id: Date.now(),
           category: activeTab,
           filename: selectedFile.name,
-          records: result.insertedCount
-            ? `${result.insertedCount} rows`
+          records: result.recordsIngested
+            ? `${result.recordsIngested} group(s)`
             : "Processed",
           date: new Date().toLocaleDateString("en-US", {
             month: "short",
@@ -214,12 +220,11 @@ export default function AdminDashboard() {
     setIsModalOpen(false);
   };
 
-  const getParsedYearDisplay = () => {
-    const rangeMatch = academicYearInput.match(/20\d{2}[-_/](20\d{2})/);
-    if (rangeMatch && rangeMatch[1]) return rangeMatch[1];
-    const singleMatch = academicYearInput.match(/(20\d{2})/);
-    if (singleMatch) return singleMatch[1];
-    return "2022";
+  // Helper to clear stored history if needed
+  const handleClearHistory = () => {
+    setUploadHistory((prev) =>
+      prev.filter((item) => item.category !== activeTab),
+    );
   };
 
   // Filter audit history by the active tab category
@@ -229,7 +234,7 @@ export default function AdminDashboard() {
 
   return (
     <div className="flex h-screen bg-slate-100 font-sans text-slate-800 overflow-hidden">
-      {/* 1. SEPARATED SIDEBAR COMPONENT */}
+      {/* 1. SIDEBAR COMPONENT */}
       <Sidebar activeTab={activeTab} onNavClick={handleNavClick} />
 
       {/* 2. MAIN WORKSPACE */}
@@ -238,7 +243,7 @@ export default function AdminDashboard() {
         <header className="bg-white border-b border-slate-200/80 px-8 py-5 flex items-center justify-between sticky top-0 z-10 shadow-sm">
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-[10px]  font-bold uppercase tracking-widest text-[#580017] bg-[#580017]/5 px-2.5 py-0.5 rounded">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-[#580017] bg-[#580017]/5 px-2.5 py-0.5 rounded">
                 Target Collection
               </span>
               <span className="text-slate-300">•</span>
@@ -278,7 +283,7 @@ export default function AdminDashboard() {
           >
             <input
               type="file"
-              accept=".xlsx, .xls, .csv"
+              accept=".xlsx"
               onChange={handleFileChange}
               className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
             />
@@ -302,13 +307,13 @@ export default function AdminDashboard() {
 
               {selectedFile ? (
                 <div className="space-y-1">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block ">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">
                     Ready to Ingest
                   </span>
-                  <p className="text-base font-bold text-slate-900 ">
+                  <p className="text-base font-bold text-slate-900">
                     {selectedFile.name}
                   </p>
-                  <span className="text-xs text-slate-400 block ">
+                  <span className="text-xs text-slate-400 block">
                     {(selectedFile.size / 1024).toFixed(1)} KB
                   </span>
                 </div>
@@ -320,8 +325,6 @@ export default function AdminDashboard() {
                   <p className="text-xs text-slate-400">
                     Upload official{" "}
                     <span className="font-semibold text-slate-600">.XLSX</span>{" "}
-                    or{" "}
-                    <span className="font-semibold text-slate-600">.CSV</span>{" "}
                     files for {categoryLabels[activeTab]}
                   </p>
                 </div>
@@ -340,10 +343,10 @@ export default function AdminDashboard() {
             <div className="flex items-center gap-2">
               <span className="text-xs text-slate-500 font-medium">
                 {uploadSuccess
-                  ? "✓ Data processed and synchronized with cluster."
+                  ? "✓ Data processed and synchronized with MongoDB."
                   : selectedFile
                     ? activeTab === "enrollments"
-                      ? "File attached. Click Upload Data to configure the Academic Year & Semester."
+                      ? "File attached. Click Upload Data to configure Academic Year target."
                       : "File attached. Click Upload Data to process."
                     : "No file selected."}
               </span>
@@ -386,23 +389,34 @@ export default function AdminDashboard() {
 
           {/* Error Message */}
           {uploadError && (
-            <div className="bg-rose-50 border border-rose-200 text-rose-700 p-4 rounded-2xl text-xs ">
+            <div className="bg-rose-50 border border-rose-200 text-rose-700 p-4 rounded-2xl text-xs">
               ⚠️ Upload Error: {uploadError}
             </div>
           )}
 
-          {/* Dynamic Audit History */}
+          {/* Persistent Audit History */}
           <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
-            <h3 className="text-sm font-bold uppercase font-oswald text-slate-900 tracking-wider">
-              Data History
-            </h3>
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold uppercase font-oswald text-slate-900 tracking-wider">
+                Data History
+              </h3>
+              {filteredHistory.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleClearHistory}
+                  className="text-[11px] font-bold text-slate-400 hover:text-rose-600 uppercase font-oswald transition-colors"
+                >
+                  Clear Category History
+                </button>
+              )}
+            </div>
 
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead>
-                  <tr className="border-b border-slate-100 text-[10px] font-bold uppercase tracking-wider text-slate-400 ">
+                  <tr className="border-b border-slate-100 text-[10px] font-bold uppercase tracking-wider text-slate-400">
                     <th className="py-2.5 px-3">Filename</th>
-                    <th className="py-2.5 px-3">Records Ingested</th>
+                    <th className="py-2.5 px-3">Groups Ingested</th>
                     <th className="py-2.5 px-3">Date</th>
                     <th className="py-2.5 px-3 text-right">Status</th>
                   </tr>
@@ -411,15 +425,15 @@ export default function AdminDashboard() {
                   {filteredHistory.length > 0 ? (
                     filteredHistory.map((item) => (
                       <tr key={item.id} className="hover:bg-slate-50/50">
-                        <td className="py-3 px-3  font-semibold text-slate-900">
+                        <td className="py-3 px-3 font-semibold text-slate-900">
                           {item.filename}
                         </td>
-                        <td className="py-3 px-3 ">{item.records}</td>
+                        <td className="py-3 px-3">{item.records}</td>
                         <td className="py-3 px-3 text-slate-400 text-[11px]">
                           {item.date}
                         </td>
                         <td className="py-3 px-3 text-right">
-                          <span className="px-2 py-0.5 rounded text-[10px]  font-bold bg-emerald-50 text-emerald-700">
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700">
                             ● {item.status}
                           </span>
                         </td>
@@ -443,17 +457,17 @@ export default function AdminDashboard() {
         </div>
       </main>
 
-      {/* 3. ENROLLMENT ACADEMIC YEAR & SEMESTER MODAL */}
+      {/* 3. ENROLLMENT ACADEMIC YEAR MODAL */}
       {isModalOpen && activeTab === "enrollments" && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl border border-slate-100 p-6 sm:p-8 max-w-md w-full shadow-2xl space-y-6 animate-fade-in relative">
             <div className="flex items-center justify-between border-b border-slate-100 pb-4">
               <div>
-                <span className="text-[10px]  font-bold text-[#580017] uppercase tracking-widest block">
+                <span className="text-[10px] font-bold text-[#580017] uppercase tracking-widest block">
                   Enrollment Data Ingestion
                 </span>
                 <h3 className="text-xl font-black font-oswald text-slate-900 uppercase tracking-tight mt-0.5">
-                  Set Academic Period
+                  Set Academic Period Filter
                 </h3>
               </div>
               <button
@@ -470,10 +484,10 @@ export default function AdminDashboard() {
                   📄
                 </div>
                 <div className="min-w-0 flex-1">
-                  <span className="text-[10px]  text-slate-400 uppercase block truncate">
+                  <span className="text-[10px] text-slate-400 uppercase block truncate">
                     Attached Spreadsheet
                   </span>
-                  <p className="text-xs font-bold text-slate-800  truncate">
+                  <p className="text-xs font-bold text-slate-800 truncate">
                     {selectedFile?.name}
                   </p>
                 </div>
@@ -482,31 +496,15 @@ export default function AdminDashboard() {
               {/* Academic Year Input */}
               <div className="space-y-2">
                 <label className="text-xs font-bold uppercase font-oswald text-slate-700 tracking-wide block">
-                  Academic Year Range
+                  Academic Year Filter (Optional)
                 </label>
                 <input
                   type="text"
                   value={academicYearInput}
                   onChange={(e) => setAcademicYearInput(e.target.value)}
-                  placeholder="e.g. 2021-2022"
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:border-[#580017]  text-sm text-slate-900 bg-white shadow-sm"
+                  placeholder="e.g. 2022 or 2022-2023 (Leave blank to ingest all tabs)"
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:border-[#580017] text-sm text-slate-900 bg-white shadow-sm"
                 />
-              </div>
-
-              {/* Semester Dropdown */}
-              <div className="space-y-2">
-                <label className="text-xs font-bold uppercase font-oswald text-slate-700 tracking-wide block">
-                  Semester
-                </label>
-                <select
-                  value={semester}
-                  onChange={(e) => setSemester(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:border-[#580017]  text-sm text-slate-900 bg-white shadow-sm cursor-pointer"
-                >
-                  <option value="1st Sem">1st Semester</option>
-                  <option value="2nd Sem">2nd Semester</option>
-                  <option value="Summer">Summer / Midyear</option>
-                </select>
               </div>
             </div>
 
@@ -522,7 +520,7 @@ export default function AdminDashboard() {
 
               <button
                 type="button"
-                disabled={isUploading || !academicYearInput.trim()}
+                disabled={isUploading}
                 onClick={confirmAndExecuteEnrollmentUpload}
                 className="px-6 py-3 rounded-xl bg-[#580017] text-white text-xs font-bold uppercase tracking-wider font-oswald shadow-md hover:bg-[#6e001d] transition-all disabled:opacity-40 disabled:cursor-not-allowed border border-[#D4AF37]/30 flex items-center gap-2 cursor-pointer"
               >
@@ -532,7 +530,7 @@ export default function AdminDashboard() {
                     Processing...
                   </>
                 ) : (
-                  "Confirm"
+                  "Confirm Upload"
                 )}
               </button>
             </div>
