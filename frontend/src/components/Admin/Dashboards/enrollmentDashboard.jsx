@@ -238,11 +238,11 @@ export default function EnrollmentDashboard() {
     };
   }, [trendData]);
 
-  // Helper component for dynamic YoY badge rendering
+  // Helper function with bumped font size (text-xs) & high-visibility styling
   const renderYoYBadge = (growthVal, hasBaseline) => {
     if (!hasBaseline || growthVal === null || growthVal === undefined) {
       return (
-        <span className="inline-flex items-center gap-1 text-[10px] font-extrabold px-2.5 py-1 rounded-full bg-[#D4AF37]/20 text-[#FFD700] border border-[#D4AF37]/40 shadow-sm">
+        <span className="inline-flex items-center gap-1.5 text-xs font-black px-3.5 py-1.5 rounded-full bg-[#D4AF37] text-[#660033] border border-amber-200 shadow-sm">
           ✦ Baseline Year
         </span>
       );
@@ -250,7 +250,7 @@ export default function EnrollmentDashboard() {
 
     if (growthVal > 0) {
       return (
-        <span className="inline-flex items-center gap-1 text-[10px] font-extrabold px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shadow-sm backdrop-blur-sm">
+        <span className="inline-flex items-center gap-1.5 text-xs font-black px-3.5 py-1.5 rounded-full bg-emerald-500/30 text-emerald-300 border border-emerald-400/50 shadow-sm backdrop-blur-md">
           ▲ +{growthVal}% YoY
         </span>
       );
@@ -258,19 +258,18 @@ export default function EnrollmentDashboard() {
 
     if (growthVal < 0) {
       return (
-        <span className="inline-flex items-center gap-1 text-[10px] font-extrabold px-2.5 py-1 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30 shadow-sm backdrop-blur-sm">
+        <span className="inline-flex items-center gap-1.5 text-xs font-black px-3.5 py-1.5 rounded-full bg-rose-500/30 text-rose-300 border border-rose-400/50 shadow-sm backdrop-blur-md">
           ▼ {growthVal}% YoY
         </span>
       );
     }
 
     return (
-      <span className="inline-flex items-center gap-1 text-[10px] font-extrabold px-2.5 py-1 rounded-full bg-slate-700/60 text-slate-300 border border-slate-600/60 shadow-sm">
-        • 0.0% YoY
+      <span className="inline-flex items-center gap-1.5 text-xs font-black px-3.5 py-1.5 rounded-full bg-[#D4AF37] text-[#660033] border border-amber-300 shadow-sm">
+        ▲ 0.0% YoY Growth
       </span>
     );
   };
-
   const horizontalOptions = {
     responsive: true,
     maintainAspectRatio: false,
