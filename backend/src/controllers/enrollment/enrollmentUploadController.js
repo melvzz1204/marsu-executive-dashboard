@@ -12,7 +12,10 @@ function extractCellValue(cell) {
       return String(cell.value.result).trim();
     }
     if (cell.value.richText) {
-      return cell.value.richText.map((t) => t.text).join("").trim();
+      return cell.value.richText
+        .map((t) => t.text)
+        .join("")
+        .trim();
     }
   }
   return String(cell.value).trim();
@@ -34,16 +37,24 @@ function normalizeSemesterFromContent(text) {
   if (!text) return "1st Semester";
   const cleanStr = String(text).toUpperCase().trim();
 
-  if (cleanStr.includes("2ND") || cleanStr.includes("SECOND") || cleanStr === "2") {
+  if (
+    cleanStr.includes("2ND") ||
+    cleanStr.includes("SECOND") ||
+    cleanStr === "2"
+  ) {
     return "2nd Semester";
   }
-  if (cleanStr.includes("1ST") || cleanStr.includes("FIRST") || cleanStr === "1") {
+  if (
+    cleanStr.includes("1ST") ||
+    cleanStr.includes("FIRST") ||
+    cleanStr === "1"
+  ) {
     return "1st Semester";
   }
   if (cleanStr.includes("SUMMER") || cleanStr.includes("MIDYEAR")) {
     return "Summer";
   }
-  
+
   // Return verbatim if already formatted (e.g., "1st Semester")
   return text.trim();
 }
@@ -101,13 +112,27 @@ exports.uploadEnrollmentExcel = async (req, res) => {
       const colIndexes = {};
 
       headerRow.eachCell((cell, colNumber) => {
-        const headerText = extractCellValue(cell).toUpperCase().replace(/[\s_]+/g, "");
-        if (headerText.includes("SEMESTER") || headerText.includes("SEM")) colIndexes.semester = colNumber;
+        const headerText = extractCellValue(cell)
+          .toUpperCase()
+          .replace(/[\s_]+/g, "");
+        if (headerText.includes("SEMESTER") || headerText.includes("SEM"))
+          colIndexes.semester = colNumber;
         if (headerText.includes("CAMPUS")) colIndexes.campus = colNumber;
-        if (headerText.includes("PROGRAMCODE") || headerText.includes("CODE")) colIndexes.programCode = colNumber;
-        if (headerText.includes("PROGRAMNAME") || headerText.includes("NAME")) colIndexes.programName = colNumber;
-        if (headerText.includes("CLASSIFICATION") || headerText.includes("PRIORITY")) colIndexes.programClassification = colNumber;
-        if (headerText.includes("ENROLLEDCOUNT") || headerText.includes("ENROLLED") || headerText.includes("COUNT")) colIndexes.enrolledCount = colNumber;
+        if (headerText.includes("PROGRAMCODE") || headerText.includes("CODE"))
+          colIndexes.programCode = colNumber;
+        if (headerText.includes("PROGRAMNAME") || headerText.includes("NAME"))
+          colIndexes.programName = colNumber;
+        if (
+          headerText.includes("CLASSIFICATION") ||
+          headerText.includes("PRIORITY")
+        )
+          colIndexes.programClassification = colNumber;
+        if (
+          headerText.includes("ENROLLEDCOUNT") ||
+          headerText.includes("ENROLLED") ||
+          headerText.includes("COUNT")
+        )
+          colIndexes.enrolledCount = colNumber;
       });
 
       // Header index fallbacks
@@ -115,7 +140,8 @@ exports.uploadEnrollmentExcel = async (req, res) => {
       if (!colIndexes.campus) colIndexes.campus = 3;
       if (!colIndexes.programCode) colIndexes.programCode = 4;
       if (!colIndexes.programName) colIndexes.programName = 5;
-      if (!colIndexes.programClassification) colIndexes.programClassification = 6;
+      if (!colIndexes.programClassification)
+        colIndexes.programClassification = 6;
       if (!colIndexes.enrolledCount) colIndexes.enrolledCount = 7;
 
       worksheet.eachRow((row, rowNumber) => {
@@ -123,14 +149,24 @@ exports.uploadEnrollmentExcel = async (req, res) => {
 
         try {
           // Read and normalize semester DIRECTLY from row content
-          const rawRowSemester = extractCellValue(row.getCell(colIndexes.semester));
+          const rawRowSemester = extractCellValue(
+            row.getCell(colIndexes.semester),
+          );
           const semester = normalizeSemesterFromContent(rawRowSemester);
 
           const campus = extractCellValue(row.getCell(colIndexes.campus));
-          const programCode = extractCellValue(row.getCell(colIndexes.programCode));
-          const programName = extractCellValue(row.getCell(colIndexes.programName));
-          const classification = extractCellValue(row.getCell(colIndexes.programClassification));
-          const rawCount = extractCellValue(row.getCell(colIndexes.enrolledCount));
+          const programCode = extractCellValue(
+            row.getCell(colIndexes.programCode),
+          );
+          const programName = extractCellValue(
+            row.getCell(colIndexes.programName),
+          );
+          const classification = extractCellValue(
+            row.getCell(colIndexes.programClassification),
+          );
+          const rawCount = extractCellValue(
+            row.getCell(colIndexes.enrolledCount),
+          );
 
           // Skip completely blank rows
           if (!programName && !campus) return;
@@ -142,13 +178,39 @@ exports.uploadEnrollmentExcel = async (req, res) => {
 
           // Infer department group
           let department = "General";
-          if (programName.includes("Engineering") || programCode.includes("CE") || programCode.includes("EE")) department = "Engineering";
-          else if (programName.includes("Education") || programName.includes("Teacher") || programName.includes("Arts")) department = "Education";
-          else if (programName.includes("Technology") || programName.includes("Information") || programName.includes("Computer")) department = "Technology";
-          else if (programName.includes("Business") || programName.includes("Accountancy")) department = "Business";
-          else if (programName.includes("Nursing") || programName.includes("Midwifery") || programName.includes("Agriculture")) department = "Sciences";
+          if (
+            programName.includes("Engineering") ||
+            programCode.includes("CE") ||
+            programCode.includes("EE")
+          )
+            department = "Engineering";
+          else if (
+            programName.includes("Education") ||
+            programName.includes("Teacher") ||
+            programName.includes("Arts")
+          )
+            department = "Education";
+          else if (
+            programName.includes("Technology") ||
+            programName.includes("Information") ||
+            programName.includes("Computer")
+          )
+            department = "Technology";
+          else if (
+            programName.includes("Business") ||
+            programName.includes("Accountancy")
+          )
+            department = "Business";
+          else if (
+            programName.includes("Nursing") ||
+            programName.includes("Midwifery") ||
+            programName.includes("Agriculture")
+          )
+            department = "Sciences";
 
-          const formattedCampus = campus ? campus.charAt(0).toUpperCase() + campus.slice(1).toLowerCase() : "Boac";
+          const formattedCampus = campus
+            ? campus.charAt(0).toUpperCase() + campus.slice(1).toLowerCase()
+            : "Boac";
 
           // Group strictly by (School Year from Tab Name) + (Campus) + (Semester from Row Cell)
           const groupKey = `${tabYear}_${formattedCampus}_${semester.replace(/\s+/g, "")}`;
@@ -164,7 +226,8 @@ exports.uploadEnrollmentExcel = async (req, res) => {
 
           datasetByYearCampusAndSemester[groupKey].programs.push({
             programName,
-            programCode: programCode || programName.substring(0, 6).toUpperCase(),
+            programCode:
+              programCode || programName.substring(0, 6).toUpperCase(),
             department,
             semester,
             programClassification: classification,
@@ -173,7 +236,10 @@ exports.uploadEnrollmentExcel = async (req, res) => {
             isActive: studentCount > 0,
           });
         } catch (rowErr) {
-          console.warn(`Skipping row at line ${rowNumber} in sheet '${worksheet.name}':`, rowErr.message);
+          console.warn(
+            `Skipping row at line ${rowNumber} in sheet '${worksheet.name}':`,
+            rowErr.message,
+          );
         }
       });
     });
@@ -209,7 +275,6 @@ exports.uploadEnrollmentExcel = async (req, res) => {
       }
       return record.save();
     });
-
     await Promise.all(savePromises);
 
     return res.status(201).json({

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -12,7 +12,6 @@ import {
   Filler,
 } from "chart.js";
 import { Chart } from "react-chartjs-2";
-import { enrollmentFull } from "./enrollmentFull.js";
 
 ChartJS.register(
   CategoryScale,
@@ -47,10 +46,10 @@ const PALETTE = {
 
 // COMPREHENSIVE ACADEMIC ABBREVIATION DICTIONARY
 const PROGRAM_ABBREVIATIONS = {
-  "Bachelor of Science in Industrial Technology": "BS Industrial Technolgy",
+  "Bachelor of Science in Industrial Technology": "BS Industrial Technology",
   "Bachelor of Science in Information Technology": "BS Information Technology",
   "Bachelor of Science in Business Administration":
-    "BS  Business Administration",
+    "BS Business Administration",
   "Bachelor of Science in Civil Engineering": "BS Civil Engineering",
   "Bachelor of Science in Nursing": "BS Nursing",
   "Bachelor of Secondary Education": "BS Education",
@@ -91,21 +90,61 @@ export default function EnrollmentDashboard() {
   const [selectedYear, setSelectedYear] = useState(2023);
   const [selectedCampus, setSelectedCampus] = useState("Boac");
 
+  // Dynamic Data States
+  const [enrollmentData, setEnrollmentData] = useState({
+    time_series: [],
+    summary: [],
+  });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
   const years = [2021, 2022, 2023];
   const campuses = ["Boac", "Gasan", "Sta. Cruz", "Torrijos"];
 
   // ==========================================
-  // DATA PIPELINES
+  // DATABASE FETCH PIPELINE
   // ==========================================
-  const currentData = useMemo(() => {
-    return (enrollmentFull.time_series || []).find(
-      (item) => item.year === selectedYear && item.campus === selectedCampus,
-    );
+  useEffect(() => {
+    let isMounted = true;
+    setLoading(true);
+    setError(null);
+    
+    fetch(`/api/v1/enrollment?year=${selectedYear}&campus=${selectedCampus}`)
+      .then((res) => {
+        if (!res.ok) throw new Error("Failed to retrieve live database records");
+        return res.json();
+      })
+      .then((data) => {
+        if (isMounted) {
+          setEnrollmentData(data);
+          setLoading(false);
+        }
+      })
+      .catch((err) => {
+        if (isMounted) {
+          console.error("Database connection error:", err);
+          setError(err.message);
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
   }, [selectedYear, selectedCampus]);
 
+  // ==========================================
+  // DATA COMPUTATION PIPELINES
+  // ==========================================
+  const currentData = useMemo(() => {
+    return (enrollmentData.time_series || []).find(
+      (item) => item.year === selectedYear && item.campus === selectedCampus,
+    );
+  }, [enrollmentData, selectedYear, selectedCampus]);
+
   const summaryData = useMemo(() => {
-    return (enrollmentFull.summary || []).find((s) => s.year === selectedYear);
-  }, [selectedYear]);
+    return (enrollmentData.summary || []).find((s) => s.year === selectedYear);
+  }, [enrollmentData, selectedYear]);
 
   // Reverse mapping for restoring full text names inside tooltips dynamically
   const labelToFullNameMap = useMemo(() => {
@@ -162,7 +201,7 @@ export default function EnrollmentDashboard() {
   }, [currentData]);
 
   const macroTrendData = useMemo(() => {
-    const historicalSummary = enrollmentFull.summary || [];
+    const historicalSummary = enrollmentData.summary || [];
     return {
       labels: historicalSummary.map((s) => `AY ${s.year}`),
       datasets: [
@@ -181,7 +220,7 @@ export default function EnrollmentDashboard() {
         },
       ],
     };
-  }, []);
+  }, [enrollmentData]);
 
   // ==========================================
   // CHART CONFIGURATIONS
@@ -303,7 +342,7 @@ export default function EnrollmentDashboard() {
                 Active Programs
               </span>
               <h3 className="text-3xl font-black text-slate-900 font-sans tracking-tight mt-1.5">
-                {currentData?.metadata?.program_count || 0}
+                {loading ? "..." : (currentData?.metadata?.program_count || 0)}
               </h3>
             </div>
             <span className="text-[11px] font-semibold text-slate-400 capitalize tracking-wide mt-auto pt-2 border-t border-slate-100">
@@ -321,7 +360,7 @@ export default function EnrollmentDashboard() {
                 className="text-base font-black text-[#660033] mt-2 block truncate font-sans tracking-tight"
                 title={currentData?.metadata?.top_program}
               >
-                {currentData?.metadata?.top_program || "None Listed"}
+                {loading ? "..." : (currentData?.metadata?.top_program || "None Listed")}
               </h3>
             </div>
             <span className="text-[11px] font-semibold text-slate-400 capitalize tracking-wide mt-auto pt-2 border-t border-slate-100">

@@ -88,28 +88,39 @@ const EnrollmentAnalyticsSchema = new mongoose.Schema({
 // Compound unique index ensuring only one document governs a campus-year-semester combo
 EnrollmentAnalyticsSchema.index(
   { academicYear: 1, campus: 1, semester: 1 },
-  { unique: true }
+  { unique: true },
 );
 
 // Pre-save lifecycle automation engine to calculate summary blocks dynamically
 EnrollmentAnalyticsSchema.pre("save", async function () {
   if (this.programs && this.programs.length > 0) {
     // 1. Calculate Active Program Count & Total Headcount
-    this.summaryKpis.activeProgramsCount = this.programs.filter(p => p.isActive).length;
-    this.summaryKpis.totalStudents = this.programs.reduce((sum, p) => sum + p.studentCount, 0);
+    this.summaryKpis.activeProgramsCount = this.programs.filter(
+      (p) => p.isActive,
+    ).length;
+    this.summaryKpis.totalStudents = this.programs.reduce(
+      (sum, p) => sum + p.studentCount,
+      0,
+    );
 
     // 2. Automatically locate and map the largest program details
-    const peakProgram = [...this.programs].sort((a, b) => b.studentCount - a.studentCount)[0];
-    this.summaryKpis.largestProgramName = peakProgram ? peakProgram.programName : "N/A";
+    const peakProgram = [...this.programs].sort(
+      (a, b) => b.studentCount - a.studentCount,
+    )[0];
+    this.summaryKpis.largestProgramName = peakProgram
+      ? peakProgram.programName
+      : "N/A";
 
     // 3. Compute percentage of students in CHED/RDC priority tracks
     const priorityStudentCount = this.programs
-      .filter(p => p.isPriorityProgram)
+      .filter((p) => p.isPriorityProgram)
       .reduce((sum, p) => sum + p.studentCount, 0);
 
     if (this.summaryKpis.totalStudents > 0) {
-      const priorityRatio = (priorityStudentCount / this.summaryKpis.totalStudents) * 100;
-      this.summaryKpis.priorityEnrollmentPercentage = Math.round(priorityRatio * 10) / 10; // e.g., 72.9
+      const priorityRatio =
+        (priorityStudentCount / this.summaryKpis.totalStudents) * 100;
+      this.summaryKpis.priorityEnrollmentPercentage =
+        Math.round(priorityRatio * 10) / 10; // e.g., 72.9
     } else {
       this.summaryKpis.priorityEnrollmentPercentage = 0.0;
     }
@@ -117,13 +128,19 @@ EnrollmentAnalyticsSchema.pre("save", async function () {
 
   // 4. Automated YoY Growth Percentage tracking lookup logic
   try {
-    const previousYearRecord = await this.constructor.findOne({
-      academicYear: this.academicYear - 1,
-      campus: this.campus,
-      semester: this.semester,
-    }).lean();
+    const previousYearRecord = await this.constructor
+      .findOne({
+        academicYear: this.academicYear - 1,
+        campus: this.campus,
+        semester: this.semester,
+      })
+      .lean();
 
-    if (previousYearRecord && previousYearRecord.summaryKpis && previousYearRecord.summaryKpis.totalStudents > 0) {
+    if (
+      previousYearRecord &&
+      previousYearRecord.summaryKpis &&
+      previousYearRecord.summaryKpis.totalStudents > 0
+    ) {
       const pastTotal = previousYearRecord.summaryKpis.totalStudents;
       const currentTotal = this.summaryKpis.totalStudents;
       const growth = ((currentTotal - pastTotal) / pastTotal) * 100;
@@ -138,4 +155,7 @@ EnrollmentAnalyticsSchema.pre("save", async function () {
   this.updatedAt = Date.now();
 });
 
-module.exports = mongoose.model("EnrollmentAnalytics", EnrollmentAnalyticsSchema);
+module.exports = mongoose.model(
+  "EnrollmentAnalytics",
+  EnrollmentAnalyticsSchema,
+);
