@@ -1,4 +1,3 @@
-// controllers/enrollment/enrollmentUploadController.js
 const ExcelJS = require("exceljs");
 const EnrollmentAnalytics = require("../../models/enrollment/enrollmentAnalyticsModel");
 
@@ -55,13 +54,9 @@ function normalizeSemesterFromContent(text) {
     return "Summer";
   }
 
-  // Return verbatim if already formatted (e.g., "1st Semester")
   return text.trim();
 }
 
-// @desc    Upload and parse Consolidated Enrollment Excel sheet across valid year tabs
-// @route   POST /api/v1/enrollment/upload
-// @access  Private/Admin
 exports.uploadEnrollmentExcel = async (req, res) => {
   try {
     // 1. Defend against missing file payload
@@ -71,6 +66,9 @@ exports.uploadEnrollmentExcel = async (req, res) => {
         error: "Please upload an Excel spreadsheet (.xlsx) file.",
       });
     }
+
+    const forceOverwrite =
+      req.body.overwrite === "true" || req.body.overwrite === true;
 
     // 2. Extract target academic year from request body if specified
     let targetYear = null;
@@ -148,7 +146,6 @@ exports.uploadEnrollmentExcel = async (req, res) => {
         if (rowNumber === 1) return; // Skip header row
 
         try {
-          // Read and normalize semester DIRECTLY from row content
           const rawRowSemester = extractCellValue(
             row.getCell(colIndexes.semester),
           );
@@ -168,7 +165,6 @@ exports.uploadEnrollmentExcel = async (req, res) => {
             row.getCell(colIndexes.enrolledCount),
           );
 
-          // Skip completely blank rows
           if (!programName && !campus) return;
 
           const studentCount = parseInt(rawCount, 10) || 0;
@@ -176,7 +172,6 @@ exports.uploadEnrollmentExcel = async (req, res) => {
             classification.toUpperCase().includes("CHED") ||
             classification.toUpperCase().includes("PRIORITY");
 
-          // Infer department group
           let department = "General";
           if (
             programName.includes("Engineering") ||
@@ -212,7 +207,6 @@ exports.uploadEnrollmentExcel = async (req, res) => {
             ? campus.charAt(0).toUpperCase() + campus.slice(1).toLowerCase()
             : "Boac";
 
-          // Group strictly by (School Year from Tab Name) + (Campus) + (Semester from Row Cell)
           const groupKey = `${tabYear}_${formattedCampus}_${semester.replace(/\s+/g, "")}`;
 
           if (!datasetByYearCampusAndSemester[groupKey]) {
@@ -255,7 +249,27 @@ exports.uploadEnrollmentExcel = async (req, res) => {
       });
     }
 
-    // 5. Save or update inside MongoDB
+    // 5. SCAN DATABASE FOR DUPLICATE GROUPS
+    const duplicateConditions = groupsToSave.map((g) => ({
+      academicYear: g.academicYear,
+      campus: g.campus,
+      semester: g.semester,
+    }));
+
+    const existingRecords = await EnrollmentAnalytics.find({
+      $or: duplicateConditions,
+    });
+
+    // ⚠️ IF MATCHES FOUND AND ADMIN HAS NOT CONFIRMED OVERWRITE -> RETURN 409
+    if (existingRecords.length > 0 && !forceOverwrite) {
+      return res.status(409).json({
+        success: false,
+        isDuplicate: true,
+        message: `Found ${existingRecords.length} existing campus/semester group(s) in the database matching this Excel file.`,
+      });
+    }
+
+    // 6. SAVE OR OVERWRITE RECORDS IN MONGODB
     const savePromises = groupsToSave.map(async (group) => {
       let record = await EnrollmentAnalytics.findOne({
         academicYear: group.academicYear,
@@ -275,13 +289,14 @@ exports.uploadEnrollmentExcel = async (req, res) => {
       }
       return record.save();
     });
+
     await Promise.all(savePromises);
 
     return res.status(201).json({
       success: true,
-      message: `Successfully ingested enrollment dataset! Processed ${groupsToSave.length} campus/semester group(s)${
-        targetYear ? ` specifically for Academic Year ${targetYear}` : ""
-      }.`,
+      message: forceOverwrite
+        ? `Successfully overwritten enrollment dataset! Processed ${groupsToSave.length} campus/semester group(s).`
+        : `Successfully ingested enrollment dataset! Processed ${groupsToSave.length} campus/semester group(s).`,
       recordsIngested: groupsToSave.length,
     });
   } catch (error) {
