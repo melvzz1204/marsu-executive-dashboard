@@ -65,7 +65,6 @@ const PROGRAM_ABBREVIATIONS = {
   "Bachelor of Science in Agriculture": "BS Agriculture",
 };
 
-// Helper function to format start year as AY YYYY-YYYY (e.g., 2021 -> AY 2021–2022)
 const formatAYLabel = (startYear) => {
   if (!startYear) return "";
   const numericYear = Number(startYear);
@@ -90,7 +89,6 @@ export default function EnrollmentDashboard() {
 
   const API_BASE = "http://127.0.0.1:5000/api/v1/enrollment";
 
-  // 1. Fetch Filters & Sort Academic Years Descending
   useEffect(() => {
     const fetchFilters = async () => {
       try {
@@ -103,7 +101,6 @@ export default function EnrollmentDashboard() {
 
         if (json.success && json.data) {
           const { years, campuses, semesters } = json.data;
-
           const sortedYears = (years || []).sort((a, b) => b - a);
 
           setAvailableYears(sortedYears);
@@ -123,7 +120,6 @@ export default function EnrollmentDashboard() {
     fetchFilters();
   }, []);
 
-  // 2. Fetch Active Snapshot Data
   const fetchDashboardData = useCallback(async () => {
     if (!selectedYear || !selectedCampus) return;
 
@@ -168,7 +164,6 @@ export default function EnrollmentDashboard() {
     fetchDashboardData();
   }, [fetchDashboardData]);
 
-  // Reverse Mapping for Tooltips
   const labelToFullNameMap = useMemo(() => {
     const map = new Map();
     if (currentData && currentData.programs) {
@@ -180,7 +175,6 @@ export default function EnrollmentDashboard() {
     return map;
   }, [currentData]);
 
-  // Dynamic Horizontal Bar Chart Data
   const dynamicTopChartData = useMemo(() => {
     if (!currentData || !Array.isArray(currentData.programs)) {
       return { labels: [], datasets: [] };
@@ -223,7 +217,6 @@ export default function EnrollmentDashboard() {
     };
   }, [currentData]);
 
-  // Multi-Year Trend Chart Data
   const macroTrendData = useMemo(() => {
     return {
       labels: trendData.map((t) => formatAYLabel(t.academicYear)),
@@ -245,6 +238,38 @@ export default function EnrollmentDashboard() {
     };
   }, [trendData]);
 
+  // Helper function with bumped font size (text-xs) & high-visibility styling
+  const renderYoYBadge = (growthVal, hasBaseline) => {
+    if (!hasBaseline || growthVal === null || growthVal === undefined) {
+      return (
+        <span className="inline-flex items-center gap-1.5 text-xs font-black px-3.5 py-1.5 rounded-full bg-[#D4AF37] text-[#660033] border border-amber-200 shadow-sm">
+          ✦ Baseline Year
+        </span>
+      );
+    }
+
+    if (growthVal > 0) {
+      return (
+        <span className="inline-flex items-center gap-1.5 text-xs font-black px-3.5 py-1.5 rounded-full bg-emerald-500/30 text-emerald-300 border border-emerald-400/50 shadow-sm backdrop-blur-md">
+          ▲ +{growthVal}% YoY
+        </span>
+      );
+    }
+
+    if (growthVal < 0) {
+      return (
+        <span className="inline-flex items-center gap-1.5 text-xs font-black px-3.5 py-1.5 rounded-full bg-rose-500/30 text-rose-300 border border-rose-400/50 shadow-sm backdrop-blur-md">
+          ▼ {growthVal}% YoY
+        </span>
+      );
+    }
+
+    return (
+      <span className="inline-flex items-center gap-1.5 text-xs font-black px-3.5 py-1.5 rounded-full bg-[#D4AF37] text-[#660033] border border-amber-300 shadow-sm">
+        ▲ 0.0% YoY Growth
+      </span>
+    );
+  };
   const horizontalOptions = {
     responsive: true,
     maintainAspectRatio: false,
@@ -313,7 +338,7 @@ export default function EnrollmentDashboard() {
           </div>
 
           <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
-            {/* ACADEMIC YEAR DROPDOWN (2021-2022 Format) */}
+            {/* ACADEMIC YEAR DROPDOWN */}
             {availableYears.length > 0 && (
               <div className="relative">
                 <select
@@ -387,7 +412,7 @@ export default function EnrollmentDashboard() {
 
         {/* KPI SUMMARY CARDS */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
-          {/* CARD 1: Total Enrollment */}
+          {/* CARD 1: Campus Enrollment (UPDATED DESIGN & BADGE) */}
           <div className="relative bg-[#660033] text-white p-6 rounded-2xl shadow-[0_4px_0_0_#D4AF37] flex flex-col justify-between min-h-[140px]">
             <div>
               <span className="text-[10px] font-extrabold tracking-wider text-slate-300 block uppercase font-sans mb-1">
@@ -402,11 +427,8 @@ export default function EnrollmentDashboard() {
               <span className="text-[11px] font-medium text-slate-200/90 font-sans lowercase tracking-wide">
                 total students on campus
               </span>
-              {kpis.yoYGrowthPercentage !== undefined && (
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-[#D4AF37] text-[#660033]">
-                  ▲ {kpis.yoYGrowthPercentage}% YoY Growth
-                </span>
-              )}
+              {!loading &&
+                renderYoYBadge(kpis.yoYGrowthPercentage, kpis.hasYoYBaseline)}
             </div>
           </div>
 
@@ -478,6 +500,7 @@ export default function EnrollmentDashboard() {
             </div>
           </div>
         )}
+
         {/* TOP PROGRAMS HORIZONTAL BAR CHART */}
         <div className="grid grid-cols-1 gap-6">
           <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col">
