@@ -1,10 +1,6 @@
 const EnrollmentAnalytics = require("../../models/enrollment/enrollmentAnalyticsModel");
 
-// ==========================================
-// @desc    Get Current Snapshot Ledger (KPIs & Program Matrix)
-// @route   GET /api/v1/enrollment
-// @access  Public / Private
-// ==========================================
+// GET /api/v1/enrollment
 exports.getEnrollmentSnapshot = async (req, res) => {
   try {
     const { year, campus, semester } = req.query;
@@ -13,31 +9,64 @@ exports.getEnrollmentSnapshot = async (req, res) => {
     const campusName = campus || "Boac";
     const semesterName = semester || "1st Semester";
 
-    // Query matching compound index: { academicYear: 1, campus: 1, semester: 1 }
+    // 1. Fetch Snapshot for Requested Academic Year
     const snapshot = await EnrollmentAnalytics.findOne({
       academicYear: numericYear,
       campus: campusName,
       semester: semesterName,
     }).lean();
 
-    // If no record exists for this term selection, return safe empty state (200 OK)
     if (!snapshot) {
       return res.status(200).json({
         success: true,
         data: {
           summaryKpis: {
             totalStudents: 0,
-            yoYGrowthPercentage: 0,
+            yoYGrowthPercentage: null,
+            hasYoYBaseline: false,
             activeProgramsCount: 0,
             largestProgramName: "N/A",
-            priorityEnrollmentPercentage: 0,
           },
           programs: [],
         },
       });
     }
 
-    // Map sub-documents to frontend properties
+    // Current Total Students
+    const currentTotal =
+      snapshot.summaryKpis?.totalStudents ||
+      (snapshot.programs || []).reduce(
+        (acc, p) => acc + (p.studentCount || 0),
+        0,
+      );
+
+    // 2. Dynamic YoY Calculation: Fetch Previous Academic Year (AY - 1)
+    const prevSnapshot = await EnrollmentAnalytics.findOne({
+      academicYear: numericYear - 1,
+      campus: campusName,
+      semester: semesterName,
+    }).lean();
+
+    let yoYGrowthPercentage = null;
+    let hasYoYBaseline = false;
+
+    if (prevSnapshot) {
+      const prevTotal =
+        prevSnapshot.summaryKpis?.totalStudents ||
+        (prevSnapshot.programs || []).reduce(
+          (acc, p) => acc + (p.studentCount || 0),
+          0,
+        );
+
+      if (prevTotal > 0) {
+        yoYGrowthPercentage = Number(
+          (((currentTotal - prevTotal) / prevTotal) * 100).toFixed(1),
+        );
+        hasYoYBaseline = true;
+      }
+    }
+
+    // Map programs sub-documents
     const mappedPrograms = (snapshot.programs || []).map((p, index) => ({
       _id: p._id,
       name: p.programName || "Unnamed Program",
@@ -52,12 +81,11 @@ exports.getEnrollmentSnapshot = async (req, res) => {
     return res.status(200).json({
       success: true,
       data: {
-        summaryKpis: snapshot.summaryKpis || {
-          totalStudents: 0,
-          yoYGrowthPercentage: 0,
-          activeProgramsCount: 0,
-          largestProgramName: "N/A",
-          priorityEnrollmentPercentage: 0,
+        summaryKpis: {
+          ...(snapshot.summaryKpis || {}),
+          totalStudents: currentTotal,
+          yoYGrowthPercentage,
+          hasYoYBaseline,
         },
         programs: mappedPrograms,
       },
