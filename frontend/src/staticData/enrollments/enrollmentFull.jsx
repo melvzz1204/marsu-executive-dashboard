@@ -65,6 +65,15 @@ const PROGRAM_ABBREVIATIONS = {
   "Bachelor of Science in Agriculture": "BS Agriculture",
 };
 
+// Helper function to format start year as AY YYYY-YYYY (e.g., 2021 -> AY 2021–2022)
+const formatAYLabel = (startYear) => {
+  if (!startYear) return "";
+  const numericYear = Number(startYear);
+  return !isNaN(numericYear)
+    ? `AY ${numericYear}–${numericYear + 1}`
+    : startYear;
+};
+
 export default function EnrollmentDashboard() {
   const [availableYears, setAvailableYears] = useState([]);
   const [availableCampuses, setAvailableCampuses] = useState([]);
@@ -81,7 +90,7 @@ export default function EnrollmentDashboard() {
 
   const API_BASE = "http://127.0.0.1:5000/api/v1/enrollment";
 
-  // 1. Fetch Filters & Sort Academic Years (Newest First)
+  // 1. Fetch Filters & Sort Academic Years Descending
   useEffect(() => {
     const fetchFilters = async () => {
       try {
@@ -95,7 +104,6 @@ export default function EnrollmentDashboard() {
         if (json.success && json.data) {
           const { years, campuses, semesters } = json.data;
 
-          // Chronologically sort years descending (e.g., 2026, 2025, 2024...)
           const sortedYears = (years || []).sort((a, b) => b - a);
 
           setAvailableYears(sortedYears);
@@ -115,6 +123,7 @@ export default function EnrollmentDashboard() {
     fetchFilters();
   }, []);
 
+  // 2. Fetch Active Snapshot Data
   const fetchDashboardData = useCallback(async () => {
     if (!selectedYear || !selectedCampus) return;
 
@@ -125,11 +134,9 @@ export default function EnrollmentDashboard() {
       const token = localStorage.getItem("token");
       const headers = { Authorization: `Bearer ${token || ""}` };
 
-      // 1. Fetch Snapshot for Selected Year, Campus, AND Semester
       const snapshotUrl = `${API_BASE}?year=${selectedYear}&campus=${encodeURIComponent(
         selectedCampus,
       )}&semester=${encodeURIComponent(selectedSemester)}`;
-
       const snapshotRes = await fetch(snapshotUrl, { headers });
       const snapshotJson = await snapshotRes.json();
 
@@ -139,11 +146,9 @@ export default function EnrollmentDashboard() {
 
       setCurrentData(snapshotJson.data);
 
-      // 2. Fetch Multi-Year Trend filtered by the SAME Semester (Apples-to-Apples)
       const trendUrl = `${API_BASE}/trend?campus=${encodeURIComponent(
         selectedCampus,
       )}&semester=${encodeURIComponent(selectedSemester)}`;
-
       const trendRes = await fetch(trendUrl, { headers });
       const trendJson = await trendRes.json();
 
@@ -158,11 +163,12 @@ export default function EnrollmentDashboard() {
       setLoading(false);
     }
   }, [selectedYear, selectedCampus, selectedSemester]);
+
   useEffect(() => {
     fetchDashboardData();
   }, [fetchDashboardData]);
 
-  // Reverse Mapping for Chart Tooltips
+  // Reverse Mapping for Tooltips
   const labelToFullNameMap = useMemo(() => {
     const map = new Map();
     if (currentData && currentData.programs) {
@@ -174,7 +180,7 @@ export default function EnrollmentDashboard() {
     return map;
   }, [currentData]);
 
-  // Chart Bar Data Processing
+  // Dynamic Horizontal Bar Chart Data
   const dynamicTopChartData = useMemo(() => {
     if (!currentData || !Array.isArray(currentData.programs)) {
       return { labels: [], datasets: [] };
@@ -217,10 +223,10 @@ export default function EnrollmentDashboard() {
     };
   }, [currentData]);
 
-  // Longitudinal Trend Line Chart Data
+  // Multi-Year Trend Chart Data
   const macroTrendData = useMemo(() => {
     return {
-      labels: trendData.map((t) => t.label || `AY ${t.academicYear}`),
+      labels: trendData.map((t) => formatAYLabel(t.academicYear)),
       datasets: [
         {
           type: "line",
@@ -295,7 +301,7 @@ export default function EnrollmentDashboard() {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 antialiased p-4 md:p-8 rounded-2xl font-sans">
       <div className="max-w-7xl mx-auto space-y-6">
-        {/* TOP ADAPTIVE CONTROL HEADER */}
+        {/* HEADER CONTROL LAYER */}
         <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
           <div>
             <span className="text-[10px] uppercase tracking-widest font-bold text-[#660033]">
@@ -307,47 +313,27 @@ export default function EnrollmentDashboard() {
           </div>
 
           <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
-            {/* PROGRESSIVE ACADEMIC YEAR FILTER */}
-            <div className="flex items-center gap-2">
-              {/* If 4 or fewer years uploaded, show Pill Buttons */}
-              {availableYears.length <= 4 ? (
-                <div className="bg-slate-100 p-1 rounded-xl flex gap-1 overflow-x-auto max-w-xs scrollbar-none">
+            {/* ACADEMIC YEAR DROPDOWN (2021-2022 Format) */}
+            {availableYears.length > 0 && (
+              <div className="relative">
+                <select
+                  value={selectedYear}
+                  onChange={(e) => setSelectedYear(e.target.value)}
+                  className="bg-slate-100 hover:bg-slate-200/80 text-slate-800 text-xs font-bold px-3.5 py-2 pr-8 rounded-xl border-none focus:outline-none appearance-none cursor-pointer transition-all"
+                >
                   {availableYears.map((year) => (
-                    <button
-                      key={year}
-                      onClick={() => setSelectedYear(year)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
-                        Number(selectedYear) === Number(year)
-                          ? "bg-[#660033] text-white shadow-sm"
-                          : "text-slate-600 hover:text-slate-900"
-                      }`}
-                    >
-                      AY {year}
-                    </button>
+                    <option key={year} value={year}>
+                      {formatAYLabel(year)}
+                    </option>
                   ))}
+                </select>
+                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2.5 text-slate-400 text-[10px]">
+                  ▼
                 </div>
-              ) : (
-                /* If 5+ years uploaded, automatically render a sleek Dropdown */
-                <div className="relative">
-                  <select
-                    value={selectedYear}
-                    onChange={(e) => setSelectedYear(e.target.value)}
-                    className="bg-slate-100 hover:bg-slate-200/80 text-slate-900 text-xs font-extrabold px-3.5 py-2 pr-8 rounded-xl border border-slate-200/80 focus:outline-none focus:ring-2 focus:ring-[#660033]/20 appearance-none cursor-pointer transition-all"
-                  >
-                    {availableYears.map((year) => (
-                      <option key={year} value={year}>
-                        AY {year}
-                      </option>
-                    ))}
-                  </select>
-                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2.5 text-slate-500 text-[10px]">
-                    ▼
-                  </div>
-                </div>
-              )}
-            </div>
+              </div>
+            )}
 
-            {/* CAMPUS SELECTION */}
+            {/* CAMPUS SELECTION BUTTONS */}
             <div className="bg-slate-100 p-1 rounded-xl flex gap-1 overflow-x-auto max-w-xs scrollbar-none">
               {availableCampuses.map((campus) => (
                 <button
@@ -364,13 +350,13 @@ export default function EnrollmentDashboard() {
               ))}
             </div>
 
-            {/* SEMESTER SELECTION DROPDOWN */}
+            {/* SEMESTER DROPDOWN */}
             {availableSemesters.length > 0 && (
               <div className="relative">
                 <select
                   value={selectedSemester}
                   onChange={(e) => setSelectedSemester(e.target.value)}
-                  className="bg-slate-100 hover:bg-slate-200/80 text-slate-800 text-xs font-bold px-3 py-2 pr-7 rounded-xl border-none focus:outline-none appearance-none cursor-pointer"
+                  className="bg-slate-100 hover:bg-slate-200/80 text-slate-800 text-xs font-bold px-3.5 py-2 pr-8 rounded-xl border-none focus:outline-none appearance-none cursor-pointer transition-all"
                 >
                   {availableSemesters.map((s) => (
                     <option key={s} value={s}>
@@ -378,7 +364,7 @@ export default function EnrollmentDashboard() {
                     </option>
                   ))}
                 </select>
-                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-400 text-[10px]">
+                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2.5 text-slate-400 text-[10px]">
                   ▼
                 </div>
               </div>
@@ -399,9 +385,9 @@ export default function EnrollmentDashboard() {
           </div>
         )}
 
-        {/* SUMMARY KPI BLOCKS */}
+        {/* KPI SUMMARY CARDS */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
-          {/* CARD 1: Campus Enrollment */}
+          {/* CARD 1: Total Enrollment */}
           <div className="relative bg-[#660033] text-white p-6 rounded-2xl shadow-[0_4px_0_0_#D4AF37] flex flex-col justify-between min-h-[140px]">
             <div>
               <span className="text-[10px] font-extrabold tracking-wider text-slate-300 block uppercase font-sans mb-1">
@@ -424,7 +410,7 @@ export default function EnrollmentDashboard() {
             </div>
           </div>
 
-          {/* CARD 2: Active Campus Programs */}
+          {/* CARD 2: Active Programs */}
           <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-[0_4px_20px_rgba(0,0,0,0.01)] flex flex-col justify-between min-h-[140px]">
             <div>
               <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 font-sans block mb-1">
@@ -439,7 +425,7 @@ export default function EnrollmentDashboard() {
             </span>
           </div>
 
-          {/* CARD 3: Largest Campus Program */}
+          {/* CARD 3: Largest Program */}
           <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-[0_4px_20px_rgba(0,0,0,0.01)] flex flex-col justify-between min-h-[140px] min-w-0">
             <div>
               <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 font-sans block mb-1">
@@ -457,7 +443,41 @@ export default function EnrollmentDashboard() {
             </span>
           </div>
         </div>
-
+        {/* MULTI-YEAR TREND LINE CHART */}
+        {trendData.length > 0 && (
+          <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
+            <div className="mb-4">
+              <h4 className="text-base font-bold text-slate-900">
+                Multi-Year Enrollment Growth
+              </h4>
+              <p className="text-xs text-slate-400">
+                Longitudinal registration trajectory for {selectedCampus} Campus
+                ({selectedSemester})
+              </p>
+            </div>
+            <div className="h-[160px] relative">
+              <Chart
+                type="line"
+                data={macroTrendData}
+                options={{
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  plugins: { legend: { display: false } },
+                  scales: {
+                    x: {
+                      grid: { display: false },
+                      ticks: { color: PALETTE.slateMuted, font: { size: 11 } },
+                    },
+                    y: {
+                      grid: { color: "#f1f5f9" },
+                      ticks: { color: PALETTE.slateMuted, font: { size: 11 } },
+                    },
+                  },
+                }}
+              />
+            </div>
+          </div>
+        )}
         {/* TOP PROGRAMS HORIZONTAL BAR CHART */}
         <div className="grid grid-cols-1 gap-6">
           <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col">
@@ -489,42 +509,7 @@ export default function EnrollmentDashboard() {
           </div>
         </div>
 
-        {/* LONGITUDINAL TRAJECTORY CHART */}
-        {trendData.length > 0 && (
-          <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
-            <div className="mb-4">
-              <h4 className="text-base font-bold text-slate-900">
-                Multi-Year Enrollment Growth
-              </h4>
-              <p className="text-xs text-slate-400">
-                Longitudinal registration trajectory for {selectedCampus} Campus
-              </p>
-            </div>
-            <div className="h-[160px] relative">
-              <Chart
-                type="line"
-                data={macroTrendData}
-                options={{
-                  responsive: true,
-                  maintainAspectRatio: false,
-                  plugins: { legend: { display: false } },
-                  scales: {
-                    x: {
-                      grid: { display: false },
-                      ticks: { color: PALETTE.slateMuted, font: { size: 11 } },
-                    },
-                    y: {
-                      grid: { color: "#f1f5f9" },
-                      ticks: { color: PALETTE.slateMuted, font: { size: 11 } },
-                    },
-                  },
-                }}
-              />
-            </div>
-          </div>
-        )}
-
-        {/* COMPLETE PROGRAM TABLE (WITH CHED PRIORITY) */}
+        {/* COMPLETE PROGRAM MATRIX TABLE */}
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
           <div className="p-5 border-b border-slate-100">
             <h4 className="text-base font-bold text-slate-900">
@@ -612,7 +597,8 @@ export default function EnrollmentDashboard() {
                       colSpan="5"
                       className="px-6 py-8 text-center text-xs text-slate-400"
                     >
-                      No programs found for this year and campus.
+                      No programs found for this year, campus, and semester
+                      selection.
                     </td>
                   </tr>
                 )}
