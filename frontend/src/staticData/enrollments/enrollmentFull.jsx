@@ -13,7 +13,6 @@ import {
 } from "chart.js";
 import { Chart } from "react-chartjs-2";
 
-// Register Chart.js elements
 ChartJS.register(
   CategoryScale,
   LinearScale,
@@ -26,7 +25,6 @@ ChartJS.register(
   Filler,
 );
 
-// Balanced Institutional Color Strategy
 const PALETTE = {
   maroon: "#660033",
   gold: "#D4AF37",
@@ -45,7 +43,6 @@ const PALETTE = {
   },
 };
 
-// ACADEMIC ABBREVIATION DICTIONARY FOR CHART LABELS
 const PROGRAM_ABBREVIATIONS = {
   "Bachelor of Science in Industrial Technology": "BS Industrial Technology",
   "Bachelor of Science in Information Technology": "BS Information Technology",
@@ -69,17 +66,14 @@ const PROGRAM_ABBREVIATIONS = {
 };
 
 export default function EnrollmentDashboard() {
-  // 1. Dynamic Filter Options from Database
   const [availableYears, setAvailableYears] = useState([]);
   const [availableCampuses, setAvailableCampuses] = useState([]);
   const [availableSemesters, setAvailableSemesters] = useState([]);
 
-  // Active Selections
   const [selectedYear, setSelectedYear] = useState("");
   const [selectedCampus, setSelectedCampus] = useState("");
   const [selectedSemester, setSelectedSemester] = useState("1st Semester");
 
-  // Loaded API Data
   const [currentData, setCurrentData] = useState(null);
   const [trendData, setTrendData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -87,7 +81,7 @@ export default function EnrollmentDashboard() {
 
   const API_BASE = "http://127.0.0.1:5000/api/v1/enrollment";
 
-  // 2. Fetch Available Filters dynamically on Mount
+  // 1. Fetch Filters & Sort Academic Years (Newest First)
   useEffect(() => {
     const fetchFilters = async () => {
       try {
@@ -101,12 +95,14 @@ export default function EnrollmentDashboard() {
         if (json.success && json.data) {
           const { years, campuses, semesters } = json.data;
 
-          setAvailableYears(years || []);
+          // Chronologically sort years descending (e.g., 2026, 2025, 2024...)
+          const sortedYears = (years || []).sort((a, b) => b - a);
+
+          setAvailableYears(sortedYears);
           setAvailableCampuses(campuses || []);
           setAvailableSemesters(semesters || ["1st Semester", "2nd Semester"]);
 
-          // Automatically pick top available filter targets
-          if (years && years.length > 0) setSelectedYear(years[0]);
+          if (sortedYears.length > 0) setSelectedYear(sortedYears[0]);
           if (campuses && campuses.length > 0) setSelectedCampus(campuses[0]);
           if (semesters && semesters.length > 0)
             setSelectedSemester(semesters[0]);
@@ -119,7 +115,6 @@ export default function EnrollmentDashboard() {
     fetchFilters();
   }, []);
 
-  // 3. Fetch Snapshot & Trend Data when selections change
   const fetchDashboardData = useCallback(async () => {
     if (!selectedYear || !selectedCampus) return;
 
@@ -130,10 +125,11 @@ export default function EnrollmentDashboard() {
       const token = localStorage.getItem("token");
       const headers = { Authorization: `Bearer ${token || ""}` };
 
-      // Fetch Snapshot KPI & Programs
+      // 1. Fetch Snapshot for Selected Year, Campus, AND Semester
       const snapshotUrl = `${API_BASE}?year=${selectedYear}&campus=${encodeURIComponent(
         selectedCampus,
       )}&semester=${encodeURIComponent(selectedSemester)}`;
+
       const snapshotRes = await fetch(snapshotUrl, { headers });
       const snapshotJson = await snapshotRes.json();
 
@@ -143,8 +139,11 @@ export default function EnrollmentDashboard() {
 
       setCurrentData(snapshotJson.data);
 
-      // Fetch Multi-Year Trend for selected campus
-      const trendUrl = `${API_BASE}/trend?campus=${encodeURIComponent(selectedCampus)}`;
+      // 2. Fetch Multi-Year Trend filtered by the SAME Semester (Apples-to-Apples)
+      const trendUrl = `${API_BASE}/trend?campus=${encodeURIComponent(
+        selectedCampus,
+      )}&semester=${encodeURIComponent(selectedSemester)}`;
+
       const trendRes = await fetch(trendUrl, { headers });
       const trendJson = await trendRes.json();
 
@@ -159,12 +158,11 @@ export default function EnrollmentDashboard() {
       setLoading(false);
     }
   }, [selectedYear, selectedCampus, selectedSemester]);
-
   useEffect(() => {
     fetchDashboardData();
   }, [fetchDashboardData]);
 
-  // 4. Reverse Mapping for Tooltip Full Name Lookup
+  // Reverse Mapping for Chart Tooltips
   const labelToFullNameMap = useMemo(() => {
     const map = new Map();
     if (currentData && currentData.programs) {
@@ -176,7 +174,7 @@ export default function EnrollmentDashboard() {
     return map;
   }, [currentData]);
 
-  // 5. Dynamic Horizontal Bar Allocation Engine (Top 6 + Aggregated Remainder)
+  // Chart Bar Data Processing
   const dynamicTopChartData = useMemo(() => {
     if (!currentData || !Array.isArray(currentData.programs)) {
       return { labels: [], datasets: [] };
@@ -219,7 +217,7 @@ export default function EnrollmentDashboard() {
     };
   }, [currentData]);
 
-  // 6. Macro Multi-Year Trend Chart Data
+  // Longitudinal Trend Line Chart Data
   const macroTrendData = useMemo(() => {
     return {
       labels: trendData.map((t) => t.label || `AY ${t.academicYear}`),
@@ -241,7 +239,6 @@ export default function EnrollmentDashboard() {
     };
   }, [trendData]);
 
-  // Horizontal Bar Options
   const horizontalOptions = {
     responsive: true,
     maintainAspectRatio: false,
@@ -278,12 +275,11 @@ export default function EnrollmentDashboard() {
     },
   };
 
-  // Render Empty State if no data has been uploaded to database
   if (!loading && availableYears.length === 0) {
     return (
       <div className="bg-white p-12 rounded-3xl border border-slate-200 text-center space-y-3">
         <div className="text-4xl">📊</div>
-        <h3 className="text-lg font-bold text-slate-800 font-oswald uppercase">
+        <h3 className="text-lg font-bold text-slate-800 uppercase">
           No Enrollment Datasets Ingested
         </h3>
         <p className="text-xs text-slate-500 max-w-md mx-auto">
@@ -299,7 +295,7 @@ export default function EnrollmentDashboard() {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 antialiased p-4 md:p-8 rounded-2xl font-sans">
       <div className="max-w-7xl mx-auto space-y-6">
-        {/* TOP COMPACT CONTROL LAYER */}
+        {/* TOP ADAPTIVE CONTROL HEADER */}
         <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
           <div>
             <span className="text-[10px] uppercase tracking-widest font-bold text-[#660033]">
@@ -310,33 +306,56 @@ export default function EnrollmentDashboard() {
             </h1>
           </div>
 
-          <div className="flex flex-wrap items-center gap-4 w-full lg:w-auto">
-            {/* Dynamic Academic Year Buttons */}
-            <div className="bg-slate-100 p-1 rounded-xl flex gap-1 overflow-x-auto">
-              {availableYears.map((year) => (
-                <button
-                  key={year}
-                  onClick={() => setSelectedYear(year)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                    Number(selectedYear) === Number(year)
-                      ? "bg-[#660033] text-white shadow"
-                      : "text-slate-600 hover:text-slate-900"
-                  }`}
-                >
-                  AY {year}
-                </button>
-              ))}
+          <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
+            {/* PROGRESSIVE ACADEMIC YEAR FILTER */}
+            <div className="flex items-center gap-2">
+              {/* If 4 or fewer years uploaded, show Pill Buttons */}
+              {availableYears.length <= 4 ? (
+                <div className="bg-slate-100 p-1 rounded-xl flex gap-1 overflow-x-auto max-w-xs scrollbar-none">
+                  {availableYears.map((year) => (
+                    <button
+                      key={year}
+                      onClick={() => setSelectedYear(year)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+                        Number(selectedYear) === Number(year)
+                          ? "bg-[#660033] text-white shadow-sm"
+                          : "text-slate-600 hover:text-slate-900"
+                      }`}
+                    >
+                      AY {year}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                /* If 5+ years uploaded, automatically render a sleek Dropdown */
+                <div className="relative">
+                  <select
+                    value={selectedYear}
+                    onChange={(e) => setSelectedYear(e.target.value)}
+                    className="bg-slate-100 hover:bg-slate-200/80 text-slate-900 text-xs font-extrabold px-3.5 py-2 pr-8 rounded-xl border border-slate-200/80 focus:outline-none focus:ring-2 focus:ring-[#660033]/20 appearance-none cursor-pointer transition-all"
+                  >
+                    {availableYears.map((year) => (
+                      <option key={year} value={year}>
+                        AY {year}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2.5 text-slate-500 text-[10px]">
+                    ▼
+                  </div>
+                </div>
+              )}
             </div>
 
-            {/* Dynamic Campus Buttons */}
-            <div className="bg-slate-100 p-1 rounded-xl flex gap-1 overflow-x-auto">
+            {/* CAMPUS SELECTION */}
+            <div className="bg-slate-100 p-1 rounded-xl flex gap-1 overflow-x-auto max-w-xs scrollbar-none">
               {availableCampuses.map((campus) => (
                 <button
                   key={campus}
                   onClick={() => setSelectedCampus(campus)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
                     selectedCampus === campus
-                      ? "bg-[#660033] text-white shadow"
+                      ? "bg-[#660033] text-white shadow-sm"
                       : "text-slate-600 hover:text-slate-900"
                   }`}
                 >
@@ -345,24 +364,29 @@ export default function EnrollmentDashboard() {
               ))}
             </div>
 
-            {/* Dynamic Semester Select */}
+            {/* SEMESTER SELECTION DROPDOWN */}
             {availableSemesters.length > 0 && (
-              <select
-                value={selectedSemester}
-                onChange={(e) => setSelectedSemester(e.target.value)}
-                className="bg-slate-100 text-slate-800 text-xs font-bold px-3 py-2 rounded-xl border-none focus:outline-none"
-              >
-                {availableSemesters.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
+              <div className="relative">
+                <select
+                  value={selectedSemester}
+                  onChange={(e) => setSelectedSemester(e.target.value)}
+                  className="bg-slate-100 hover:bg-slate-200/80 text-slate-800 text-xs font-bold px-3 py-2 pr-7 rounded-xl border-none focus:outline-none appearance-none cursor-pointer"
+                >
+                  {availableSemesters.map((s) => (
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
+                  ))}
+                </select>
+                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-400 text-[10px]">
+                  ▼
+                </div>
+              </div>
             )}
           </div>
         </div>
 
-        {/* ERROR BANNER */}
+        {/* ERROR ALERT */}
         {error && (
           <div className="bg-rose-50 border border-rose-200 text-rose-700 p-4 rounded-2xl text-xs flex justify-between items-center">
             <span>⚠️ {error}</span>
@@ -377,7 +401,7 @@ export default function EnrollmentDashboard() {
 
         {/* SUMMARY KPI BLOCKS */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
-          {/* CARD 1: Total Campus Enrollment */}
+          {/* CARD 1: Campus Enrollment */}
           <div className="relative bg-[#660033] text-white p-6 rounded-2xl shadow-[0_4px_0_0_#D4AF37] flex flex-col justify-between min-h-[140px]">
             <div>
               <span className="text-[10px] font-extrabold tracking-wider text-slate-300 block uppercase font-sans mb-1">
@@ -400,7 +424,7 @@ export default function EnrollmentDashboard() {
             </div>
           </div>
 
-          {/* CARD 2: ACTIVE CAMPUS PROGRAMS */}
+          {/* CARD 2: Active Campus Programs */}
           <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-[0_4px_20px_rgba(0,0,0,0.01)] flex flex-col justify-between min-h-[140px]">
             <div>
               <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 font-sans block mb-1">
@@ -415,7 +439,7 @@ export default function EnrollmentDashboard() {
             </span>
           </div>
 
-          {/* CARD 3: LEADING CAMPUS PROGRAM */}
+          {/* CARD 3: Largest Campus Program */}
           <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-[0_4px_20px_rgba(0,0,0,0.01)] flex flex-col justify-between min-h-[140px] min-w-0">
             <div>
               <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 font-sans block mb-1">
@@ -434,7 +458,7 @@ export default function EnrollmentDashboard() {
           </div>
         </div>
 
-        {/* FULL WIDTH HORIZONTAL BAR GRAPH */}
+        {/* TOP PROGRAMS HORIZONTAL BAR CHART */}
         <div className="grid grid-cols-1 gap-6">
           <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col">
             <div className="mb-4">
@@ -465,7 +489,7 @@ export default function EnrollmentDashboard() {
           </div>
         </div>
 
-        {/* MULTI-YEAR TRAJECTORY LINE CHART */}
+        {/* LONGITUDINAL TRAJECTORY CHART */}
         {trendData.length > 0 && (
           <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
             <div className="mb-4">
@@ -500,7 +524,7 @@ export default function EnrollmentDashboard() {
           </div>
         )}
 
-        {/* PROGRAM AUDIT MATRIX TABLE */}
+        {/* COMPLETE PROGRAM TABLE (WITH CHED PRIORITY) */}
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
           <div className="p-5 border-b border-slate-100">
             <h4 className="text-base font-bold text-slate-900">
@@ -519,7 +543,7 @@ export default function EnrollmentDashboard() {
                   <th className="px-6 py-3 min-w-[240px]">Program Title</th>
                   <th className="px-6 py-3">Department</th>
                   <th className="px-6 py-3 text-right">Students</th>
-                  <th className="px-6 py-3 text-center">Status</th>
+                  <th className="px-6 py-3 text-center">CHED Priority</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-slate-600 bg-white">
@@ -535,47 +559,53 @@ export default function EnrollmentDashboard() {
                 ) : (currentData?.programs || []).length > 0 ? (
                   currentData.programs
                     .sort((a, b) => (a.rank || 0) - (b.rank || 0))
-                    .map((program, idx) => (
-                      <tr
-                        key={program._id || idx}
-                        className="hover:bg-slate-50/60 transition-colors"
-                      >
-                        <td className="px-6 py-4 font-mono text-slate-400 text-xs font-semibold">
-                          #{String(program.rank || idx + 1).padStart(2, "0")}
-                        </td>
+                    .map((program, idx) => {
+                      const isPriority = Boolean(
+                        program.isPriority ?? program.is_priority,
+                      );
 
-                        <td className="px-6 py-4 font-medium text-slate-900 max-w-md break-words leading-relaxed">
-                          {program.name}
-                          {program.code && (
-                            <span className="ml-2 px-1.5 py-0.5 text-[9px] font-bold bg-slate-100 text-slate-500 rounded uppercase">
-                              {program.code}
+                      return (
+                        <tr
+                          key={program._id || idx}
+                          className="hover:bg-slate-50/60 transition-colors"
+                        >
+                          <td className="px-6 py-4 font-mono text-slate-400 text-xs font-semibold">
+                            #{String(program.rank || idx + 1).padStart(2, "0")}
+                          </td>
+
+                          <td className="px-6 py-4 font-medium text-slate-900 max-w-md break-words leading-relaxed">
+                            {program.name}
+                            {program.code && (
+                              <span className="ml-2 px-1.5 py-0.5 text-[9px] font-bold bg-slate-100 text-slate-500 rounded uppercase">
+                                {program.code}
+                              </span>
+                            )}
+                          </td>
+
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className="inline-flex px-2 py-0.5 text-[10px] font-semibold rounded bg-slate-100 text-slate-600">
+                              {program.category || "General"}
                             </span>
-                          )}
-                        </td>
+                          </td>
 
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="inline-flex px-2 py-0.5 text-[10px] font-semibold rounded bg-slate-100 text-slate-600">
-                            {program.category || "General"}
-                          </span>
-                        </td>
+                          <td className="px-6 py-4 text-right font-mono text-[#660033] font-bold whitespace-nowrap">
+                            {(program.enrollment || 0).toLocaleString()}
+                          </td>
 
-                        <td className="px-6 py-4 text-right font-mono text-[#660033] font-bold whitespace-nowrap">
-                          {(program.enrollment || 0).toLocaleString()}
-                        </td>
-
-                        <td className="px-6 py-4 text-center whitespace-nowrap">
-                          <span
-                            className={`inline-flex px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${
-                              program.status === "active"
-                                ? "bg-emerald-50 text-emerald-700 border-emerald-100"
-                                : "bg-rose-50 text-rose-700 border-rose-100"
-                            }`}
-                          >
-                            {program.status || "active"}
-                          </span>
-                        </td>
-                      </tr>
-                    ))
+                          <td className="px-6 py-4 text-center whitespace-nowrap">
+                            {isPriority ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                ★ Priority
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium uppercase tracking-wider bg-slate-100 text-slate-400 border border-slate-200">
+                                Standard
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })
                 ) : (
                   <tr>
                     <td
