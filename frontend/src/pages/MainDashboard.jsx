@@ -123,7 +123,6 @@ function MainDashboard() {
               </div>
             </div>
           </div>
-          {/* Navigation Tab Display Interfaces */}
           {currentTab === "dashboard" && (
             <div className="space-y-10 animate-fade-in">
               <ExecutiveKPIs isDarkMode={isDarkMode} />

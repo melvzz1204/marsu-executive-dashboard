@@ -1,4 +1,7 @@
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import marsuLogo from "../assets/marsu-logo.png";
+
 const Sidebar = ({
   currentTab,
   setCurrentTab,
@@ -7,6 +10,42 @@ const Sidebar = ({
   isOpen,
   setIsOpen,
 }) => {
+  const navigate = useNavigate();
+  const [isActivatingPower, setIsActivatingPower] = useState(false);
+
+  // 🌟 SEPARATE ENTITY: Empower Portal
+  const empowerItem = {
+    id: "Empower",
+    label: "Empower Portal",
+    badge: "Achieve",
+    path: "/empower-to-achieve",
+    icon: (
+      <svg
+        className="w-5 h-5 text-[#D4AF37] transition-transform duration-500 group-hover:scale-125 group-hover:rotate-12 shrink-0 relative z-10"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        viewBox="0 0 24 24"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"
+        />
+      </svg>
+    ),
+  };
+
+  // ⚡ Energetic Transition Handler
+  const handleEmpowerClick = () => {
+    setIsActivatingPower(true);
+    setTimeout(() => {
+      navigate(empowerItem.path);
+      setIsActivatingPower(false);
+    }, 2000);
+  };
+
+  // STANDARD NAVIGATION ITEMS MATRIX
   const navigationItems = [
     {
       id: "dashboard",
@@ -27,7 +66,6 @@ const Sidebar = ({
         </svg>
       ),
     },
-    /*    higher education  */
     {
       id: "Higher Education",
       label: "Higher Education",
@@ -47,7 +85,6 @@ const Sidebar = ({
         </svg>
       ),
     },
-    /*    Advance education  */
     {
       id: "Advance Education",
       label: "Advance Education",
@@ -67,7 +104,6 @@ const Sidebar = ({
         </svg>
       ),
     },
-    /* Research */
     {
       id: "research",
       label: "Research",
@@ -87,7 +123,6 @@ const Sidebar = ({
         </svg>
       ),
     },
-    /* Support to operation */
     {
       id: "support to operation",
       label: "Support to Operation",
@@ -112,7 +147,6 @@ const Sidebar = ({
         </svg>
       ),
     },
-    /* General Administration and Support Services*/
     {
       id: "general administration",
       label: `General Administration \n& Support Services`,
@@ -151,7 +185,6 @@ const Sidebar = ({
         </svg>
       ),
     },
-    /*  Enrollment */
     {
       id: "enrollment",
       label: "Enrollments",
@@ -171,8 +204,6 @@ const Sidebar = ({
         </svg>
       ),
     },
-
-    /* Budget utilization */
     {
       id: "budget",
       label: "Budget Utilization",
@@ -192,9 +223,8 @@ const Sidebar = ({
         </svg>
       ),
     },
-    /*  Reports */
     {
-      id: "reports", // Swapped from "Report" to matching lowercase routing state
+      id: "reports",
       label: "Reports",
       icon: (
         <svg
@@ -204,7 +234,6 @@ const Sidebar = ({
           strokeWidth="2"
           viewBox="0 0 24 24"
         >
-          {/* Swapped duplicate charts icon with the verified Dossier Summary Path */}
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -216,114 +245,211 @@ const Sidebar = ({
   ];
 
   return (
-    <aside
-      className={`bg-[#600018] text-white flex flex-col justify-between sticky top-0 h-screen shadow-xl border-r border-[#D4AF37]/20 z-40 transition-all duration-300 scroll-auto ${
-        isOpen ? "w-80" : "w-20"
-      }`}
-    >
-      {/* 🌟 FIXED: Absolute floating toggle button positioned directly over the sidebar's right-hand boundary line */}
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="absolute top-1/2 -right-4 -translate-y-1/2 z-50 w-8 h-8 rounded-xl bg-[#600018] border border-[#D4AF37]/40 text-[#D4AF37] hover:text-white hover:border-[#D4AF37] flex items-center justify-center shadow-[0_4px_12px_rgba(0,0,0,0.15)] backdrop-blur-md transition-all duration-300 hover:scale-105 active:scale-95"
-        aria-label="Toggle Sidebar Dimensions"
-      >
-        <svg
-          className={`w-4 h-4 transform transition-transform duration-300 ${!isOpen ? "rotate-180" : ""}`}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2.5"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M11 19l-7-7 7-7m8 14l-7-7 7-7"
-          />
-        </svg>
-      </button>
+    <>
+      {/* ⚡ POWER TRANSITION OVERLAY WITH MARSU LOGO */}
+      {isActivatingPower && (
+        <div className="fixed inset-0 z-50 pointer-events-none flex items-center justify-center overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-br from-[#800020]/90 via-[#600018]/95 to-[#30000c]/90 backdrop-blur-lg animate-fade-in" />
+          <div className="absolute w-[600px] h-[600px] bg-[#D4AF37]/25 rounded-full blur-3xl animate-ping" />
 
-      <div className="flex flex-col pt-8 px-4 space-y-8 overflow-y-auto no-scrollbar flex-1 overflow-x-hidden">
-        <div
-          className={`flex items-center gap-3.5 pb-6 border-b border-white/10 ${isOpen ? "px-2" : "justify-center"}`}
+          <div className="relative z-10 flex flex-col items-center gap-5">
+            <div className="relative w-32 h-32 flex items-center justify-center">
+              <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-[#D4AF37] border-r-[#D4AF37]/60 border-b-[#D4AF37] animate-spin shadow-[0_0_35px_rgba(212,175,55,0.7)]" />
+              <div className="absolute inset-2 rounded-full border-2 border-dashed border-[#D4AF37]/40 animate-spin [animation-duration:3s] [animation-direction:reverse]" />
+              <div className="absolute inset-4 rounded-full bg-[#D4AF37]/20 blur-md animate-pulse" />
+
+              <div className="relative w-25 h-25 rounded-full bg-[#600018] p-3 border border-[#D4AF37]/80 flex items-center justify-center shadow-2xl">
+                <img
+                  src={marsuLogo}
+                  alt="MarSU Logo"
+                  className="w-full h-full object-contain drop-shadow-[0_2px_10px_rgba(212,175,55,0.6)] animate-pulse"
+                />
+              </div>
+            </div>
+
+            <span className="font-oswald text-xl uppercase tracking-widest text-[#D4AF37] font-extrabold drop-shadow-[0_2px_10px_rgba(0,0,0,0.8)] animate-pulse">
+              Initiating Empower Portal...
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* SIDEBAR MAIN CONTAINER */}
+      <aside
+        className={`bg-[#600018] text-white flex flex-col sticky top-0 h-screen shadow-xl border-r border-[#D4AF37]/20 z-40 transition-all duration-300 overflow-hidden ${
+          isOpen ? "w-80" : "w-20"
+        }`}
+      >
+        {/* Sidebar Toggle Floating Button */}
+        <button
+          onClick={() => setIsOpen(!isOpen)}
+          className="absolute top-1/2 -right-4 -translate-y-1/2 z-50 w-8 h-8 rounded-xl bg-[#600018] border border-[#D4AF37]/40 text-[#D4AF37] hover:text-white hover:border-[#D4AF37] flex items-center justify-center shadow-[0_4px_12px_rgba(0,0,0,0.15)] backdrop-blur-md transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer"
+          aria-label="Toggle Sidebar Dimensions"
         >
-          <div
-            className={`rounded-xl flex items-center justify-center shrink-0 transition-all duration-300 ${isOpen ? "h-23 w-23" : "h-14 w-14"}`}
+          <svg
+            className={`w-4 h-4 transform transition-transform duration-300 ${!isOpen ? "rotate-180" : ""}`}
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            viewBox="0 0 24 24"
           >
-            <img
-              src={marsuLogo}
-              alt="MarSU Logo"
-              className="h-full w-full object-contain"
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M11 19l-7-7 7-7m8 14l-7-7 7-7"
             />
+          </svg>
+        </button>
+
+        {/* 📌 FIXED TOP SECTION */}
+        <div className="flex flex-col pt-8 px-4 space-y-5 shrink-0">
+          {/* Brand Header */}
+          <div
+            className={`flex items-center gap-3.5 pb-4 border-b border-white/10 ${isOpen ? "px-2" : "justify-center"}`}
+          >
+            <div
+              className={`rounded-xl flex items-center justify-center shrink-0 transition-all duration-300 ${isOpen ? "h-20 w-20" : "h-12 w-12"}`}
+            >
+              <img
+                src={marsuLogo}
+                alt="MarSU Logo"
+                className="h-full w-full object-contain"
+              />
+            </div>
+
+            {isOpen && (
+              <div className="animate-fade-in whitespace-nowrap">
+                <h1 className="text-l font-extrabold uppercase tracking-wide leading-tight font-oswald text-white">
+                  Marinduque State <br /> University
+                </h1>
+                <p className="text-[9px] font-bold text-[#D4AF37] tracking-widest uppercase mt-0.5">
+                  Intelligence Matrix
+                </p>
+              </div>
+            )}
           </div>
 
-          {isOpen && (
-            <div className="animate-fade-in whitespace-nowrap">
-              <h1 className="text-l font-extrabold uppercase tracking-wide leading-tight font-oswald text-white">
-                Marinduque State <br /> University
-              </h1>
-              <p className="text-[9px] font-bold text-[#D4AF37] tracking-widest uppercase mt-0.5">
-                Intelligence Matrix
-              </p>
-            </div>
-          )}
-        </div>
-        {/* Navigation Link Mapping Matrix */}
-        <nav className="flex flex-col space-y-2 flex-1">
-          {navigationItems.map((item) => {
-            const isActive = currentTab === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => setCurrentTab(item.id)}
-                className={`cursor-pointer flex items-center rounded-xl font-semibold tracking-wide transition-all group relative ${
-                  isOpen
-                    ? "px-4 py-3.5 gap-6 w-full"
-                    : "p-3.5 justify-center mx-auto"
-                } ${
-                  isActive
-                    ? "bg-white text-[#600018] shadow-md border-l-4 border-[#D4AF37]"
-                    : "text-slate-200 hover:text-white hover:bg-white/10"
-                }`}
-                title={!isOpen ? item.label : ""}
-              >
-                <span
-                  className={
-                    isActive
-                      ? "text-[#600018]"
-                      : "text-[#D4AF37]/80 group-hover:text-[#D4AF37] whitespace-pre-line"
-                  }
-                >
-                  {item.icon}
-                </span>
+          {/* 🌟 EMPOWER PORTAL CTA */}
+          <div
+            className={`relative group ${isOpen ? "w-full" : "w-12 mx-auto"}`}
+          >
+            <div className="absolute -inset-0.5 bg-gradient-to-r from-[#D4AF37] via-amber-500 to-[#D4AF37] rounded-2xl blur-md opacity-40 group-hover:opacity-100 transition duration-500 group-hover:duration-200 animate-pulse" />
+
+            <button
+              onClick={handleEmpowerClick}
+              className={`relative z-10 group flex items-center justify-between rounded-2xl bg-gradient-to-r from-[#800020] via-[#600018] to-[#420011] text-white font-bold shadow-xl border border-[#D4AF37]/60 hover:border-[#D4AF37] transition-all duration-300 transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer overflow-hidden ${
+                isOpen
+                  ? "px-4 py-3.5 w-full"
+                  : "w-12 h-12 justify-center mx-auto"
+              }`}
+              title={!isOpen ? empowerItem.label : ""}
+            >
+              <div className="absolute inset-0 w-1/2 h-full bg-gradient-to-r from-transparent via-white/20 to-transparent -skew-x-12 -translate-x-full group-hover:translate-x-[300%] transition-transform duration-1000 ease-in-out" />
+
+              <div className="flex items-center gap-3 relative z-10">
+                <div className="relative p-1.5 rounded-xl bg-white/10 border border-[#D4AF37]/60 text-[#D4AF37] group-hover:bg-[#D4AF37] group-hover:text-[#600018] transition-all duration-300 shadow-inner">
+                  <span className="absolute inset-0 rounded-xl bg-[#D4AF37]/30 animate-ping opacity-75 group-hover:opacity-100" />
+                  {empowerItem.icon}
+                </div>
 
                 {isOpen && (
-                  <span className="tracking-wide text-xs text-left whitespace-pre-line leading-tight animate-fade-in flex-1">
-                    {item.label}
+                  <div className="text-left">
+                    <span className="block text-xs font-black uppercase tracking-wider font-oswald text-white leading-tight drop-shadow-sm">
+                      {empowerItem.label}
+                    </span>
+                    <span className="block text-[10px] text-[#D4AF37] font-semibold tracking-wide">
+                      Unlock Potential
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {isOpen && empowerItem.badge && (
+                <div className="relative z-10 flex items-center gap-1.5">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#D4AF37] opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-[#D4AF37]"></span>
                   </span>
-                )}
+                  <span className="px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wider rounded-full bg-[#D4AF37] text-[#600018] shadow-md">
+                    {empowerItem.badge}
+                  </span>
+                </div>
+              )}
+            </button>
+          </div>
 
-                {!isActive && isOpen && (
-                  <span className="absolute right-4 w-1.5 h-1.5 bg-[#D4AF37] rounded-full opacity-0 scale-50 group-hover:opacity-100 group-hover:scale-100 transition-all duration-300" />
-                )}
-              </button>
-            );
-          })}
-        </nav>
+          <div className="border-b border-white/15 my-1" />
+        </div>
 
-        {/* Logout Button Component Wrapper */}
-        <div className="pt-4 pb-2 mt-auto border-t border-white/10">
+        {/* 📜 INDEPENDENTLY SCROLLABLE CORE MODULES CONTAINER */}
+        <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar px-4 py-3 space-y-2">
+          {isOpen && (
+            <span className="block text-[10px] font-extrabold uppercase tracking-widest text-[#D4AF37]/70 px-2 pb-1 font-oswald">
+              Core Modules
+            </span>
+          )}
+
+          <nav className="flex flex-col space-y-2">
+            {navigationItems.map((item) => {
+              const isActive = currentTab === item.id;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => setCurrentTab(item.id)}
+                  className={`cursor-pointer flex items-center rounded-xl font-semibold tracking-wide transition-all group relative ${
+                    isOpen
+                      ? "px-4 py-3 gap-5 w-full"
+                      : "w-12 h-12 justify-center mx-auto"
+                  } ${
+                    isActive
+                      ? "bg-white text-[#600018] shadow-md"
+                      : "text-slate-200 hover:text-white hover:bg-white/10"
+                  }`}
+                  title={!isOpen ? item.label : ""}
+                >
+                  {isActive && (
+                    <span className="absolute left-0 top-2 bottom-2 w-1.5 bg-[#D4AF37] rounded-r-full shadow-sm" />
+                  )}
+
+                  <span
+                    className={
+                      isActive
+                        ? "text-[#600018]"
+                        : "text-[#D4AF37]/80 group-hover:text-[#D4AF37] whitespace-pre-line"
+                    }
+                  >
+                    {item.icon}
+                  </span>
+
+                  {isOpen && (
+                    <span className="tracking-wide text-xs text-left whitespace-pre-line leading-tight animate-fade-in flex-1">
+                      {item.label}
+                    </span>
+                  )}
+
+                  {!isActive && isOpen && (
+                    <span className="absolute right-4 w-1.5 h-1.5 bg-[#D4AF37] rounded-full opacity-0 scale-50 group-hover:opacity-100 group-hover:scale-100 transition-all duration-300" />
+                  )}
+                </button>
+              );
+            })}
+          </nav>
+        </div>
+
+        {/* 📌 FIXED BOTTOM SECTION - COMPACT / SUBDUED LOGOUT BUTTON */}
+        <div className="px-4 py-2 border-t border-white/10 shrink-0">
           <button
             onClick={handleLogout}
-            className={`flex items-center rounded-xl text-xs tracking-wide text-rose-200 hover:text-white bg-rose-500/10 hover:bg-rose-600/30 border border-rose-500/20 hover:border-rose-500/40 transition-all duration-200 group ${
+            className={`flex items-center rounded-lg text-xs font-medium text-white/50 hover:text-rose-300 hover:bg-rose-500/10 transition-all duration-200 group cursor-pointer ${
               isOpen
-                ? "px-4 py-3.5 gap-4 w-full"
-                : "p-3.5 justify-center mx-auto"
+                ? "px-3 py-2 gap-2.5 w-full"
+                : "w-9 h-9 justify-center mx-auto"
             }`}
             title={!isOpen ? "Logout" : ""}
           >
-            <span className="text-rose-400 group-hover:text-rose-200 transition-colors">
+            <span className="text-white/40 group-hover:text-rose-300 transition-colors">
               <svg
-                className="w-5 h-5"
+                className="w-4 h-4"
                 fill="none"
                 stroke="currentColor"
                 strokeWidth="2"
@@ -337,43 +463,43 @@ const Sidebar = ({
               </svg>
             </span>
             {isOpen && (
-              <span className="font-oswald tracking-wide text-sm uppercase whitespace-nowrap animate-fade-in">
+              <span className="text-xs tracking-wide whitespace-nowrap animate-fade-in">
                 Logout
               </span>
             )}
           </button>
         </div>
-      </div>
 
-      {/* Connection Metadata Footer strip */}
-      <div
-        className={`p-4 border-t border-white/10 bg-[#4a0012] ${isOpen ? "" : "text-center"}`}
-      >
-        {isOpen ? (
-          <div className="flex items-center justify-between animate-fade-in">
-            <div className="flex flex-col">
-              <span className="text-[10px] text-slate-300 uppercase tracking-wider font-bold">
-                System Date
-              </span>
-              <span className="text-xs text-white font-medium mt-0.5 font-oswald">
-                {formattedDate}
-              </span>
+        {/* Footer System Strip */}
+        <div
+          className={`p-4 border-t border-white/10 bg-[#4a0012] shrink-0 ${isOpen ? "" : "text-center"}`}
+        >
+          {isOpen ? (
+            <div className="flex items-center justify-between animate-fade-in">
+              <div className="flex flex-col">
+                <span className="text-[10px] text-slate-300 uppercase tracking-wider font-bold">
+                  System Date
+                </span>
+                <span className="text-xs text-white font-medium mt-0.5 font-oswald">
+                  {formattedDate}
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5 bg-white/10 px-2 py-0.5 rounded-full border border-white/10">
+                <div className="h-1.5 w-1.5 rounded-full bg-[#D4AF37] animate-pulse"></div>
+                <span className="text-[9px] uppercase font-bold text-slate-200 font-oswald">
+                  Live
+                </span>
+              </div>
             </div>
-            <div className="flex items-center gap-1.5 bg-white/10 px-2 py-0.5 rounded-full border border-white/10">
-              <div className="h-1.5 w-1.5 rounded-full bg-[#D4AF37] animate-pulse"></div>
-              <span className="text-[9px] uppercase font-bold text-slate-200 font-oswald">
-                Live
-              </span>
-            </div>
-          </div>
-        ) : (
-          <div
-            className="inline-block h-2 w-2 rounded-full bg-[#D4AF37] animate-pulse"
-            title={`Live Connection: ${formattedDate}`}
-          ></div>
-        )}
-      </div>
-    </aside>
+          ) : (
+            <div
+              className="inline-block h-2 w-2 rounded-full bg-[#D4AF37] animate-pulse"
+              title={`Live Connection: ${formattedDate}`}
+            ></div>
+          )}
+        </div>
+      </aside>
+    </>
   );
 };
 
