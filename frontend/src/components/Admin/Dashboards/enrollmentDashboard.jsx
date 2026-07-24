@@ -333,7 +333,7 @@ export default function EnrollmentDashboard() {
   const kpis = currentData?.summaryKpis || {};
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 antialiased  rounded-2xl font-sans">
-      <div className="max-w-7xl mx-auto space-y-6">
+      <div className="max-w-7xl mx-auto space-y-6 p-10">
         {/* HEADER CONTROL LAYER */}
         <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
           <div>
