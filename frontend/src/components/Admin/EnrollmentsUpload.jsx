@@ -1,4 +1,12 @@
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
+
+const formatAYLabel = (startYear) => {
+  if (!startYear) return "";
+  const numericYear = Number(startYear);
+  return !isNaN(numericYear)
+    ? `AY ${numericYear}–${numericYear + 1}`
+    : startYear;
+};
 
 export default function EnrollmentsUpload() {
   const [file, setFile] = useState(null);
@@ -11,6 +19,11 @@ export default function EnrollmentsUpload() {
   // Modal State for Duplicate Overwrite Prompt
   const [showOverwriteModal, setShowOverwriteModal] = useState(false);
   const [duplicateDetails, setDuplicateDetails] = useState("");
+
+  // Modal & Fetch State for Upload Audit Logs
+  const [showLogsModal, setShowLogsModal] = useState(false);
+  const [uploadLogs, setUploadLogs] = useState([]);
+  const [logsLoading, setLogsLoading] = useState(false);
 
   const API_BASE = "http://127.0.0.1:5000/api/v1/enrollment";
 
@@ -27,6 +40,32 @@ export default function EnrollmentsUpload() {
     setStatusMessage(null);
     const fileInput = document.getElementById("fileInput");
     if (fileInput) fileInput.value = "";
+  };
+
+  // ==========================================
+  // UPLOAD AUDIT LOGS FETCH HANDLER
+  // ==========================================
+  const fetchUploadLogs = useCallback(async () => {
+    setLogsLoading(true);
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${API_BASE}/logs`, {
+        headers: { Authorization: `Bearer ${token || ""}` },
+      });
+      const json = await res.json();
+      if (res.ok && json.success) {
+        setUploadLogs(json.data || []);
+      }
+    } catch (err) {
+      console.error("Failed to fetch upload logs:", err);
+    } finally {
+      setLogsLoading(false);
+    }
+  }, [API_BASE]);
+
+  const handleOpenLogsModal = () => {
+    setShowLogsModal(true);
+    fetchUploadLogs();
   };
 
   // ==========================================
@@ -95,7 +134,7 @@ export default function EnrollmentsUpload() {
 
       const json = await response.json();
 
-      // ⚠️ DUPLICATE DETECTED: Trigger the Overwrite Modal
+      // DUPLICATE DETECTED: Trigger the Overwrite Modal
       if (response.status === 409 && json.isDuplicate) {
         setDuplicateDetails(json.message);
         setShowOverwriteModal(true);
@@ -105,7 +144,7 @@ export default function EnrollmentsUpload() {
 
       if (!response.ok || !json.success) {
         throw new Error(
-          json.message || json.error || "Failed to upload dataset.",
+          json.message || json.error || "Failed to upload dataset."
         );
       }
 
@@ -115,6 +154,9 @@ export default function EnrollmentsUpload() {
         text: json.message || "File uploaded and processed successfully!",
       });
       handleClearFile();
+
+      // Refresh logs if modal is open or for future modal views
+      fetchUploadLogs();
     } catch (err) {
       setStatusMessage({
         type: "error",
@@ -129,14 +171,24 @@ export default function EnrollmentsUpload() {
     <div className="space-y-6">
       {/* Upload Card Container */}
       <div className="bg-white p-8 rounded-3xl border border-slate-200/80 shadow-sm">
-        <div className="border-b border-slate-100 pb-5 mb-6">
-          <h2 className="text-lg font-black font-oswald uppercase tracking-tight text-slate-900">
-            Upload Enrollment Records
-          </h2>
-          <p className="text-xs text-slate-500">
-            Select or drag an official Excel file (`.xlsx`, `.xls`) to ingest
-            dataset into the system.
-          </p>
+        <div className="border-b border-slate-100 pb-5 mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-black font-oswald uppercase tracking-tight text-slate-900">
+              Upload Enrollment Records
+            </h2>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Select or drag an official Excel file (`.xlsx`, `.xls`) to ingest
+              dataset into the system.
+            </p>
+          </div>
+
+          {/* AUDIT LOGS TRIGGER BUTTON */}
+          <button
+            onClick={handleOpenLogsModal}
+            className="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold px-4 py-2 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 self-start sm:self-center shrink-0"
+          >
+            📋 View Upload Logs
+          </button>
         </div>
 
         {/* Upload Status Banner */}
@@ -170,8 +222,8 @@ export default function EnrollmentsUpload() {
             isDragging
               ? "border-[#580017] border-dashed bg-[#580017]/10 scale-[1.01]"
               : file
-                ? "border-emerald-500 border-solid bg-emerald-50/60 shadow-sm"
-                : "border-slate-200 border-dashed hover:border-[#580017]/40 bg-slate-50/50"
+              ? "border-emerald-500 border-solid bg-emerald-50/60 shadow-sm"
+              : "border-slate-200 border-dashed hover:border-[#580017]/40 bg-slate-50/50"
           }`}
         >
           <input
@@ -187,8 +239,8 @@ export default function EnrollmentsUpload() {
                 isDragging
                   ? "bg-[#580017] text-white"
                   : file
-                    ? "bg-emerald-500 text-white shadow-sm"
-                    : "bg-[#580017]/5 text-[#580017]"
+                  ? "bg-emerald-500 text-white shadow-sm"
+                  : "bg-[#580017]/5 text-[#580017]"
               }`}
             >
               {file ? "✓" : "📂"}
@@ -202,8 +254,8 @@ export default function EnrollmentsUpload() {
                 {file
                   ? file.name
                   : isDragging
-                    ? "Drop Excel file here now!"
-                    : "Click to browse or drop file here"}
+                  ? "Drop Excel file here now!"
+                  : "Click to browse or drop file here"}
               </p>
               <p
                 className={`text-[11px] mt-0.5 transition-colors ${
@@ -244,9 +296,7 @@ export default function EnrollmentsUpload() {
         </div>
       </div>
 
-      {/* ======================================================== */}
-      {/* OVERWRITE CONFIRMATION MODAL                             */}
-      {/* ======================================================== */}
+      {/* OVERWRITE CONFIRMATION MODAL */}
       {showOverwriteModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-fade-in">
           <div className="bg-white rounded-3xl border border-slate-200 max-w-md w-full p-6 shadow-2xl space-y-5 transform transition-all">
@@ -285,6 +335,110 @@ export default function EnrollmentsUpload() {
                 className="px-5 py-2 rounded-xl text-xs font-bold font-oswald uppercase tracking-wider bg-rose-600 text-white hover:bg-rose-700 shadow-sm transition-all cursor-pointer"
               >
                 Yes, Overwrite Data
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* AUDIT LOGS MODAL */}
+      {showLogsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-fade-in">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl max-h-[80vh] flex flex-col overflow-hidden border border-slate-200">
+            <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/80">
+              <div>
+                <h3 className="text-base font-black font-oswald text-slate-900 uppercase tracking-tight">
+                  Spreadsheet Upload Audit Trail
+                </h3>
+                <p className="text-xs text-slate-400">
+                  Historical log of enrollment file ingestion attempts
+                </p>
+              </div>
+              <button
+                onClick={() => setShowLogsModal(false)}
+                className="text-slate-400 hover:text-slate-600 font-bold text-sm px-2.5 py-1 rounded-lg hover:bg-slate-200/50 transition-colors cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto flex-1">
+              {logsLoading ? (
+                <div className="py-12 text-center text-xs font-bold text-slate-400 uppercase tracking-widest">
+                  Loading Audit Logs...
+                </div>
+              ) : uploadLogs.length > 0 ? (
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead className="bg-slate-50 border-b border-slate-200 text-slate-400 font-semibold uppercase tracking-wider">
+                    <tr>
+                      <th className="p-3">Status</th>
+                      <th className="p-3">File Name</th>
+                      <th className="p-3">Target Year</th>
+                      <th className="p-3">Uploaded By</th>
+                      <th className="p-3">Date / Time</th>
+                      <th className="p-3">Notes</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {uploadLogs.map((log) => {
+                      const isSuccess = log.status === "SUCCESS";
+                      const isDup = log.status === "DUPLICATE_BLOCK";
+
+                      return (
+                        <tr key={log._id} className="hover:bg-slate-50/80">
+                          <td className="p-3 whitespace-nowrap">
+                            <span
+                              className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide ${
+                                isSuccess
+                                  ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                  : isDup
+                                  ? "bg-amber-50 text-amber-700 border border-amber-200"
+                                  : "bg-rose-50 text-rose-700 border border-rose-200"
+                              }`}
+                            >
+                              {log.status}
+                            </span>
+                          </td>
+                          <td className="p-3 font-medium text-slate-800">
+                            {log.fileName}
+                          </td>
+                          <td className="p-3 font-mono text-slate-600">
+                            {log.targetYear
+                              ? formatAYLabel(log.targetYear)
+                              : log.fileName?.match(/\d{4}/)?.[0]
+                              ? formatAYLabel(log.fileName.match(/\d{4}/)[0])
+                              : "N/A"}
+                          </td>
+                          <td className="p-3 text-slate-600">
+                            {typeof log.uploadedBy === "object"
+                              ? log.uploadedBy?.email || log.uploadedBy?.name
+                              : log.uploadedBy || "admin"}
+                          </td>
+                          <td className="p-3 text-slate-500 whitespace-nowrap">
+                            {new Date(log.createdAt).toLocaleString()}
+                          </td>
+                          <td className="p-3 text-slate-500 max-w-xs truncate">
+                            {log.errorMessage ||
+                              `${log.recordsProcessed || 0} records processed`}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              ) : (
+                <div className="py-12 text-center text-xs text-slate-400">
+                  No upload activity logged yet.
+                </div>
+              )}
+            </div>
+
+            <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-end">
+              <button
+                onClick={() => setShowLogsModal(false)}
+                className="px-4 py-2 bg-slate-800 text-white rounded-xl text-xs font-bold hover:bg-slate-700 transition-colors cursor-pointer"
+              >
+                Close
               </button>
             </div>
           </div>

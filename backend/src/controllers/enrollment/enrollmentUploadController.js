@@ -1,5 +1,6 @@
 const ExcelJS = require("exceljs");
 const EnrollmentAnalytics = require("../../models/enrollment/enrollmentAnalyticsModel");
+const UploadLog = require("../../models/enrollment/UploadLogModel");
 
 /**
  * Safely extracts string content from ExcelJS cell values regardless of cell type
@@ -57,18 +58,40 @@ function normalizeSemesterFromContent(text) {
   return text.trim();
 }
 
+/**
+ * Helper to format raw byte count into human-readable string (e.g. "1.24 MB")
+ */
+function formatFileSize(bytes) {
+  if (!bytes || bytes === 0) return "0 KB";
+  const k = 1024;
+  const sizes = ["Bytes", "KB", "MB", "GB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+}
+
 exports.uploadEnrollmentExcel = async (req, res) => {
+  const fileName = req.file?.originalname || "Unknown_File.xlsx";
+  const fileSize = formatFileSize(req.file?.size);
+  const uploadedBy = req.body.uploadedBy || req.user?.name || "System Admin";
+  const forceOverwrite =
+    req.body.overwrite === "true" || req.body.overwrite === true;
+
   try {
     // 1. Defend against missing file payload
     if (!req.file) {
+      await UploadLog.create({
+        fileName: "N/A",
+        fileSize: "0 KB",
+        uploadedBy,
+        status: "FAILED",
+        errorMessage: "No file was attached to the request.",
+      });
+
       return res.status(400).json({
         success: false,
         error: "Please upload an Excel spreadsheet (.xlsx) file.",
       });
     }
-
-    const forceOverwrite =
-      req.body.overwrite === "true" || req.body.overwrite === true;
 
     // 2. Extract target academic year from request body if specified
     let targetYear = null;
@@ -82,6 +105,15 @@ exports.uploadEnrollmentExcel = async (req, res) => {
     await workbook.xlsx.load(req.file.buffer);
 
     if (!workbook.worksheets || workbook.worksheets.length === 0) {
+      await UploadLog.create({
+        fileName,
+        fileSize,
+        uploadedBy,
+        targetYear,
+        status: "FAILED",
+        errorMessage: "Workbook contains no active worksheets.",
+      });
+
       return res.status(400).json({
         success: false,
         error: "The uploaded workbook contains no active worksheets.",
@@ -241,13 +273,30 @@ exports.uploadEnrollmentExcel = async (req, res) => {
     const groupsToSave = Object.values(datasetByYearCampusAndSemester);
 
     if (groupsToSave.length === 0) {
+      const errText = targetYear
+        ? `No valid enrollment records found matching academic year ${targetYear}.`
+        : "Could not find any tabs matching a valid school year format with enrollment data.";
+
+      await UploadLog.create({
+        fileName,
+        fileSize,
+        uploadedBy,
+        targetYear,
+        status: "FAILED",
+        errorMessage: errText,
+      });
+
       return res.status(422).json({
         success: false,
-        error: targetYear
-          ? `No valid enrollment records found matching academic year ${targetYear}.`
-          : "Could not find any tabs matching a valid school year format with enrollment data.",
+        error: errText,
       });
     }
+
+    // Calculate total individual program records parsed across all groups
+    const totalProgramRecords = groupsToSave.reduce(
+      (sum, group) => sum + group.programs.length,
+      0,
+    );
 
     // 5. SCAN DATABASE FOR DUPLICATE GROUPS
     const duplicateConditions = groupsToSave.map((g) => ({
@@ -262,6 +311,18 @@ exports.uploadEnrollmentExcel = async (req, res) => {
 
     // ⚠️ IF MATCHES FOUND AND ADMIN HAS NOT CONFIRMED OVERWRITE -> RETURN 409
     if (existingRecords.length > 0 && !forceOverwrite) {
+      await UploadLog.create({
+        fileName,
+        fileSize,
+        uploadedBy,
+        targetYear,
+        status: "DUPLICATE_BLOCK",
+        groupsProcessed: groupsToSave.length,
+        recordsProcessed: totalProgramRecords,
+        isOverwrite: false,
+        errorMessage: `Blocked ${existingRecords.length} conflicting group(s). Awaiting user confirmation to overwrite.`,
+      });
+
       return res.status(409).json({
         success: false,
         isDuplicate: true,
@@ -292,15 +353,60 @@ exports.uploadEnrollmentExcel = async (req, res) => {
 
     await Promise.all(savePromises);
 
+    // 7. RECORD SUCCESSFUL UPLOAD LOG
+    await UploadLog.create({
+      fileName,
+      fileSize,
+      uploadedBy,
+      targetYear,
+      status: "SUCCESS",
+      groupsProcessed: groupsToSave.length,
+      recordsProcessed: totalProgramRecords,
+      isOverwrite: forceOverwrite,
+    });
+
     return res.status(201).json({
       success: true,
       message: forceOverwrite
         ? `Successfully overwritten enrollment dataset! Processed ${groupsToSave.length} campus/semester group(s).`
         : `Successfully ingested enrollment dataset! Processed ${groupsToSave.length} campus/semester group(s).`,
       recordsIngested: groupsToSave.length,
+      totalProgramsProcessed: totalProgramRecords,
     });
   } catch (error) {
     console.error("Critical ExcelJS Data Processing Failure Exception:", error);
+
+    await UploadLog.create({
+      fileName,
+      fileSize,
+      uploadedBy,
+      status: "FAILED",
+      errorMessage: error.message,
+    }).catch((logErr) =>
+      console.error("Failed to persist failure log to MongoDB:", logErr),
+    );
+
     return res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+/**
+ * GET /api/v1/enrollment/logs
+ * Retrieves the spreadsheet upload history logs
+ */
+exports.getUploadLogs = async (req, res) => {
+  try {
+    const logs = await UploadLog.find().sort({ uploadedAt: -1 }).limit(100);
+
+    return res.status(200).json({
+      success: true,
+      data: logs,
+    });
+  } catch (error) {
+    console.error("Failed to fetch upload logs:", error);
+    return res.status(500).json({
+      success: false,
+      error: "Failed to retrieve upload history logs.",
+    });
   }
 };
