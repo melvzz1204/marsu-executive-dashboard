@@ -128,7 +128,7 @@ export default function EnrollmentsUpload() {
   return (
     <div className="space-y-6">
       {/* Upload Card Container */}
-      <div className="bg-white p-8 rounded-3xl border border-slate-200/80 shadow-sm">
+      <div className="bg-white p-8 rounded-3xl border border-slate-200/80 shadow-sm p-10">
         <div className="border-b border-slate-100 pb-5 mb-6">
           <h2 className="text-lg font-black font-oswald uppercase tracking-tight text-slate-900">
             Upload Enrollment Records
