@@ -31,6 +31,16 @@ function parseYearFromText(text) {
 }
 
 /**
+ * Helper to format a start year into "AY YYYY-YYYY" format (e.g., 2021 -> "AY 2021-2022")
+ */
+function formatAcademicYear(year) {
+  if (!year) return null;
+  const numYear = Number(year);
+  if (isNaN(numYear)) return String(year);
+  return `AY ${numYear}-${numYear + 1}`;
+}
+
+/**
  * Helper to normalize semester text extracted directly from sheet content/cells
  */
 function normalizeSemesterFromContent(text) {
@@ -109,7 +119,7 @@ exports.uploadEnrollmentExcel = async (req, res) => {
         fileName,
         fileSize,
         uploadedBy,
-        targetYear,
+        targetYear: formatAcademicYear(targetYear),
         status: "FAILED",
         errorMessage: "Workbook contains no active worksheets.",
       });
@@ -272,16 +282,39 @@ exports.uploadEnrollmentExcel = async (req, res) => {
 
     const groupsToSave = Object.values(datasetByYearCampusAndSemester);
 
+    // 💡 AUTO-DETECT TARGET YEAR & SEMESTER FROM PARSED DATA
+    let detectedSemester = null;
+    if (groupsToSave.length > 0) {
+      if (!targetYear) {
+        const detectedYears = [
+          ...new Set(groupsToSave.map((g) => g.academicYear)),
+        ];
+        targetYear = detectedYears[0] || null;
+      }
+      const detectedSemesters = [
+        ...new Set(groupsToSave.map((g) => g.semester)),
+      ];
+      detectedSemester =
+        detectedSemesters.length === 1
+          ? detectedSemesters[0]
+          : detectedSemesters.length > 1
+            ? "Multi-Semester"
+            : null;
+    }
+
+    const formattedTargetYear = formatAcademicYear(targetYear);
+
     if (groupsToSave.length === 0) {
-      const errText = targetYear
-        ? `No valid enrollment records found matching academic year ${targetYear}.`
+      const errText = formattedTargetYear
+        ? `No valid enrollment records found matching academic year ${formattedTargetYear}.`
         : "Could not find any tabs matching a valid school year format with enrollment data.";
 
       await UploadLog.create({
         fileName,
         fileSize,
         uploadedBy,
-        targetYear,
+        targetYear: formattedTargetYear,
+        semester: detectedSemester,
         status: "FAILED",
         errorMessage: errText,
       });
@@ -311,18 +344,6 @@ exports.uploadEnrollmentExcel = async (req, res) => {
 
     // ⚠️ IF MATCHES FOUND AND ADMIN HAS NOT CONFIRMED OVERWRITE -> RETURN 409
     if (existingRecords.length > 0 && !forceOverwrite) {
-      await UploadLog.create({
-        fileName,
-        fileSize,
-        uploadedBy,
-        targetYear,
-        status: "DUPLICATE_BLOCK",
-        groupsProcessed: groupsToSave.length,
-        recordsProcessed: totalProgramRecords,
-        isOverwrite: false,
-        errorMessage: `Blocked ${existingRecords.length} conflicting group(s). Awaiting user confirmation to overwrite.`,
-      });
-
       return res.status(409).json({
         success: false,
         isDuplicate: true,
@@ -353,12 +374,13 @@ exports.uploadEnrollmentExcel = async (req, res) => {
 
     await Promise.all(savePromises);
 
-    // 7. RECORD SUCCESSFUL UPLOAD LOG
+    // 7. RECORD SUCCESSFUL UPLOAD OR OVERWRITE LOG
     await UploadLog.create({
       fileName,
       fileSize,
       uploadedBy,
-      targetYear,
+      targetYear: formattedTargetYear,
+      semester: detectedSemester,
       status: "SUCCESS",
       groupsProcessed: groupsToSave.length,
       recordsProcessed: totalProgramRecords,

@@ -29,7 +29,11 @@ const uploadLogSchema = new mongoose.Schema(
       default: 0,
     },
     targetYear: {
-      type: Number,
+      type: String,
+      default: null,
+    },
+    semester: {
+      type: String,
       default: null,
     },
     isOverwrite: {
@@ -45,7 +49,9 @@ const uploadLogSchema = new mongoose.Schema(
       default: Date.now,
     },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+  },
 );
 
 module.exports = mongoose.model("UploadLog", uploadLogSchema);
