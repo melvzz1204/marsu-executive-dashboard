@@ -11,6 +11,7 @@ const {
 
 const {
   uploadEnrollmentExcel,
+  getUploadLogs,
 } = require("../../controllers/enrollment/enrollmentUploadController");
 
 // Security middleware
@@ -28,6 +29,13 @@ router.post(
   authorize("admin", "superadmin"),
   upload.single("file"),
   uploadEnrollmentExcel,
+);
+
+// Fetch Spreadsheet Upload Audit Logs Route
+router.get(
+  "/logs",
+  authorize("admin", "superadmin"),
+  getUploadLogs,
 );
 
 // Dynamic Filter Options Path (Returns distinct years and campuses)
