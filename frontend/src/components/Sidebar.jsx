@@ -1,4 +1,3 @@
-import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import marsuLogo from "../assets/marsu-logo.png";
 
@@ -13,7 +12,6 @@ const Sidebar = ({
   const navigate = useNavigate();
   const [isActivatingPower, setIsActivatingPower] = useState(false);
 
-  // 🌟 SEPARATE ENTITY: Empower Portal
   const empowerItem = {
     id: "Empower",
     label: "Empower Portal",
