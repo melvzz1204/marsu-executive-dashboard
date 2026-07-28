@@ -660,8 +660,7 @@ export default function EnrollmentDashboard() {
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
             <div>
               <h4 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-[#660033]"></span>
-                Deep Dive: Program Trajectory
+                Program Trajectory
               </h4>
               <p className="text-xs text-slate-400 mt-0.5">
                 Isolate and analyze multi-year growth for a specific degree
