@@ -9,6 +9,9 @@ const reportRoutes = require("./routes/reports/reportRoutes");
 const researchAnalyticsRouter = require("./routes/research/researchRoutes");
 const enrollmentRoutes = require("./routes/enrollment/enrollmentRoutes");
 
+// for public viewing
+const publicViewingRoutes = require("./routes/enrollment/publicViewingRoutes");
+
 const app = express();
 const corsOptions = {
   origin: ["http://localhost:5173", "http://127.0.0.1:5173"],
@@ -32,6 +35,9 @@ app.use("/api/v1/licensure-performance", licensurePerformanceRoutes);
 app.use("/api/v1/reports", reportRoutes);
 app.use("/api/v1/research", researchAnalyticsRouter);
 app.use("/api/v1/enrollment", enrollmentRoutes);
+
+//public viewing
+app.use("/api/v1/public-viewing", publicViewingRoutes);
 
 // Catch-All 404 Middleware (Returns JSON instead of plain text)
 app.use((req, res) => {
