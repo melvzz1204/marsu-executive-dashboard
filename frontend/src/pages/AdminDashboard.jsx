@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import Sidebar from "../components/Admin/sideBar";
 import EnrollmentsUpload from "../components/Admin/EnrollmentsUpload";
-
+import UploadHistory from "../components/Admin/uploadHistory";
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("enrollments");
 
@@ -56,9 +56,12 @@ export default function AdminDashboard() {
         </header>
 
         {/* Dynamic View Body */}
-        <div className="p-8 max-w-4xl w-full mx-auto">
+        <div className="p-8 max-w-4xl w-full mx-auto space-y-6">
           {activeTab === "enrollments" ? (
-            <EnrollmentsUpload />
+            <>
+              <EnrollmentsUpload />
+              <UploadHistory />
+            </>
           ) : (
             <div className="bg-white p-12 rounded-3xl border border-slate-200 text-center text-slate-500 font-medium">
               Module for {categoryLabels[activeTab]} is currently under

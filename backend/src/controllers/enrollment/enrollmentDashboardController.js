@@ -231,3 +231,55 @@ exports.upsertEnrollmentAnalytics = async (req, res) => {
     return res.status(500).json({ success: false, error: error.message });
   }
 };
+
+// @route   GET /api/v1/enrollment/program-trend
+// @access  Public / Private
+// ==========================================
+exports.getProgramTrend = async (req, res) => {
+  try {
+    const { campus, semester, programName } = req.query;
+    const semesterName = semester || "1st Semester";
+
+    if (!programName) {
+      return res.status(400).json({
+        success: false,
+        error: "programName query parameter is required.",
+      });
+    }
+
+    let matchQuery = { semester: semesterName };
+
+    if (campus && campus.toLowerCase() !== "all") {
+      matchQuery.campus = campus;
+    }
+
+    // Fetch the raw trends, but this time select the 'programs' array instead of summary KPIs
+    const rawTrends = await EnrollmentAnalytics.find(matchQuery)
+      .sort({ academicYear: 1 })
+      .select("academicYear campus programs");
+
+    // Map through the years and find the specific program's enrollment count
+    const formattedTrendData = rawTrends.map((record) => {
+      // Find the specific program inside this year's dataset
+      const programMatch = record.programs.find(
+        (p) => p.programName === programName,
+      );
+
+      return {
+        academicYear: record.academicYear,
+        label: `AY ${record.academicYear}`,
+        enrolledStudents: programMatch ? programMatch.studentCount || 0 : 0,
+      };
+    });
+
+    return res.status(200).json({
+      success: true,
+      program: programName,
+      campus: campus || "All Campuses",
+      semester: semesterName,
+      data: formattedTrendData,
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
+};

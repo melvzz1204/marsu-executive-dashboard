@@ -3,22 +3,22 @@ import {
   Chart as ChartJS,
   CategoryScale,
   LinearScale,
-  BarElement,
   PointElement,
   LineElement,
+  ArcElement,
   Title,
   Tooltip,
   Legend,
   Filler,
 } from "chart.js";
-import { Chart } from "react-chartjs-2";
+import { Chart, Doughnut } from "react-chartjs-2";
 
 ChartJS.register(
   CategoryScale,
   LinearScale,
-  BarElement,
   PointElement,
   LineElement,
+  ArcElement,
   Title,
   Tooltip,
   Legend,
@@ -43,28 +43,6 @@ const PALETTE = {
   },
 };
 
-const PROGRAM_ABBREVIATIONS = {
-  "Bachelor of Science in Industrial Technology": "BS Industrial Technology",
-  "Bachelor of Science in Information Technology": "BS Information Technology",
-  "Bachelor of Science in Business Administration":
-    "BS Business Administration",
-  "Bachelor of Science in Civil Engineering": "BS Civil Engineering",
-  "Bachelor of Science in Nursing": "BS Nursing",
-  "Bachelor of Secondary Education": "BS Education",
-  "Bachelor of Science in Tourism Management": "BS Tourism Management",
-  "Bachelor of Science in Law Enforcement Administration":
-    "BS Law Enforcement Admin",
-  "Bachelor of Science in Social Works": "BS Social Works",
-  "Bachelor of Science in Information Systems": "BS Information Systems",
-  "Bachelor of Science in Public Administration": "BS Public Administration",
-  "Bachelor of Arts in Communication": "BA Communication",
-  "Bachelor of Science in Electrical Engineering": "BS Electrical Engineering",
-  "Bachelor of Science in Mechanical Engineering": "BS Mechanical Engineering",
-  "Bachelor of Science in Computer Engineering": "BS Computer Engineering",
-  "Bachelor of Science in Accountancy": "BS Accountancy",
-  "Bachelor of Science in Agriculture": "BS Agriculture",
-};
-
 const formatAYLabel = (startYear) => {
   if (!startYear) return "";
   const numericYear = Number(startYear);
@@ -73,7 +51,13 @@ const formatAYLabel = (startYear) => {
     : startYear;
 };
 
+// Skeleton Loader Component
+const Skeleton = ({ className }) => (
+  <div className={`animate-pulse bg-slate-200/60 rounded ${className}`}></div>
+);
+
 export default function EnrollmentDashboard() {
+  // GLOBAL FILTERS (These control the entire dashboard)
   const [availableYears, setAvailableYears] = useState([]);
   const [availableCampuses, setAvailableCampuses] = useState([]);
   const [availableSemesters, setAvailableSemesters] = useState([]);
@@ -82,12 +66,67 @@ export default function EnrollmentDashboard() {
   const [selectedCampus, setSelectedCampus] = useState("");
   const [selectedSemester, setSelectedSemester] = useState("1st Semester");
 
+  // DEEP DIVE STATE (Program only. Semester is now handled by global selectedSemester)
+  const [selectedDetailEntity, setSelectedDetailEntity] = useState("");
+
+  // Table Sort & Search States
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortConfig, setSortConfig] = useState({
+    key: "enrollment",
+    direction: "desc",
+  });
+
   const [currentData, setCurrentData] = useState(null);
   const [trendData, setTrendData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  const [programTrendData, setProgramTrendData] = useState([]);
+  const [isProgramTrendLoading, setIsProgramTrendLoading] = useState(false);
+
   const API_BASE = "http://127.0.0.1:5000/api/v1/enrollment";
+
+  // NEW FETCH LOGIC FOR PROGRAM TRAJECTORY
+  useEffect(() => {
+    if (!selectedDetailEntity || !selectedCampus || !selectedSemester) {
+      setProgramTrendData([]);
+      return;
+    }
+
+    const fetchProgramTrend = async () => {
+      setIsProgramTrendLoading(true);
+      try {
+        const token = localStorage.getItem("token");
+        const queryParams = new URLSearchParams({
+          programName: selectedDetailEntity,
+          campus: selectedCampus === "All" ? "" : selectedCampus,
+          semester: selectedSemester,
+        });
+
+        const response = await fetch(
+          `${API_BASE}/program-trend?${queryParams}`,
+          {
+            headers: { Authorization: `Bearer ${token || ""}` },
+          },
+        );
+
+        const json = await response.json();
+
+        if (json.success) {
+          setProgramTrendData(json.data || []);
+        } else {
+          setProgramTrendData([]);
+        }
+      } catch (err) {
+        console.error("Failed to fetch program trajectory:", err);
+        setProgramTrendData([]);
+      } finally {
+        setIsProgramTrendLoading(false);
+      }
+    };
+
+    fetchProgramTrend();
+  }, [selectedDetailEntity, selectedCampus, selectedSemester]);
 
   useEffect(() => {
     const fetchFilters = async () => {
@@ -109,8 +148,9 @@ export default function EnrollmentDashboard() {
 
           if (sortedYears.length > 0) setSelectedYear(sortedYears[0]);
           if (campuses && campuses.length > 0) setSelectedCampus(campuses[0]);
-          if (semesters && semesters.length > 0)
+          if (semesters && semesters.length > 0) {
             setSelectedSemester(semesters[0]);
+          }
         }
       } catch (err) {
         console.error("Failed to fetch enrollment filters:", err);
@@ -164,67 +204,61 @@ export default function EnrollmentDashboard() {
     fetchDashboardData();
   }, [fetchDashboardData]);
 
-  const labelToFullNameMap = useMemo(() => {
-    const map = new Map();
-    if (currentData && currentData.programs) {
-      currentData.programs.forEach((p) => {
-        const abbrev = PROGRAM_ABBREVIATIONS[p.name] || p.name;
-        map.set(abbrev, p.name);
-      });
-    }
-    return map;
+  // CASCADING DROPDOWN LOGIC: Extract programs dynamically based on the selected campus's currentData
+  const availableProgramsForCampus = useMemo(() => {
+    if (!currentData || !Array.isArray(currentData.programs)) return [];
+    // Extract unique program names and sort them alphabetically
+    const uniquePrograms = [
+      ...new Set(currentData.programs.map((p) => p.name)),
+    ].sort();
+    return uniquePrograms;
   }, [currentData]);
 
-  // Permanently sorted from highest to lowest enrollment
-  const sortedPrograms = useMemo(() => {
+  // Auto-select the first program when the available programs list changes (e.g., when switching campuses)
+  useEffect(() => {
+    if (availableProgramsForCampus.length > 0) {
+      if (!availableProgramsForCampus.includes(selectedDetailEntity)) {
+        setSelectedDetailEntity(availableProgramsForCampus[0]);
+      }
+    } else {
+      setSelectedDetailEntity("");
+    }
+  }, [availableProgramsForCampus, selectedDetailEntity]);
+
+  // SMART TABLE LOGIC: Filter and Sort
+  const processedPrograms = useMemo(() => {
     if (!currentData || !Array.isArray(currentData.programs)) return [];
 
-    return [...currentData.programs].sort(
-      (a, b) => (b.enrollment || 0) - (a.enrollment || 0),
+    let filtered = currentData.programs.filter(
+      (p) =>
+        p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (p.code && p.code.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (p.category &&
+          p.category.toLowerCase().includes(searchQuery.toLowerCase())),
     );
-  }, [currentData]);
 
-  const dynamicTopChartData = useMemo(() => {
-    if (!currentData || !Array.isArray(currentData.programs)) {
-      return { labels: [], datasets: [] };
+    filtered.sort((a, b) => {
+      let aVal = a[sortConfig.key];
+      let bVal = b[sortConfig.key];
+
+      if (typeof aVal === "string") aVal = aVal.toLowerCase();
+      if (typeof bVal === "string") bVal = bVal.toLowerCase();
+
+      if (aVal < bVal) return sortConfig.direction === "asc" ? -1 : 1;
+      if (aVal > bVal) return sortConfig.direction === "asc" ? 1 : -1;
+      return 0;
+    });
+
+    return filtered;
+  }, [currentData, searchQuery, sortConfig]);
+
+  const handleSort = (key) => {
+    let direction = "asc";
+    if (sortConfig.key === key && sortConfig.direction === "asc") {
+      direction = "desc";
     }
-
-    const sorted = [...currentData.programs].sort(
-      (a, b) => (b.enrollment || 0) - (a.enrollment || 0),
-    );
-
-    const top6 = sorted.slice(0, 6);
-    const remainder = sorted.slice(6);
-    const remainderSum = remainder.reduce(
-      (acc, curr) => acc + (curr.enrollment || 0),
-      0,
-    );
-
-    const labels = top6.map((p) => PROGRAM_ABBREVIATIONS[p.name] || p.name);
-    const values = top6.map((p) => p.enrollment || 0);
-    const backgroundColors = top6.map(
-      (p) => PALETTE.categories[p.category] || PALETTE.categories.Other,
-    );
-
-    if (remainderSum > 0) {
-      labels.push("Other Programs");
-      values.push(remainderSum);
-      backgroundColors.push(PALETTE.categories.Aggregated);
-    }
-
-    return {
-      labels,
-      datasets: [
-        {
-          label: "Students",
-          data: values,
-          backgroundColor: backgroundColors,
-          borderRadius: 6,
-          barPercentage: 0.55,
-        },
-      ],
-    };
-  }, [currentData]);
+    setSortConfig({ key, direction });
+  };
 
   const macroTrendData = useMemo(() => {
     return {
@@ -235,18 +269,87 @@ export default function EnrollmentDashboard() {
           label: "Total Enrollment",
           data: trendData.map((t) => t.totalStudents || 0),
           borderColor: PALETTE.gold,
-          borderWidth: 4,
+          borderWidth: 3.5,
           pointBackgroundColor: "#ffffff",
           pointBorderColor: PALETTE.gold,
-          pointHoverRadius: 7,
+          pointBorderWidth: 2,
+          pointRadius: 5,
+          pointHoverRadius: 8,
           fill: true,
-          backgroundColor: "rgba(212, 175, 55, 0.05)",
-          tension: 0.25,
+          backgroundColor: "rgba(212, 175, 55, 0.08)",
+          tension: 0.3,
         },
       ],
     };
   }, [trendData]);
 
+  const compositionData = useMemo(() => {
+    if (!currentData || !Array.isArray(currentData.programs)) return null;
+
+    const categoryCounts = {};
+    currentData.programs.forEach((p) => {
+      const cat = p.category || "Other";
+      categoryCounts[cat] = (categoryCounts[cat] || 0) + (p.enrollment || 0);
+    });
+
+    const labels = Object.keys(categoryCounts);
+    const data = Object.values(categoryCounts);
+    const bgColors = labels.map(
+      (label) => PALETTE.categories[label] || PALETTE.categories.Other,
+    );
+
+    return {
+      labels,
+      datasets: [
+        {
+          data,
+          backgroundColor: bgColors,
+          borderWidth: 2,
+          borderColor: "#ffffff",
+          hoverOffset: 4,
+        },
+      ],
+    };
+  }, [currentData]);
+
+  const detailTrajectoryData = useMemo(() => {
+    // Return empty configuration if loading or no data
+    if (isProgramTrendLoading || programTrendData.length === 0) {
+      return { labels: [], datasets: [] };
+    }
+
+    // Map real API data to chart axes
+    const labels = programTrendData.map(
+      (t) => t.label || `AY ${t.academicYear}`,
+    );
+    const data = programTrendData.map((t) => t.enrolledStudents || 0);
+
+    return {
+      labels,
+      datasets: [
+        {
+          type: "line",
+          label: `${selectedDetailEntity || "Select a Program"} (${selectedSemester})`,
+          data: data,
+          borderColor: PALETTE.maroon,
+          borderWidth: 3.5,
+          pointBackgroundColor: "#ffffff",
+          pointBorderColor: PALETTE.maroon,
+          pointBorderWidth: 2,
+          pointRadius: 5,
+          pointHoverRadius: 8,
+          fill: true,
+          backgroundColor: "rgba(102, 0, 51, 0.08)",
+          tension: 0.35, // Keeps your nice curve
+        },
+      ],
+    };
+  }, [
+    programTrendData,
+    selectedDetailEntity,
+    selectedSemester,
+    isProgramTrendLoading,
+  ]);
   const renderYoYBadge = (growthVal, hasBaseline) => {
     if (!hasBaseline || growthVal === null || growthVal === undefined) {
       return (
@@ -279,42 +382,6 @@ export default function EnrollmentDashboard() {
     );
   };
 
-  const horizontalOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    indexAxis: "y",
-    plugins: {
-      legend: { display: false },
-      tooltip: {
-        backgroundColor: PALETTE.slateDark,
-        padding: 12,
-        cornerRadius: 8,
-        titleFont: { size: 12, weight: "bold" },
-        bodyFont: { size: 12 },
-        callbacks: {
-          title: function (context) {
-            const shortLabel = context[0].label;
-            return labelToFullNameMap.get(shortLabel) || shortLabel;
-          },
-        },
-      },
-    },
-    scales: {
-      x: {
-        grid: { color: "#f1f5f9" },
-        ticks: { color: PALETTE.slateMuted, font: { size: 11 } },
-      },
-      y: {
-        grid: { display: false },
-        ticks: {
-          color: PALETTE.slateDark,
-          font: { size: 12, weight: "700" },
-          autoSkip: false,
-        },
-      },
-    },
-  };
-
   if (!loading && availableYears.length === 0) {
     return (
       <div className="bg-white p-12 rounded-3xl border border-slate-200 text-center space-y-3">
@@ -331,9 +398,10 @@ export default function EnrollmentDashboard() {
   }
 
   const kpis = currentData?.summaryKpis || {};
+
   return (
-    <div className="min-h-screen bg-white text-slate-800 antialiased  rounded-2xl font-sans">
-      <div className="max-w-7xl mx-auto space-y-6 p-10">
+    <div className="min-h-screen bg-slate-50 text-slate-800 antialiased  rounded-2xl font-sans">
+      <div className="max-w-7xl mx-auto space-y-6">
         {/* HEADER CONTROL LAYER */}
         <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
           <div>
@@ -346,10 +414,10 @@ export default function EnrollmentDashboard() {
           </div>
 
           <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
-            {/* ACADEMIC YEAR DROPDOWN */}
             {availableYears.length > 0 && (
               <div className="relative">
                 <select
+                  aria-label="Select Academic Year"
                   value={selectedYear}
                   onChange={(e) => setSelectedYear(e.target.value)}
                   className="bg-slate-100 hover:bg-slate-200/80 text-slate-800 text-xs font-bold px-3.5 py-2 pr-8 rounded-xl border-none focus:outline-none appearance-none cursor-pointer transition-all"
@@ -366,11 +434,15 @@ export default function EnrollmentDashboard() {
               </div>
             )}
 
-            {/* CAMPUS SELECTION BUTTONS */}
-            <div className="bg-slate-100 p-1 rounded-xl flex gap-1 overflow-x-auto max-w-xs scrollbar-none">
+            <div
+              className="bg-slate-100 p-1 rounded-xl flex gap-1 overflow-x-auto max-w-xs scrollbar-none"
+              role="group"
+              aria-label="Campus Selection"
+            >
               {availableCampuses.map((campus) => (
                 <button
                   key={campus}
+                  aria-pressed={selectedCampus === campus}
                   onClick={() => setSelectedCampus(campus)}
                   className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
                     selectedCampus === campus
@@ -383,10 +455,10 @@ export default function EnrollmentDashboard() {
               ))}
             </div>
 
-            {/* SEMESTER DROPDOWN */}
             {availableSemesters.length > 0 && (
               <div className="relative">
                 <select
+                  aria-label="Select Global Semester"
                   value={selectedSemester}
                   onChange={(e) => setSelectedSemester(e.target.value)}
                   className="bg-slate-100 hover:bg-slate-200/80 text-slate-800 text-xs font-bold px-3.5 py-2 pr-8 rounded-xl border-none focus:outline-none appearance-none cursor-pointer transition-all"
@@ -405,9 +477,11 @@ export default function EnrollmentDashboard() {
           </div>
         </div>
 
-        {/* ERROR ALERT */}
         {error && (
-          <div className="bg-rose-50 border border-rose-200 text-rose-700 p-4 rounded-2xl text-xs flex justify-between items-center">
+          <div
+            className="bg-rose-50 border border-rose-200 text-rose-700 p-4 rounded-2xl text-xs flex justify-between items-center"
+            role="alert"
+          >
             <span>⚠️ {error}</span>
             <button
               onClick={fetchDashboardData}
@@ -420,17 +494,19 @@ export default function EnrollmentDashboard() {
 
         {/* KPI SUMMARY CARDS */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
-          {/* CARD 1: Campus Enrollment */}
           <div className="relative bg-[#660033] text-white p-6 rounded-2xl shadow-[0_4px_0_0_#D4AF37] flex flex-col justify-between min-h-[140px]">
             <div>
               <span className="text-[10px] font-extrabold tracking-wider text-slate-300 block uppercase font-sans mb-1">
                 Campus Enrollment
               </span>
-              <span className="text-3xl font-black text-[#FFD700] leading-none block mt-1 tracking-tight my-1">
-                {loading ? "..." : (kpis.totalStudents || 0).toLocaleString()}
-              </span>
+              {loading ? (
+                <Skeleton className="h-8 w-24 mt-2 mb-2 bg-white/20" />
+              ) : (
+                <span className="text-3xl font-black text-[#FFD700] leading-none block mt-1 tracking-tight my-1">
+                  {(kpis.totalStudents || 0).toLocaleString()}
+                </span>
+              )}
             </div>
-
             <div className="flex items-center justify-between mt-4 pt-2 border-t border-white/10">
               <span className="text-[11px] font-medium text-slate-200/90 font-sans lowercase tracking-wide">
                 total students on campus
@@ -440,33 +516,39 @@ export default function EnrollmentDashboard() {
             </div>
           </div>
 
-          {/* CARD 2: Active Programs */}
           <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-[0_4px_20px_rgba(0,0,0,0.01)] flex flex-col justify-between min-h-[140px]">
             <div>
               <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 font-sans block mb-1">
                 Active Programs
               </span>
-              <h3 className="text-3xl font-black text-slate-900 font-sans tracking-tight mt-1.5">
-                {loading ? "..." : kpis.activeProgramsCount || 0}
-              </h3>
+              {loading ? (
+                <Skeleton className="h-8 w-16 mt-2" />
+              ) : (
+                <h3 className="text-3xl font-black text-slate-900 font-sans tracking-tight mt-1.5">
+                  {kpis.activeProgramsCount || 0}
+                </h3>
+              )}
             </div>
             <span className="text-[11px] font-semibold text-slate-400 capitalize tracking-wide mt-auto pt-2 border-t border-slate-100">
               degree offerings at {selectedCampus} campus
             </span>
           </div>
 
-          {/* CARD 3: Largest Program */}
           <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-[0_4px_20px_rgba(0,0,0,0.01)] flex flex-col justify-between min-h-[140px] min-w-0">
             <div>
               <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 font-sans block mb-1">
                 Largest Program
               </span>
-              <h3
-                className="text-base font-black text-[#660033] mt-2 block truncate font-sans tracking-tight"
-                title={kpis.largestProgramName}
-              >
-                {loading ? "..." : kpis.largestProgramName || "None Listed"}
-              </h3>
+              {loading ? (
+                <Skeleton className="h-5 w-3/4 mt-3" />
+              ) : (
+                <h3
+                  className="text-base font-black text-[#660033] mt-2 block truncate font-sans tracking-tight"
+                  title={kpis.largestProgramName}
+                >
+                  {kpis.largestProgramName || "None Listed"}
+                </h3>
+              )}
             </div>
             <span className="text-[11px] font-semibold text-slate-400 capitalize tracking-wide mt-auto pt-2 border-t border-slate-100">
               highest student headcount
@@ -474,26 +556,174 @@ export default function EnrollmentDashboard() {
           </div>
         </div>
 
-        {/* MULTI-YEAR TREND LINE CHART */}
-        {trendData.length > 0 && (
-          <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
+        {/* VISUALIZATION ROW: MACRO TREND & COMPOSITION */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col">
             <div className="mb-4">
               <h4 className="text-base font-bold text-slate-900">
-                Multi-Year Enrollment Growth
+                Multi-Year Total Enrollment Growth
               </h4>
               <p className="text-xs text-slate-400">
-                Longitudinal registration trajectory for {selectedCampus} Campus
-                ({selectedSemester})
+                Macro university registration trajectory for {selectedCampus}{" "}
+                Campus ({selectedSemester})
               </p>
             </div>
-            <div className="h-[160px] relative">
+            <div className="h-[240px] relative w-full flex-1">
+              {loading ? (
+                <div className="absolute inset-0 flex items-end justify-between px-4 pb-4 gap-4">
+                  {[...Array(5)].map((_, i) => (
+                    <Skeleton
+                      key={i}
+                      className="w-full"
+                      style={{ height: `${Math.random() * 60 + 20}%` }}
+                    />
+                  ))}
+                </div>
+              ) : trendData.length > 0 ? (
+                <Chart
+                  type="line"
+                  data={macroTrendData}
+                  options={{
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                      x: {
+                        grid: { display: false },
+                        ticks: {
+                          color: PALETTE.slateMuted,
+                          font: { size: 11 },
+                        },
+                      },
+                      y: {
+                        grid: { color: "#f1f5f9" },
+                        ticks: {
+                          color: PALETTE.slateMuted,
+                          font: { size: 11 },
+                        },
+                      },
+                    },
+                  }}
+                />
+              ) : (
+                <div className="h-full flex items-center justify-center text-xs text-slate-400">
+                  No trend data available.
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col">
+            <div className="mb-4">
+              <h4 className="text-base font-bold text-slate-900">
+                College Distribution
+              </h4>
+              <p className="text-xs text-slate-400">
+                Student breakdown for {formatAYLabel(selectedYear)}
+              </p>
+            </div>
+            <div className="h-[240px] relative w-full flex-1 flex items-center justify-center">
+              {loading ? (
+                <Skeleton className="h-48 w-48 rounded-full" />
+              ) : compositionData ? (
+                <Doughnut
+                  data={compositionData}
+                  options={{
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: "70%",
+                    plugins: {
+                      legend: {
+                        position: "bottom",
+                        labels: { boxWidth: 10, font: { size: 10 } },
+                      },
+                      tooltip: {
+                        callbacks: {
+                          label: (c) =>
+                            ` ${c.label}: ${c.raw.toLocaleString()} students`,
+                        },
+                      },
+                    },
+                  }}
+                />
+              ) : (
+                <div className="text-xs text-slate-400">
+                  No program data available.
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* MICRO / DRILL-DOWN TRAJECTORY CHART */}
+        <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+            <div>
+              <h4 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                Program Trajectory
+              </h4>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Isolate and analyze multi-year growth for a specific degree
+                track at {selectedCampus}.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                {/* Dynamically populated Program Dropdown based on Global Campus */}
+                <select
+                  aria-label="Select Specific Program"
+                  value={selectedDetailEntity}
+                  onChange={(e) => setSelectedDetailEntity(e.target.value)}
+                  className="bg-white border border-slate-200 text-slate-800 text-xs font-bold px-3 py-1.5 pr-8 rounded-lg focus:outline-none focus:border-[#660033] appearance-none cursor-pointer w-72 truncate"
+                >
+                  {availableProgramsForCampus.length > 0 ? (
+                    availableProgramsForCampus.map((p) => (
+                      <option key={p} value={p}>
+                        {p}
+                      </option>
+                    ))
+                  ) : (
+                    <option value="" disabled>
+                      No programs available
+                    </option>
+                  )}
+                </select>
+                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2.5 text-slate-400 text-[10px]">
+                  ▼
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="h-[200px] relative">
+            {isProgramTrendLoading ? (
+              <div className="absolute inset-0 flex items-end justify-between px-4 pb-4 gap-4">
+                {[...Array(5)].map((_, i) => (
+                  <Skeleton
+                    key={i}
+                    className="w-full"
+                    style={{ height: `${Math.random() * 60 + 20}%` }}
+                  />
+                ))}
+              </div>
+            ) : detailTrajectoryData?.datasets?.length > 0 ? (
               <Chart
                 type="line"
-                data={macroTrendData}
+                data={detailTrajectoryData}
                 options={{
                   responsive: true,
                   maintainAspectRatio: false,
-                  plugins: { legend: { display: false } },
+                  plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                      backgroundColor: PALETTE.slateDark,
+                      padding: 12,
+                      cornerRadius: 8,
+                      titleFont: { size: 12, weight: "bold" },
+                      bodyFont: { size: 12 },
+                    },
+                  },
                   scales: {
                     x: {
                       grid: { display: false },
@@ -502,95 +732,127 @@ export default function EnrollmentDashboard() {
                     y: {
                       grid: { color: "#f1f5f9" },
                       ticks: { color: PALETTE.slateMuted, font: { size: 11 } },
+                      beginAtZero: true,
                     },
                   },
                 }}
               />
-            </div>
-          </div>
-        )}
-
-        {/* TOP PROGRAMS HORIZONTAL BAR CHART */}
-        <div className="grid grid-cols-1 gap-6">
-          <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col">
-            <div className="mb-4">
-              <h4 className="text-base font-bold text-slate-900">
-                Highest Enrollment Programs
-              </h4>
-              <p className="text-xs text-slate-400">
-                Top degree tracks by student headcount
-              </p>
-            </div>
-            <div className="h-[340px] relative flex-1">
-              {loading ? (
-                <div className="h-full flex items-center justify-center text-xs font-bold text-slate-400 uppercase">
-                  Loading Chart...
-                </div>
-              ) : dynamicTopChartData.labels.length > 0 ? (
-                <Chart
-                  type="bar"
-                  data={dynamicTopChartData}
-                  options={horizontalOptions}
-                />
-              ) : (
-                <div className="h-full flex items-center justify-center text-xs text-slate-400">
-                  No program data available for this selection.
-                </div>
-              )}
-            </div>
+            ) : (
+              <div className="h-full flex items-center justify-center text-xs text-slate-400">
+                No trajectory data available for this program.
+              </div>
+            )}
           </div>
         </div>
 
-        {/* COMPLETE PROGRAM MATRIX TABLE */}
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-          <div className="p-5 border-b border-slate-100">
-            <h4 className="text-base font-bold text-slate-900">
-              Complete Course & Program List
-            </h4>
-            <p className="text-xs text-slate-400">
-              Detailed program headcount reference directory
-            </p>
+        {/* ENHANCED SMART PROGRAM MATRIX TABLE */}
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden flex flex-col">
+          <div className="p-5 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-50/50">
+            <div>
+              <h4 className="text-base font-bold text-slate-900">
+                Complete Program Directory
+              </h4>
+              <p className="text-xs text-slate-400">
+                Detailed headcount reference for {formatAYLabel(selectedYear)}
+              </p>
+            </div>
+
+            <div className="relative w-full sm:w-64">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <span className="text-slate-400 text-xs">🔍</span>
+              </div>
+              <input
+                type="text"
+                placeholder="Search programs or colleges..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-[#660033] focus:ring-1 focus:ring-[#660033] transition-shadow"
+                aria-label="Search programs"
+              />
+            </div>
           </div>
 
-          <div className="max-h-[350px] overflow-y-auto relative">
+          <div className="max-h-[400px] overflow-y-auto relative">
             <table className="w-full text-left border-collapse text-sm">
-              <thead className="bg-slate-50 sticky top-0 border-b border-slate-200 text-slate-400 font-semibold text-[11px] uppercase tracking-wider z-10">
+              <thead className="bg-slate-50 sticky top-0 text-slate-400 font-semibold text-[11px] uppercase tracking-wider z-10 shadow-sm">
                 <tr>
-                  <th className="px-6 py-3 w-16 text-center">Rank</th>
-                  <th className="px-6 py-3 min-w-[240px]">Program Title</th>
-                  <th className="px-6 py-3">Department</th>
-                  <th className="px-6 py-3 text-right">Students</th>
-                  <th className="px-6 py-3 text-center">CHED Priority</th>
+                  <th
+                    className="px-6 py-3 w-16 text-center cursor-pointer hover:bg-slate-100 transition-colors"
+                    onClick={() => handleSort("enrollment")}
+                  >
+                    Rank{" "}
+                    {sortConfig.key === "enrollment" &&
+                      (sortConfig.direction === "desc" ? "▼" : "▲")}
+                  </th>
+                  <th
+                    className="px-6 py-3 min-w-[240px] cursor-pointer hover:bg-slate-100 transition-colors"
+                    onClick={() => handleSort("name")}
+                  >
+                    Program Title{" "}
+                    {sortConfig.key === "name" &&
+                      (sortConfig.direction === "desc" ? "▼" : "▲")}
+                  </th>
+                  <th
+                    className="px-6 py-3 cursor-pointer hover:bg-slate-100 transition-colors"
+                    onClick={() => handleSort("category")}
+                  >
+                    College{" "}
+                    {sortConfig.key === "category" &&
+                      (sortConfig.direction === "desc" ? "▼" : "▲")}
+                  </th>
+                  <th
+                    className="px-6 py-3 text-right cursor-pointer hover:bg-slate-100 transition-colors"
+                    onClick={() => handleSort("enrollment")}
+                  >
+                    Students{" "}
+                    {sortConfig.key === "enrollment" &&
+                      (sortConfig.direction === "desc" ? "▼" : "▲")}
+                  </th>
+                  <th
+                    className="px-6 py-3 text-center cursor-pointer hover:bg-slate-100 transition-colors"
+                    onClick={() => handleSort("isPriority")}
+                  >
+                    CHED Priority{" "}
+                    {sortConfig.key === "isPriority" &&
+                      (sortConfig.direction === "desc" ? "▼" : "▲")}
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-slate-600 bg-white">
                 {loading ? (
-                  <tr>
-                    <td
-                      colSpan="5"
-                      className="px-6 py-8 text-center text-xs font-bold text-slate-400 uppercase tracking-widest"
-                    >
-                      Fetching program table data...
-                    </td>
-                  </tr>
-                ) : sortedPrograms.length > 0 ? (
-                  sortedPrograms.map((program, idx) => {
+                  [...Array(5)].map((_, i) => (
+                    <tr key={i}>
+                      <td className="px-6 py-4">
+                        <Skeleton className="h-4 w-8 mx-auto" />
+                      </td>
+                      <td className="px-6 py-4">
+                        <Skeleton className="h-4 w-48" />
+                      </td>
+                      <td className="px-6 py-4">
+                        <Skeleton className="h-4 w-24" />
+                      </td>
+                      <td className="px-6 py-4 flex justify-end">
+                        <Skeleton className="h-4 w-12" />
+                      </td>
+                      <td className="px-6 py-4">
+                        <Skeleton className="h-4 w-16 mx-auto" />
+                      </td>
+                    </tr>
+                  ))
+                ) : processedPrograms.length > 0 ? (
+                  processedPrograms.map((program, idx) => {
                     const isPriority = Boolean(
                       program.isPriority ?? program.is_priority,
                     );
-
                     return (
                       <tr
                         key={program._id || idx}
-                        className="hover:bg-slate-50/60 transition-colors"
+                        className="hover:bg-slate-50/60 transition-colors group"
                       >
-                        {/* CLEAN NUMBERED RANK */}
                         <td className="px-6 py-4 text-center font-mono text-slate-400 text-xs font-semibold">
                           #{String(idx + 1).padStart(2, "0")}
                         </td>
-
-                        {/* PROGRAM TITLE */}
-                        <td className="px-6 py-4 font-medium text-slate-900 max-w-md break-words leading-relaxed">
+                        <td className="px-6 py-4 font-medium text-slate-900 max-w-md break-words leading-relaxed group-hover:text-[#660033] transition-colors">
                           {program.name}
                           {program.code && (
                             <span className="ml-2 px-1.5 py-0.5 text-[9px] font-bold bg-slate-100 text-slate-500 rounded uppercase">
@@ -598,20 +860,14 @@ export default function EnrollmentDashboard() {
                             </span>
                           )}
                         </td>
-
-                        {/* DEPARTMENT */}
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className="inline-flex px-2 py-0.5 text-[10px] font-semibold rounded bg-slate-100 text-slate-600">
                             {program.category || "General"}
                           </span>
                         </td>
-
-                        {/* STUDENT ENROLLMENT COUNT */}
                         <td className="px-6 py-4 text-right font-mono text-[#660033] font-bold whitespace-nowrap">
                           {(program.enrollment || 0).toLocaleString()}
                         </td>
-
-                        {/* CHED PRIORITY */}
                         <td className="px-6 py-4 text-center whitespace-nowrap">
                           {isPriority ? (
                             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200">
@@ -630,10 +886,10 @@ export default function EnrollmentDashboard() {
                   <tr>
                     <td
                       colSpan="5"
-                      className="px-6 py-8 text-center text-xs text-slate-400"
+                      className="px-6 py-12 text-center text-xs text-slate-400 bg-slate-50/30"
                     >
-                      No programs found for this year, campus, and semester
-                      selection.
+                      <div className="text-3xl mb-2">📭</div>
+                      No programs found matching "{searchQuery}"
                     </td>
                   </tr>
                 )}
@@ -646,8 +902,8 @@ export default function EnrollmentDashboard() {
         <div className="flex justify-between items-center text-[10px] text-slate-400 font-semibold tracking-wider uppercase">
           <span>Office of the University Registrar</span>
           <span className="text-[#D4AF37] flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#D4AF37]"></span>
-            Active System Online
+            <span className="w-1.5 h-1.5 rounded-full bg-[#D4AF37] animate-pulse" />
+            Live Data Feed Connected
           </span>
         </div>
       </div>

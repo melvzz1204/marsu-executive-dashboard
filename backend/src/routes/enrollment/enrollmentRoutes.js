@@ -2,15 +2,18 @@ const express = require("express");
 const router = express.Router();
 const multer = require("multer");
 
+// 1. ADD getProgramTrend HERE
 const {
   getEnrollmentSnapshot,
   getEnrollmentTrend,
   getEnrollmentFilters,
   upsertEnrollmentAnalytics,
+  getProgramTrend,
 } = require("../../controllers/enrollment/enrollmentDashboardController");
 
 const {
   uploadEnrollmentExcel,
+  getUploadLogs,
 } = require("../../controllers/enrollment/enrollmentUploadController");
 
 // Security middleware
@@ -30,11 +33,17 @@ router.post(
   uploadEnrollmentExcel,
 );
 
+// Fetch Spreadsheet Upload Audit Logs Route
+router.get("/logs", authorize("admin", "superadmin"), getUploadLogs);
+
 // Dynamic Filter Options Path (Returns distinct years and campuses)
 router.get("/filters", getEnrollmentFilters);
 
 // Timeline trace tracking route for the multi-year trend line component
 router.get("/trend", getEnrollmentTrend);
+
+// 2. CALL IT DIRECTLY HERE
+router.get("/program-trend", getProgramTrend);
 
 // Main snapshot and manual entry path
 router
