@@ -56,7 +56,7 @@ const Skeleton = ({ className }) => (
   <div className={`animate-pulse bg-slate-200/60 rounded ${className}`}></div>
 );
 
-export default function EnrollmentDashboard() {
+export default function EnrollmentDashboard({ isPublicView = false }) {
   // GLOBAL FILTERS (These control the entire dashboard)
   const [availableYears, setAvailableYears] = useState([]);
   const [availableCampuses, setAvailableCampuses] = useState([]);
@@ -746,157 +746,159 @@ export default function EnrollmentDashboard() {
         </div>
 
         {/* ENHANCED SMART PROGRAM MATRIX TABLE */}
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden flex flex-col">
-          <div className="p-5 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-50/50">
-            <div>
-              <h4 className="text-base font-bold text-slate-900">
-                Complete Program Directory
-              </h4>
-              <p className="text-xs text-slate-400">
-                Detailed headcount reference for {formatAYLabel(selectedYear)}
-              </p>
-            </div>
-
-            <div className="relative w-full sm:w-64">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <span className="text-slate-400 text-xs">🔍</span>
+        {!isPublicView && (
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden flex flex-col">
+            <div className="p-5 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-50/50">
+              <div>
+                <h4 className="text-base font-bold text-slate-900">
+                  Complete Program Directory
+                </h4>
+                <p className="text-xs text-slate-400">
+                  Detailed headcount reference for {formatAYLabel(selectedYear)}
+                </p>
               </div>
-              <input
-                type="text"
-                placeholder="Search programs or colleges..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-[#660033] focus:ring-1 focus:ring-[#660033] transition-shadow"
-                aria-label="Search programs"
-              />
-            </div>
-          </div>
 
-          <div className="max-h-[400px] overflow-y-auto relative">
-            <table className="w-full text-left border-collapse text-sm">
-              <thead className="bg-slate-50 sticky top-0 text-slate-400 font-semibold text-[11px] uppercase tracking-wider z-10 shadow-sm">
-                <tr>
-                  <th
-                    className="px-6 py-3 w-16 text-center cursor-pointer hover:bg-slate-100 transition-colors"
-                    onClick={() => handleSort("enrollment")}
-                  >
-                    Rank{" "}
-                    {sortConfig.key === "enrollment" &&
-                      (sortConfig.direction === "desc" ? "▼" : "▲")}
-                  </th>
-                  <th
-                    className="px-6 py-3 min-w-[240px] cursor-pointer hover:bg-slate-100 transition-colors"
-                    onClick={() => handleSort("name")}
-                  >
-                    Program Title{" "}
-                    {sortConfig.key === "name" &&
-                      (sortConfig.direction === "desc" ? "▼" : "▲")}
-                  </th>
-                  <th
-                    className="px-6 py-3 cursor-pointer hover:bg-slate-100 transition-colors"
-                    onClick={() => handleSort("category")}
-                  >
-                    College{" "}
-                    {sortConfig.key === "category" &&
-                      (sortConfig.direction === "desc" ? "▼" : "▲")}
-                  </th>
-                  <th
-                    className="px-6 py-3 text-right cursor-pointer hover:bg-slate-100 transition-colors"
-                    onClick={() => handleSort("enrollment")}
-                  >
-                    Students{" "}
-                    {sortConfig.key === "enrollment" &&
-                      (sortConfig.direction === "desc" ? "▼" : "▲")}
-                  </th>
-                  <th
-                    className="px-6 py-3 text-center cursor-pointer hover:bg-slate-100 transition-colors"
-                    onClick={() => handleSort("isPriority")}
-                  >
-                    CHED Priority{" "}
-                    {sortConfig.key === "isPriority" &&
-                      (sortConfig.direction === "desc" ? "▼" : "▲")}
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 text-slate-600 bg-white">
-                {loading ? (
-                  [...Array(5)].map((_, i) => (
-                    <tr key={i}>
-                      <td className="px-6 py-4">
-                        <Skeleton className="h-4 w-8 mx-auto" />
-                      </td>
-                      <td className="px-6 py-4">
-                        <Skeleton className="h-4 w-48" />
-                      </td>
-                      <td className="px-6 py-4">
-                        <Skeleton className="h-4 w-24" />
-                      </td>
-                      <td className="px-6 py-4 flex justify-end">
-                        <Skeleton className="h-4 w-12" />
-                      </td>
-                      <td className="px-6 py-4">
-                        <Skeleton className="h-4 w-16 mx-auto" />
-                      </td>
-                    </tr>
-                  ))
-                ) : processedPrograms.length > 0 ? (
-                  processedPrograms.map((program, idx) => {
-                    const isPriority = Boolean(
-                      program.isPriority ?? program.is_priority,
-                    );
-                    return (
-                      <tr
-                        key={program._id || idx}
-                        className="hover:bg-slate-50/60 transition-colors group"
-                      >
-                        <td className="px-6 py-4 text-center font-mono text-slate-400 text-xs font-semibold">
-                          #{String(idx + 1).padStart(2, "0")}
+              <div className="relative w-full sm:w-64">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <span className="text-slate-400 text-xs">🔍</span>
+                </div>
+                <input
+                  type="text"
+                  placeholder="Search programs or colleges..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-[#660033] focus:ring-1 focus:ring-[#660033] transition-shadow"
+                  aria-label="Search programs"
+                />
+              </div>
+            </div>
+
+            <div className="max-h-[400px] overflow-y-auto relative">
+              <table className="w-full text-left border-collapse text-sm">
+                <thead className="bg-slate-50 sticky top-0 text-slate-400 font-semibold text-[11px] uppercase tracking-wider z-10 shadow-sm">
+                  <tr>
+                    <th
+                      className="px-6 py-3 w-16 text-center cursor-pointer hover:bg-slate-100 transition-colors"
+                      onClick={() => handleSort("enrollment")}
+                    >
+                      Rank{" "}
+                      {sortConfig.key === "enrollment" &&
+                        (sortConfig.direction === "desc" ? "▼" : "▲")}
+                    </th>
+                    <th
+                      className="px-6 py-3 min-w-[240px] cursor-pointer hover:bg-slate-100 transition-colors"
+                      onClick={() => handleSort("name")}
+                    >
+                      Program Title{" "}
+                      {sortConfig.key === "name" &&
+                        (sortConfig.direction === "desc" ? "▼" : "▲")}
+                    </th>
+                    <th
+                      className="px-6 py-3 cursor-pointer hover:bg-slate-100 transition-colors"
+                      onClick={() => handleSort("category")}
+                    >
+                      College{" "}
+                      {sortConfig.key === "category" &&
+                        (sortConfig.direction === "desc" ? "▼" : "▲")}
+                    </th>
+                    <th
+                      className="px-6 py-3 text-right cursor-pointer hover:bg-slate-100 transition-colors"
+                      onClick={() => handleSort("enrollment")}
+                    >
+                      Students{" "}
+                      {sortConfig.key === "enrollment" &&
+                        (sortConfig.direction === "desc" ? "▼" : "▲")}
+                    </th>
+                    <th
+                      className="px-6 py-3 text-center cursor-pointer hover:bg-slate-100 transition-colors"
+                      onClick={() => handleSort("isPriority")}
+                    >
+                      CHED Priority{" "}
+                      {sortConfig.key === "isPriority" &&
+                        (sortConfig.direction === "desc" ? "▼" : "▲")}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-slate-600 bg-white">
+                  {loading ? (
+                    [...Array(5)].map((_, i) => (
+                      <tr key={i}>
+                        <td className="px-6 py-4">
+                          <Skeleton className="h-4 w-8 mx-auto" />
                         </td>
-                        <td className="px-6 py-4 font-medium text-slate-900 max-w-md break-words leading-relaxed group-hover:text-[#660033] transition-colors">
-                          {program.name}
-                          {program.code && (
-                            <span className="ml-2 px-1.5 py-0.5 text-[9px] font-bold bg-slate-100 text-slate-500 rounded uppercase">
-                              {program.code}
-                            </span>
-                          )}
+                        <td className="px-6 py-4">
+                          <Skeleton className="h-4 w-48" />
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="inline-flex px-2 py-0.5 text-[10px] font-semibold rounded bg-slate-100 text-slate-600">
-                            {program.category || "General"}
-                          </span>
+                        <td className="px-6 py-4">
+                          <Skeleton className="h-4 w-24" />
                         </td>
-                        <td className="px-6 py-4 text-right font-mono text-[#660033] font-bold whitespace-nowrap">
-                          {(program.enrollment || 0).toLocaleString()}
+                        <td className="px-6 py-4 flex justify-end">
+                          <Skeleton className="h-4 w-12" />
                         </td>
-                        <td className="px-6 py-4 text-center whitespace-nowrap">
-                          {isPriority ? (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200">
-                              ★ Priority
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium uppercase tracking-wider bg-slate-100 text-slate-400 border border-slate-200">
-                              Standard
-                            </span>
-                          )}
+                        <td className="px-6 py-4">
+                          <Skeleton className="h-4 w-16 mx-auto" />
                         </td>
                       </tr>
-                    );
-                  })
-                ) : (
-                  <tr>
-                    <td
-                      colSpan="5"
-                      className="px-6 py-12 text-center text-xs text-slate-400 bg-slate-50/30"
-                    >
-                      <div className="text-3xl mb-2">📭</div>
-                      No programs found matching "{searchQuery}"
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                    ))
+                  ) : processedPrograms.length > 0 ? (
+                    processedPrograms.map((program, idx) => {
+                      const isPriority = Boolean(
+                        program.isPriority ?? program.is_priority,
+                      );
+                      return (
+                        <tr
+                          key={program._id || idx}
+                          className="hover:bg-slate-50/60 transition-colors group"
+                        >
+                          <td className="px-6 py-4 text-center font-mono text-slate-400 text-xs font-semibold">
+                            #{String(idx + 1).padStart(2, "0")}
+                          </td>
+                          <td className="px-6 py-4 font-medium text-slate-900 max-w-md break-words leading-relaxed group-hover:text-[#660033] transition-colors">
+                            {program.name}
+                            {program.code && (
+                              <span className="ml-2 px-1.5 py-0.5 text-[9px] font-bold bg-slate-100 text-slate-500 rounded uppercase">
+                                {program.code}
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className="inline-flex px-2 py-0.5 text-[10px] font-semibold rounded bg-slate-100 text-slate-600">
+                              {program.category || "General"}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-right font-mono text-[#660033] font-bold whitespace-nowrap">
+                            {(program.enrollment || 0).toLocaleString()}
+                          </td>
+                          <td className="px-6 py-4 text-center whitespace-nowrap">
+                            {isPriority ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                ★ Priority
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium uppercase tracking-wider bg-slate-100 text-slate-400 border border-slate-200">
+                                Standard
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  ) : (
+                    <tr>
+                      <td
+                        colSpan="5"
+                        className="px-6 py-12 text-center text-xs text-slate-400 bg-slate-50/30"
+                      >
+                        <div className="text-3xl mb-2">📭</div>
+                        No programs found matching "{searchQuery}"
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* FOOTER */}
         <div className="flex justify-between items-center text-[10px] text-slate-400 font-semibold tracking-wider uppercase">

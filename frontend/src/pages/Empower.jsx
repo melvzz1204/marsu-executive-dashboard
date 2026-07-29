@@ -65,7 +65,7 @@ const Empower = () => {
   const renderActiveDashboard = () => {
     switch (activeTab) {
       case "enrollment":
-        return <EnrollmentDashboard />;
+        return <EnrollmentDashboard isPublicView={true} />;
       case "research":
         return <ResearchDashboardPlaceholder />;
       case "executive":
