@@ -1,6 +1,7 @@
 const ExcelJS = require("exceljs");
 const HigherEducation = require("../../models/higherEducation/higherEducationModel");
 const HigherEducationTracer = require("../../models/higherEducation/higherEducationTracerModel");
+const UploadLog = require("../../models/uploadLogModel"); // Adjust path if your models folder structure differs
 
 /**
  * Helper to normalize date strings, Date objects, or Excel serial numbers
@@ -79,6 +80,10 @@ exports.uploadHigherEducationExcel = async (req, res) => {
         message: "Please upload an Excel file.",
       });
     }
+
+    const fileSizeFormatted = req.file.size
+      ? `${(req.file.size / 1024).toFixed(1)} KB`
+      : "0 KB";
 
     // Read Excel Workbook from Memory Buffer using ExcelJS
     const workbook = new ExcelJS.Workbook();
@@ -199,6 +204,22 @@ exports.uploadHigherEducationExcel = async (req, res) => {
       }
     }
 
+    const totalRecords = programCount + tracerCount;
+    const logStatus = errors.length > 0 ? "PARTIAL_SUCCESS" : "SUCCESS";
+
+    // Write Upload Log to Centralized Schema
+    await UploadLog.create({
+      module: "HIGHER_EDUCATION",
+      fileName: req.file.originalname,
+      fileSize: fileSizeFormatted,
+      uploadedBy: req.user
+        ? `${req.user.firstName || ""} ${req.user.lastName || ""}`.trim()
+        : "System Admin",
+      status: logStatus,
+      recordsProcessed: totalRecords,
+      errorMessage: errors.length > 0 ? errors.join(" | ") : null,
+    });
+
     return res.status(200).json({
       success: true,
       message: `Excel processed: ${programCount} programs and ${tracerCount} tracer records saved/updated.`,
@@ -209,9 +230,48 @@ exports.uploadHigherEducationExcel = async (req, res) => {
       errors: errors.length > 0 ? errors : undefined,
     });
   } catch (error) {
+    // Attempt logging catastrophic failure if file metadata exists
+    if (req.file) {
+      await UploadLog.create({
+        module: "HIGHER_EDUCATION",
+        fileName: req.file.originalname,
+        fileSize: req.file.size ? `${(req.file.size / 1024).toFixed(1)} KB` : "0 KB",
+        uploadedBy: req.user
+          ? `${req.user.firstName || ""} ${req.user.lastName || ""}`.trim()
+          : "System Admin",
+        status: "FAILED",
+        recordsProcessed: 0,
+        errorMessage: error.message,
+      }).catch(() => {}); // Prevent secondary uncaught errors during crash logging
+    }
+
     return res.status(500).json({
       success: false,
       message: "An error occurred while processing the Excel file.",
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * @desc Retrieve spreadsheet upload history logs for Higher Education
+ * @route GET /api/v1/higher-education/logs
+ */
+exports.getUploadLogs = async (req, res) => {
+  try {
+    const logs = await UploadLog.find({ module: "HIGHER_EDUCATION" })
+      .sort({ uploadedAt: -1 })
+      .limit(100);
+
+    return res.status(200).json({
+      success: true,
+      data: logs,
+    });
+  } catch (error) {
+    console.error("Failed to fetch Higher Education upload logs:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to retrieve upload history logs.",
       error: error.message,
     });
   }

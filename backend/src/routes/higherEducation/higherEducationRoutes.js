@@ -7,6 +7,7 @@ const upload = multer({ storage });
 
 const {
   uploadHigherEducationExcel,
+  getUploadLogs,
 } = require("../../controllers/higherEducation/higherEducationUploadController");
 
 const {
@@ -16,6 +17,9 @@ const {
 
 // Upload route (Accepts multipart/form-data with field name "file")
 router.post("/upload", upload.single("file"), uploadHigherEducationExcel);
+
+// Upload History Audit Logs
+router.get("/logs", getUploadLogs);
 
 // Analytics & Data Routes
 router.get("/stats", getHigherEducationStats);
