@@ -1,27 +1,55 @@
-// routes/research/researchRoutes.js
 const express = require("express");
+const multer = require("multer");
 const router = express.Router();
-const { 
-  getResearchAnalytics, 
-  upsertResearchAnalytics, 
-  updateCollegeMetric 
+
+// Configure Multer memory storage so ExcelJS can access the file buffer directly
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit
+  },
+});
+
+// Import Paper Controllers
+const {
+  getResearchStats,
+  getResearchPapers,
+  createResearchPaper,
+  seedResearchPapers,
 } = require("../../controllers/research/researchController");
 
-// Assuming your security middleware file is located here:
-const { protect, authorize } = require("../../middleware/authMiddleware");
+// Import Spreadsheet Upload Controllers
+const {
+  uploadResearchExcel,
+  getResearchUploadLogs,
+} = require("../../controllers/research/researchUploadController");
 
-// Secure all data streaming within this workspace routing stack
-router.use(protect);
+// ==========================================
+// 📊 DASHBOARD & DATABASE ENDPOINTS
+// ==========================================
 
-// Main collection entry routes
-router
-  .route("/")
-  .get(getResearchAnalytics) // Accessible by any logged-in role to build dashboards
-  .post(authorize("admin", "superadmin"), upsertResearchAnalytics); // Master ingest restriction
+// Stats for dashboard widgets
+router.get("/stats", getResearchStats);
 
-// Target sub-document update route
-router
-  .route("/college")
-  .patch(authorize("admin", "dean"), updateCollegeMetric); // Deans can fix their own metrics line-items
+// Database endpoints for modal search & paper registry
+router.get("/papers", getResearchPapers);
+router.post("/papers", createResearchPaper);
+
+// ==========================================
+// 📁 EXCEL INGESTION & AUDIT LOG ENDPOINTS
+// ==========================================
+
+// Ingest research spreadsheet (handles drag-and-drop file uploads)
+router.post("/upload", upload.single("file"), uploadResearchExcel);
+
+// Retrieve upload history audit logs
+router.get("/logs", getResearchUploadLogs);
+
+// ==========================================
+// 🛠️ UTILITY / SEEDING ENDPOINTS
+// ==========================================
+
+// Seeding endpoint
+router.post("/seed", seedResearchPapers);
 
 module.exports = router;
