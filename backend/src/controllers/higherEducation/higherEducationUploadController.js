@@ -1,7 +1,7 @@
 const ExcelJS = require("exceljs");
 const HigherEducation = require("../../models/higherEducation/higherEducationModel");
 const HigherEducationTracer = require("../../models/higherEducation/higherEducationTracerModel");
-const UploadLog = require("../../models/uploadLogModel"); // Adjust path if your models folder structure differs
+const UploadLog = require("../../models/uploadLogModel");
 
 /**
  * Helper to normalize date strings, Date objects, or Excel serial numbers
@@ -74,7 +74,22 @@ const computeStatusFields = (accreditationStatus, endDate) => {
  */
 exports.uploadHigherEducationExcel = async (req, res) => {
   try {
+    const isOverwrite = req.body?.overwrite === true || req.body?.overwrite === "true";
+    const userDisplayName = req.user
+      ? `${req.user.firstName || ""} ${req.user.lastName || ""}`.trim()
+      : "System Admin";
+
     if (!req.file) {
+      await UploadLog.create({
+        module: "HIGHER_EDUCATION",
+        fileName: "N/A",
+        fileSize: "0 KB",
+        uploadedBy: userDisplayName,
+        status: "FAILED",
+        recordsProcessed: 0,
+        errorMessage: "No Excel file provided in upload request.",
+      }).catch(() => {});
+
       return res.status(400).json({
         success: false,
         message: "Please upload an Excel file.",
@@ -128,17 +143,61 @@ exports.uploadHigherEducationExcel = async (req, res) => {
       });
     }
 
+    // -------------------------------------------------------------
+    // EXPLICIT PRE-FLIGHT DUPLICATE SCANNING
+    // -------------------------------------------------------------
+    const programQueryFilters = [];
+    const tracerYears = new Set();
+
+    rawData.forEach((row) => {
+      const campusBranch = row["Campus_Branch"] ? String(row["Campus_Branch"]).trim() : "";
+      const programName = row["Program_Name"] ? String(row["Program_Name"]).trim() : "";
+      if (campusBranch && programName) {
+        programQueryFilters.push({ campusBranch, programName });
+      }
+
+      const yearVal = row["Year"] ? parseInt(row["Year"], 10) : null;
+      if (yearVal && !isNaN(yearVal)) {
+        tracerYears.add(yearVal);
+      }
+    });
+
+    // Scan DB for existing matching records
+    const [existingPrograms, existingTracers] = await Promise.all([
+      programQueryFilters.length > 0
+        ? HigherEducation.find({ $or: programQueryFilters }).select("campusBranch programName").lean()
+        : [],
+      tracerYears.size > 0
+        ? HigherEducationTracer.find({ year: { $in: Array.from(tracerYears) } }).select("year").lean()
+        : [],
+    ]);
+
+    const hasDuplicates = existingPrograms.length > 0 || existingTracers.length > 0;
+
+    // Reject execution with 409 Conflict if duplicates exist and overwrite is false
+    if (hasDuplicates && !isOverwrite) {
+      return res.status(409).json({
+        success: false,
+        message: "Duplicate records detected. Overwrite confirmation required.",
+        conflict: true,
+        duplicates: {
+          programs: existingPrograms.map((p) => `${p.campusBranch} - ${p.programName}`),
+          tracers: existingTracers.map((t) => t.year),
+        },
+      });
+    }
+
+    // -------------------------------------------------------------
+    // INGESTION PROCESS
+    // -------------------------------------------------------------
     let programCount = 0;
     let tracerCount = 0;
     const errors = [];
 
     for (let index = 0; index < rawData.length; index++) {
       const row = rawData[index];
-      const rowNum = index + 2; // Row offset considering Header Row
 
-      // -------------------------------------------------------------
       // 1. Process Program Registry Data
-      // -------------------------------------------------------------
       const campusBranch = row["Campus_Branch"] ? String(row["Campus_Branch"]).trim() : "";
       const programName = row["Program_Name"] ? String(row["Program_Name"]).trim() : "";
 
@@ -172,9 +231,7 @@ exports.uploadHigherEducationExcel = async (req, res) => {
         programCount++;
       }
 
-      // -------------------------------------------------------------
       // 2. Process Yearly Employability & Graduate Tracer Data
-      // -------------------------------------------------------------
       const yearVal = row["Year"] ? parseInt(row["Year"], 10) : null;
       if (yearVal && !isNaN(yearVal)) {
         let rawEmployability = row["Employability_Rate"];
@@ -212,9 +269,7 @@ exports.uploadHigherEducationExcel = async (req, res) => {
       module: "HIGHER_EDUCATION",
       fileName: req.file.originalname,
       fileSize: fileSizeFormatted,
-      uploadedBy: req.user
-        ? `${req.user.firstName || ""} ${req.user.lastName || ""}`.trim()
-        : "System Admin",
+      uploadedBy: userDisplayName,
       status: logStatus,
       recordsProcessed: totalRecords,
       errorMessage: errors.length > 0 ? errors.join(" | ") : null,
@@ -230,7 +285,7 @@ exports.uploadHigherEducationExcel = async (req, res) => {
       errors: errors.length > 0 ? errors : undefined,
     });
   } catch (error) {
-    // Attempt logging catastrophic failure if file metadata exists
+    // Log failure in UploadLog
     if (req.file) {
       await UploadLog.create({
         module: "HIGHER_EDUCATION",
@@ -242,7 +297,7 @@ exports.uploadHigherEducationExcel = async (req, res) => {
         status: "FAILED",
         recordsProcessed: 0,
         errorMessage: error.message,
-      }).catch(() => {}); // Prevent secondary uncaught errors during crash logging
+      }).catch(() => {});
     }
 
     return res.status(500).json({
