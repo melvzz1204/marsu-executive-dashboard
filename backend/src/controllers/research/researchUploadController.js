@@ -1,6 +1,6 @@
 const ExcelJS = require("exceljs");
 const ResearchPaper = require("../../models/research/researchAnalyticsModel");
-const ResearchUploadLog = require("../../models/research/uploadLogModel");
+const UploadLog = require("../../models/uploadLogModel");
 
 /**
  * Safely extracts string content from ExcelJS cell values
@@ -78,7 +78,8 @@ exports.uploadResearchExcel = async (req, res) => {
   try {
     // 1. Defend against missing file payload
     if (!req.file) {
-      await ResearchUploadLog.create({
+      await UploadLog.create({
+        module: "RESEARCH",
         fileName: "N/A",
         fileSize: "0 KB",
         uploadedBy,
@@ -97,7 +98,8 @@ exports.uploadResearchExcel = async (req, res) => {
     await workbook.xlsx.load(req.file.buffer);
 
     if (!workbook.worksheets || workbook.worksheets.length === 0) {
-      await ResearchUploadLog.create({
+      await UploadLog.create({
+        module: "RESEARCH",
         fileName,
         fileSize,
         uploadedBy,
@@ -241,7 +243,8 @@ exports.uploadResearchExcel = async (req, res) => {
     });
 
     if (parsedPapers.length === 0) {
-      await ResearchUploadLog.create({
+      await UploadLog.create({
+        module: "RESEARCH",
         fileName,
         fileSize,
         uploadedBy,
@@ -284,7 +287,8 @@ exports.uploadResearchExcel = async (req, res) => {
     await Promise.all(savePromises);
 
     // 6. RECORD SUCCESS LOG
-    await ResearchUploadLog.create({
+    await UploadLog.create({
+      module: "RESEARCH",
       fileName,
       fileSize,
       uploadedBy,
@@ -303,7 +307,8 @@ exports.uploadResearchExcel = async (req, res) => {
   } catch (error) {
     console.error("Critical Research Excel Processing Exception:", error);
 
-    await ResearchUploadLog.create({
+    await UploadLog.create({
+      module: "RESEARCH",
       fileName,
       fileSize,
       uploadedBy,
@@ -321,7 +326,9 @@ exports.uploadResearchExcel = async (req, res) => {
  */
 exports.getResearchUploadLogs = async (req, res) => {
   try {
-    const logs = await ResearchUploadLog.find().sort({ uploadedAt: -1 }).limit(100);
+    const logs = await UploadLog.find({ module: "RESEARCH" })
+      .sort({ uploadedAt: -1 })
+      .limit(100);
 
     return res.status(200).json({
       success: true,

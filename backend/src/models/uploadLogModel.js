@@ -4,7 +4,7 @@ const uploadLogSchema = new mongoose.Schema(
   {
     module: {
       type: String,
-      enum: ["ENROLLMENT", "HIGHER_EDUCATION", "RESEARCH_EXTENSION", "SYSTEM"],
+      enum: ["ENROLLMENT", "HIGHER_EDUCATION", "RESEARCH", "RESEARCH_EXTENSION", "SYSTEM"],
       default: "ENROLLMENT",
       trim: true,
     },
