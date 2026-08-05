@@ -1,47 +1,56 @@
 const ExcelJS = require("exceljs");
 const HigherEducation = require("../../models/higherEducation/higherEducationModel");
 const HigherEducationTracer = require("../../models/higherEducation/higherEducationTracerModel");
-const UploadLog = require("../../models/uploadLogModel"); // Adjust path if your models folder structure differs
+const UploadLog = require("../../models/uploadLogModel");
+
+/**
+ * Safely extracts string content from ExcelJS cell values regardless of cell type
+ */
+function extractCellValue(cell) {
+  if (!cell || cell.value === null || cell.value === undefined) return "";
+  if (typeof cell.value === "object") {
+    if (cell.value.result !== undefined && cell.value.result !== null) {
+      return String(cell.value.result).trim();
+    }
+    if (cell.value.richText) {
+      return cell.value.richText
+        .map((t) => t.text)
+        .join("")
+        .trim();
+    }
+    if (cell.value instanceof Date) return cell.value;
+  }
+  return String(cell.value).trim();
+}
 
 /**
  * Helper to normalize date strings, Date objects, or Excel serial numbers
  */
-const parseExcelDate = (val) => {
+function parseExcelDate(val) {
   if (!val || val === "NaT" || val === "N/A") return null;
-
-  // Handle standard JS Date object (ExcelJS automatically converts date cells to Date objects)
   if (val instanceof Date && !isNaN(val)) return val;
-
-  // Handle Excel serial date numbers
   if (typeof val === "number") {
     return new Date(Math.round((val - 25569) * 86400 * 1000));
   }
-
-  // Handle date strings
   const parsed = new Date(val);
   return isNaN(parsed.getTime()) ? null : parsed;
-};
+}
 
 /**
- * Helper to safely extract raw primitive values from ExcelJS Cell Objects
+ * Helper to format raw byte count into human-readable string (e.g. "1.24 MB")
  */
-const getCellValue = (cell) => {
-  if (!cell || cell.value === null || cell.value === undefined) return "";
-
-  // If cell value is an object (e.g. Formula, Hyperlink, or RichText)
-  if (typeof cell.value === "object") {
-    if (cell.value.result !== undefined) return cell.value.result;
-    if (cell.value.text !== undefined) return cell.value.text;
-    if (cell.value instanceof Date) return cell.value;
-  }
-
-  return cell.value;
-};
+function formatFileSize(bytes) {
+  if (!bytes || bytes === 0) return "0 KB";
+  const k = 1024;
+  const sizes = ["Bytes", "KB", "MB", "GB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+}
 
 /**
  * Helper to calculate accreditation and review status fields
  */
-const computeStatusFields = (accreditationStatus, endDate) => {
+function computeStatusFields(accreditationStatus, endDate) {
   const NON_ACCREDITED_STATUSES = [
     "Not Accredited",
     "Candidate Status",
@@ -51,8 +60,12 @@ const computeStatusFields = (accreditationStatus, endDate) => {
     "",
   ];
 
-  const cleanStatus = accreditationStatus ? String(accreditationStatus).trim() : "";
-  const isAccredited = Boolean(cleanStatus && !NON_ACCREDITED_STATUSES.includes(cleanStatus));
+  const cleanStatus = accreditationStatus
+    ? String(accreditationStatus).trim()
+    : "";
+  const isAccredited = Boolean(
+    cleanStatus && !NON_ACCREDITED_STATUSES.includes(cleanStatus),
+  );
 
   const today = new Date();
   let reviewStatus = "N/A";
@@ -66,48 +79,59 @@ const computeStatusFields = (accreditationStatus, endDate) => {
   }
 
   return { isAccredited, reviewStatus };
-};
+}
 
 /**
  * @desc Upload & process Excel File into both Program & Tracer collections
  * @route POST /api/v1/higher-education/upload
  */
 exports.uploadHigherEducationExcel = async (req, res) => {
+  const fileName = req.file?.originalname || "Unknown_File.xlsx";
+  const fileSize = formatFileSize(req.file?.size);
+  const uploadedBy =
+    req.body.uploadedBy ||
+    (req.user
+      ? `${req.user.firstName || ""} ${req.user.lastName || ""}`.trim()
+      : null) ||
+    req.user?.name ||
+    "System Admin";
+  const forceOverwrite =
+    req.body.overwrite === "true" || req.body.overwrite === true;
+
   try {
+    // 1. Defend against missing file payload
     if (!req.file) {
       return res.status(400).json({
         success: false,
-        message: "Please upload an Excel file.",
+        error: "Please upload an Excel spreadsheet (.xlsx) file.",
       });
     }
 
-    const fileSizeFormatted = req.file.size
-      ? `${(req.file.size / 1024).toFixed(1)} KB`
-      : "0 KB";
-
-    // Read Excel Workbook from Memory Buffer using ExcelJS
+    // 2. Load the Excel file buffer using ExcelJS
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.load(req.file.buffer);
 
     const worksheet = workbook.getWorksheet(1); // Get the first worksheet
-    if (!worksheet) {
+    if (!worksheet || worksheet.rowCount <= 1) {
       return res.status(400).json({
         success: false,
-        message: "Uploaded Excel file contains no valid worksheets.",
+        error:
+          "The uploaded workbook contains no active worksheets or valid data rows.",
       });
     }
 
-    // Extract Headers from Row 1
+    // 3. Extract Headers and Parse Data Rows
     const headers = [];
     const headerRow = worksheet.getRow(1);
 
     headerRow.eachCell({ includeEmpty: true }, (cell, colNumber) => {
-      const val = getCellValue(cell);
+      const val = extractCellValue(cell);
       headers[colNumber] = val ? String(val).trim() : "";
     });
 
-    // Parse Data Rows into JSON Array
-    const rawData = [];
+    const parsedPrograms = [];
+    const parsedTracers = [];
+
     worksheet.eachRow((row, rowNumber) => {
       if (rowNumber === 1) return; // Skip Header Row
 
@@ -115,73 +139,57 @@ exports.uploadHigherEducationExcel = async (req, res) => {
       row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
         const headerName = headers[colNumber];
         if (headerName) {
-          rowData[headerName] = getCellValue(cell);
+          rowData[headerName] = extractCellValue(cell);
         }
       });
-      rawData.push(rowData);
-    });
 
-    if (rawData.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "Uploaded Excel file is empty.",
-      });
-    }
-
-    let programCount = 0;
-    let tracerCount = 0;
-    const errors = [];
-
-    for (let index = 0; index < rawData.length; index++) {
-      const row = rawData[index];
-      const rowNum = index + 2; // Row offset considering Header Row
-
-      // -------------------------------------------------------------
-      // 1. Process Program Registry Data
-      // -------------------------------------------------------------
-      const campusBranch = row["Campus_Branch"] ? String(row["Campus_Branch"]).trim() : "";
-      const programName = row["Program_Name"] ? String(row["Program_Name"]).trim() : "";
+      // Process Program Registry Data
+      const campusBranch = rowData["Campus_Branch"]
+        ? String(rowData["Campus_Branch"]).trim()
+        : "";
+      const programName = rowData["Program_Name"]
+        ? String(rowData["Program_Name"]).trim()
+        : "";
 
       if (campusBranch && programName) {
-        const accreditationStatus = row["Accreditation_Status"]
-          ? String(row["Accreditation_Status"]).trim()
-          : "Not Accredited";
-        const startDate = parseExcelDate(row["Start_Date"]);
-        const endDate = parseExcelDate(row["End_Date"]);
+        const rawAccreditation = rowData["Accreditation_Status"]
+          ? String(rowData["Accreditation_Status"]).trim()
+          : "";
+        const accreditationStatus = rawAccreditation || "Not Accredited";
+        const startDate = parseExcelDate(rowData["Start_Date"]);
+        const endDate = parseExcelDate(rowData["End_Date"]);
 
-        const { isAccredited, reviewStatus } = computeStatusFields(accreditationStatus, endDate);
+        const { isAccredited, reviewStatus } = computeStatusFields(
+          accreditationStatus,
+          endDate,
+        );
 
-        const programData = {
+        parsedPrograms.push({
           campusBranch,
           programName,
-          yearInitialOperation: row["Year_Initial_Operation"]
-            ? String(row["Year_Initial_Operation"]).trim()
+          yearInitialOperation: rowData["Year_Initial_Operation"]
+            ? String(rowData["Year_Initial_Operation"]).trim()
             : "N/A",
           accreditationStatus,
           startDate,
           endDate,
           isAccredited,
           reviewStatus,
-        };
-
-        await HigherEducation.findOneAndUpdate(
-          { campusBranch, programName },
-          { $set: programData },
-          { upsert: true, new: true, runValidators: true }
-        );
-        programCount++;
+          hasExplicitAccreditation: Boolean(
+            rawAccreditation && rawAccreditation !== "Not Accredited",
+          ),
+        });
       }
 
-      // -------------------------------------------------------------
-      // 2. Process Yearly Employability & Graduate Tracer Data
-      // -------------------------------------------------------------
-      const yearVal = row["Year"] ? parseInt(row["Year"], 10) : null;
+      // Process Yearly Employability & Graduate Tracer Data
+      const yearVal = rowData["Year"] ? parseInt(rowData["Year"], 10) : null;
       if (yearVal && !isNaN(yearVal)) {
-        let rawEmployability = row["Employability_Rate"];
+        let rawEmployability = rowData["Employability_Rate"];
         let employabilityRate = 0;
 
         if (typeof rawEmployability === "number") {
-          employabilityRate = rawEmployability > 1 ? rawEmployability / 100 : rawEmployability;
+          employabilityRate =
+            rawEmployability > 1 ? rawEmployability / 100 : rawEmployability;
         } else if (typeof rawEmployability === "string") {
           const cleaned = parseFloat(rawEmployability.replace("%", "").trim());
           if (!isNaN(cleaned)) {
@@ -189,73 +197,132 @@ exports.uploadHigherEducationExcel = async (req, res) => {
           }
         }
 
-        const tracerData = {
+        parsedTracers.push({
           year: yearVal,
-          graduateCount: row["Graduate_Count"] ? parseInt(row["Graduate_Count"], 10) || 0 : 0,
+          graduateCount: rowData["Graduate_Count"]
+            ? parseInt(rowData["Graduate_Count"], 10) || 0
+            : 0,
           employabilityRate,
-        };
-
-        await HigherEducationTracer.findOneAndUpdate(
-          { year: yearVal },
-          { $set: tracerData },
-          { upsert: true, new: true, runValidators: true }
-        );
-        tracerCount++;
+        });
       }
+    });
+
+    // 4. Validate parsed records count
+    if (parsedPrograms.length === 0 && parsedTracers.length === 0) {
+      return res.status(422).json({
+        success: false,
+        error:
+          "Could not find any valid higher education or tracer records in the spreadsheet.",
+      });
     }
 
-    const totalRecords = programCount + tracerCount;
-    const logStatus = errors.length > 0 ? "PARTIAL_SUCCESS" : "SUCCESS";
+    // 5. SCAN DATABASE FOR DUPLICATE RECORDS
+    const programConditions = parsedPrograms.map((p) => ({
+      campusBranch: p.campusBranch,
+      programName: p.programName,
+    }));
 
-    // Write Upload Log to Centralized Schema
+    let existingPrograms = [];
+    if (programConditions.length > 0) {
+      existingPrograms = await HigherEducation.find({ $or: programConditions });
+    }
+
+    // IF MATCHES FOUND AND ADMIN HAS NOT CONFIRMED OVERWRITE -> RETURN 409
+    if (existingPrograms.length > 0 && !forceOverwrite) {
+      return res.status(409).json({
+        success: false,
+        isDuplicate: true,
+        message: `Found ${existingPrograms.length} existing higher education program(s) in the database matching this Excel file.`,
+      });
+    }
+
+    // 6. SAVE OR OVERWRITE RECORDS IN MONGODB
+    const saveProgramPromises = parsedPrograms.map(async (programData) => {
+      let programToSave = { ...programData };
+
+      if (forceOverwrite) {
+        const existing = existingPrograms.find(
+          (ep) =>
+            ep.campusBranch === programData.campusBranch &&
+            ep.programName === programData.programName,
+        );
+
+        if (existing) {
+          if (!programData.hasExplicitAccreditation) {
+            programToSave.accreditationStatus = existing.accreditationStatus;
+            programToSave.isAccredited = existing.isAccredited;
+            programToSave.reviewStatus = existing.reviewStatus;
+          }
+          if (!programToSave.startDate)
+            programToSave.startDate = existing.startDate;
+          if (!programToSave.endDate) programToSave.endDate = existing.endDate;
+          if (
+            programToSave.yearInitialOperation === "N/A" ||
+            !programToSave.yearInitialOperation
+          ) {
+            programToSave.yearInitialOperation = existing.yearInitialOperation;
+          }
+        }
+      }
+
+      delete programToSave.hasExplicitAccreditation;
+
+      return HigherEducation.findOneAndUpdate(
+        {
+          campusBranch: programData.campusBranch,
+          programName: programData.programName,
+        },
+        { $set: programToSave },
+        { upsert: true, new: true, runValidators: true },
+      );
+    });
+
+    const saveTracerPromises = parsedTracers.map(async (tracerData) => {
+      return HigherEducationTracer.findOneAndUpdate(
+        { year: tracerData.year },
+        { $set: tracerData },
+        { upsert: true, new: true, runValidators: true },
+      );
+    });
+
+    await Promise.all([...saveProgramPromises, ...saveTracerPromises]);
+
+    const totalRecordsProcessed = parsedPrograms.length + parsedTracers.length;
+
+    // 7. RECORD ONLY SUCCESSFUL UPLOAD OR OVERWRITE LOG
     await UploadLog.create({
       module: "HIGHER_EDUCATION",
-      fileName: req.file.originalname,
-      fileSize: fileSizeFormatted,
-      uploadedBy: req.user
-        ? `${req.user.firstName || ""} ${req.user.lastName || ""}`.trim()
-        : "System Admin",
-      status: logStatus,
-      recordsProcessed: totalRecords,
-      errorMessage: errors.length > 0 ? errors.join(" | ") : null,
+      fileName,
+      fileSize,
+      uploadedBy,
+      status: "SUCCESS",
+      recordsProcessed: totalRecordsProcessed,
+      isOverwrite: forceOverwrite,
     });
 
-    return res.status(200).json({
+    return res.status(201).json({
       success: true,
-      message: `Excel processed: ${programCount} programs and ${tracerCount} tracer records saved/updated.`,
+      message: forceOverwrite
+        ? `Successfully overwritten higher education dataset! Processed ${parsedPrograms.length} program(s) and ${parsedTracers.length} tracer record(s).`
+        : `Successfully ingested higher education dataset! Processed ${parsedPrograms.length} program(s) and ${parsedTracers.length} tracer record(s).`,
       stats: {
-        programsProcessed: programCount,
-        tracerRecordsProcessed: tracerCount,
+        programsProcessed: parsedPrograms.length,
+        tracerRecordsProcessed: parsedTracers.length,
       },
-      errors: errors.length > 0 ? errors : undefined,
     });
   } catch (error) {
-    // Attempt logging catastrophic failure if file metadata exists
-    if (req.file) {
-      await UploadLog.create({
-        module: "HIGHER_EDUCATION",
-        fileName: req.file.originalname,
-        fileSize: req.file.size ? `${(req.file.size / 1024).toFixed(1)} KB` : "0 KB",
-        uploadedBy: req.user
-          ? `${req.user.firstName || ""} ${req.user.lastName || ""}`.trim()
-          : "System Admin",
-        status: "FAILED",
-        recordsProcessed: 0,
-        errorMessage: error.message,
-      }).catch(() => {}); // Prevent secondary uncaught errors during crash logging
-    }
+    console.error(
+      "Critical ExcelJS Higher Education Processing Failure Exception:",
+      error,
+    );
 
-    return res.status(500).json({
-      success: false,
-      message: "An error occurred while processing the Excel file.",
-      error: error.message,
-    });
+    return res.status(500).json({ success: false, error: error.message });
   }
 };
 
 /**
- * @desc Retrieve spreadsheet upload history logs for Higher Education
- * @route GET /api/v1/higher-education/logs
+ * GET /api/v1/higher-education/logs
+ * Retrieves the spreadsheet upload history logs
  */
 exports.getUploadLogs = async (req, res) => {
   try {
@@ -268,11 +335,10 @@ exports.getUploadLogs = async (req, res) => {
       data: logs,
     });
   } catch (error) {
-    console.error("Failed to fetch Higher Education upload logs:", error);
+    console.error("Failed to fetch higher education upload logs:", error);
     return res.status(500).json({
       success: false,
-      message: "Failed to retrieve upload history logs.",
-      error: error.message,
+      error: "Failed to retrieve upload history logs.",
     });
   }
 };

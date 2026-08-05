@@ -23,7 +23,13 @@ const uploadLogSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["SUCCESS", "FAILED", "DUPLICATE_BLOCK", "PARTIAL_SUCCESS"],
+      enum: [
+        "SUCCESS",
+        "FAILED",
+        "DUPLICATE_BLOCK",
+        "PARTIAL_SUCCESS",
+        "OVERWRITE",
+      ],
       required: true,
     },
     groupsProcessed: {
@@ -57,7 +63,7 @@ const uploadLogSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 module.exports = mongoose.model("UploadLog", uploadLogSchema);
