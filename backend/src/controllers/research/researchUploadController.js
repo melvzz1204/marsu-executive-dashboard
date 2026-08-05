@@ -1,6 +1,6 @@
 const ExcelJS = require("exceljs");
 const ResearchPaper = require("../../models/research/researchAnalyticsModel");
-const ResearchUploadLog = require("../../models/research/uploadLogModel");
+const ResearchUploadLog = require("../../models/uploadLogModel");
 
 /**
  * Safely extracts string content from ExcelJS cell values

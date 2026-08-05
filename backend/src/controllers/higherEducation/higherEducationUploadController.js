@@ -197,12 +197,24 @@ exports.uploadHigherEducationExcel = async (req, res) => {
           }
         }
 
+        const graduateCount = rowData["Graduate_Count"]
+          ? parseInt(rowData["Graduate_Count"], 10) || 0
+          : 0;
+          
+        const rawEmployed = rowData["No._of_Graduate_Employed"];
+        let employedCount = 0;
+
+        if (rawEmployed !== undefined && rawEmployed !== null && rawEmployed !== "") {
+          employedCount = parseInt(rawEmployed, 10) || 0;
+        } else {
+          employedCount = Math.round(graduateCount * employabilityRate);
+        }
+
         parsedTracers.push({
           year: yearVal,
-          graduateCount: rowData["Graduate_Count"]
-            ? parseInt(rowData["Graduate_Count"], 10) || 0
-            : 0,
+          graduateCount,
           employabilityRate,
+          employedCount,
         });
       }
     });
