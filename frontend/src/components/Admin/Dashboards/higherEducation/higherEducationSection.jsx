@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -10,8 +10,9 @@ import {
   Legend,
 } from "chart.js";
 import { Bar, Doughnut } from "react-chartjs-2";
-import { accreditationData } from "./accreditation";
 
+// 🌟 IMPORTANT: Update this path to point to your actual Axios config file!
+import api from "../../../../api/axios";
 ChartJS.register(
   CategoryScale,
   LinearScale,
@@ -23,9 +24,68 @@ ChartJS.register(
 );
 
 export default function AccreditationDashboard() {
-  // Track which campus/branch is selected for the program details list
+  const [accreditationData, setAccreditationData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
   const [selectedBranchIdx, setSelectedBranchIdx] = useState(0);
-  const currentYear = useMemo(() => new Date().getFullYear(), []); // 2026
+  const currentYear = useMemo(() => new Date().getFullYear(), []);
+
+  // 🌟 Fetch and Transform Data using Axios
+  useEffect(() => {
+    const fetchPrograms = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        // 1. Fetch using your custom Axios instance
+        // Note: "/api/v1" is automatically prepended by your Axios baseURL
+        const response = await api.get("/higher-education/programs?limit=1000");
+
+        // 2. Axios automatically parses JSON into response.data
+        const json = response.data;
+        const flatPrograms = json.data || [];
+
+        // 3. Transform the flat array into the grouped structure expected by the UI
+        const groupedByCampus = flatPrograms.reduce((acc, curr) => {
+          const branch = curr.campusBranch || "Unknown Campus";
+
+          if (!acc[branch]) {
+            acc[branch] = { branchName: branch, programs: [] };
+          }
+
+          acc[branch].programs.push({
+            programId: curr._id,
+            programName: curr.programName,
+            accreditationStatus: curr.accreditationStatus,
+            endDate: curr.endDate,
+            yearOfInitialOperation: curr.yearInitialOperation,
+          });
+
+          return acc;
+        }, {});
+
+        // Convert the grouped object back into an array
+        const formattedData = Object.values(groupedByCampus).sort((a, b) =>
+          a.branchName.localeCompare(b.branchName),
+        );
+
+        setAccreditationData(formattedData);
+      } catch (err) {
+        console.error("Error fetching higher ed data:", err);
+        // Safely extract the error message from the Axios error object
+        const errorMessage =
+          err.response?.data?.message ||
+          err.message ||
+          "Failed to connect to the server";
+        setError(errorMessage);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPrograms();
+  }, []);
 
   // Data Aggregator Logic
   const processedData = useMemo(() => {
@@ -41,33 +101,37 @@ export default function AccreditationDashboard() {
     const branchLabels = [];
     const branchProgramCounts = [];
 
-    accreditationData.forEach((branch) => {
-      branchLabels.push(branch.branchName);
-      branchProgramCounts.push(branch.programs.length);
+    if (accreditationData && accreditationData.length > 0) {
+      accreditationData.forEach((branch) => {
+        branchLabels.push(branch.branchName);
+        branchProgramCounts.push(branch.programs?.length || 0);
 
-      branch.programs.forEach((prog) => {
-        totalPrograms++;
+        if (branch.programs) {
+          branch.programs.forEach((prog) => {
+            totalPrograms++;
 
-        let status = prog.accreditationStatus;
-        if (status === "Level 3") status = "Level III Re-Accredited";
-        if (status === "Level 2") status = "Level II Re-Accredited";
+            let status = prog.accreditationStatus;
+            if (status === "Level 3") status = "Level III Re-Accredited";
+            if (status === "Level 2") status = "Level II Re-Accredited";
 
-        if (statusMap[status] !== undefined) {
-          statusMap[status]++;
-        }
+            if (statusMap[status] !== undefined) {
+              statusMap[status]++;
+            }
 
-        if (prog.endDate) {
-          const expirationYear = new Date(prog.endDate).getFullYear();
-          if (expirationYear < currentYear) {
-            expiredCount++;
-          } else {
-            ongoingCount++;
-          }
-        } else {
-          ongoingCount++;
+            if (prog.endDate) {
+              const expirationYear = new Date(prog.endDate).getFullYear();
+              if (expirationYear < currentYear) {
+                expiredCount++;
+              } else {
+                ongoingCount++;
+              }
+            } else {
+              ongoingCount++;
+            }
+          });
         }
       });
-    });
+    }
 
     return {
       totalPrograms,
@@ -77,7 +141,7 @@ export default function AccreditationDashboard() {
       branchLabels,
       branchProgramCounts,
     };
-  }, [currentYear]);
+  }, [accreditationData, currentYear]);
 
   // Chart Setup: Status
   const doughnutData = {
@@ -109,9 +173,39 @@ export default function AccreditationDashboard() {
     ],
   };
 
-  // Safe reference to the active branch's programs
   const activeBranchPrograms =
     accreditationData[selectedBranchIdx]?.programs || [];
+
+  // Loading State UI
+  if (loading) {
+    return (
+      <div className="bg-slate-50 min-h-[600px] flex flex-col items-center justify-center p-8 text-slate-800 rounded-2xl animate-pulse">
+        <div className="w-12 h-12 border-4 border-[#D4AF37] border-t-[#660033] rounded-full animate-spin mb-4"></div>
+        <p className="text-sm font-semibold text-slate-500 uppercase tracking-widest">
+          Synchronizing Accreditation Data...
+        </p>
+      </div>
+    );
+  }
+
+  // Error State UI
+  if (error) {
+    return (
+      <div className="bg-rose-50 min-h-[600px] flex flex-col items-center justify-center p-8 text-rose-800 rounded-2xl border border-rose-200">
+        <span className="text-4xl mb-4">⚠️</span>
+        <h3 className="text-lg font-bold tracking-tight mb-2">
+          Connection Error
+        </h3>
+        <p className="text-sm text-rose-600/80 mb-6">{error}</p>
+        <button
+          onClick={() => window.location.reload()}
+          className="px-4 py-2 bg-rose-600 text-white text-xs font-bold rounded-lg hover:bg-rose-700 transition-colors"
+        >
+          Retry Connection
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-slate-50 min-h-screen p-8 text-slate-800 rounded-2xl">
@@ -238,7 +332,6 @@ export default function AccreditationDashboard() {
 
         {/* PROGRAM ACCREDITATION REGISTRY DETAIL ROWS */}
         <div className="bg-white rounded-2xl border border-slate-200/70 shadow-[0_4px_20px_rgba(0,0,0,0.01)] overflow-hidden flex flex-col">
-          {/* Section Heading & Interactive Tab Selection Bar */}
           <div className="p-6 pb-2 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <span className="text-[10px] font-bold uppercase tracking-wider font-mono text-slate-400 block">
@@ -250,77 +343,87 @@ export default function AccreditationDashboard() {
             </div>
 
             {/* Campus Selector Controls */}
-            <div className="flex flex-wrap gap-1 bg-slate-100 p-1 rounded-xl self-start sm:self-auto">
-              {accreditationData.map((branch, idx) => (
-                <button
-                  key={branch._id}
-                  onClick={() => setSelectedBranchIdx(idx)}
-                  className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${
-                    selectedBranchIdx === idx
-                      ? "bg-white text-[#660033] shadow-sm"
-                      : "text-slate-500 hover:text-slate-800"
-                  }`}
-                >
-                  {branch.branchName}
-                </button>
-              ))}
-            </div>
+            {accreditationData.length > 0 && (
+              <div className="flex flex-wrap gap-1 bg-slate-100 p-1 rounded-xl self-start sm:self-auto">
+                {accreditationData.map((branch, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setSelectedBranchIdx(idx)}
+                    className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${
+                      selectedBranchIdx === idx
+                        ? "bg-white text-[#660033] shadow-sm"
+                        : "text-slate-500 hover:text-slate-800"
+                    }`}
+                  >
+                    {branch.branchName}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Dynamic Scrollable Grid Items */}
           <div className="p-6 max-h-[360px] overflow-y-auto no-scrollbar">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {activeBranchPrograms.map((prog) => {
-                let normStatus = prog.accreditationStatus;
-                if (normStatus === "Level 3")
-                  normStatus = "Level III Re-Accredited";
-                if (normStatus === "Level 2")
-                  normStatus = "Level II Re-Accredited";
+            {activeBranchPrograms.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {activeBranchPrograms.map((prog, idx) => {
+                  let normStatus = prog.accreditationStatus || "Not Accredited";
+                  if (normStatus === "Level 3")
+                    normStatus = "Level III Re-Accredited";
+                  if (normStatus === "Level 2")
+                    normStatus = "Level II Re-Accredited";
 
-                const isCandidacy = normStatus === "Accreditable";
-                const isExpired =
-                  prog.endDate &&
-                  new Date(prog.endDate).getFullYear() < currentYear;
+                  const isCandidacy =
+                    normStatus === "Accreditable" ||
+                    normStatus === "Candidate Status";
+                  const isExpired =
+                    prog.endDate &&
+                    new Date(prog.endDate).getFullYear() < currentYear;
 
-                return (
-                  <div
-                    key={prog.programId}
-                    className="bg-slate-50/60 border border-slate-100 p-4 rounded-xl flex items-start justify-between gap-4 min-w-0"
-                  >
-                    <div className="min-w-0 flex flex-col">
-                      <span className="font-bold text-slate-800 tracking-wide text-xs break-words leading-normal block">
-                        {prog.programName}
-                      </span>
-                      <span className="text-[10px] font-mono text-slate-400 mt-1 block">
-                        Started: {prog.yearOfInitialOperation || "N/A"}
-                      </span>
-                    </div>
+                  return (
+                    <div
+                      key={prog.programId || idx}
+                      className="bg-slate-50/60 border border-slate-100 p-4 rounded-xl flex items-start justify-between gap-4 min-w-0"
+                    >
+                      <div className="min-w-0 flex flex-col">
+                        <span className="font-bold text-slate-800 tracking-wide text-xs break-words leading-normal block">
+                          {prog.programName}
+                        </span>
+                        <span className="text-[10px] font-mono text-slate-400 mt-1 block">
+                          Started: {prog.yearOfInitialOperation || "N/A"}
+                        </span>
+                      </div>
 
-                    <div className="text-right shrink-0 pt-0.5">
-                      <span
-                        className={`inline-block px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider mb-1 ${
-                          isCandidacy
-                            ? "bg-slate-200 text-slate-700"
+                      <div className="text-right shrink-0 pt-0.5">
+                        <span
+                          className={`inline-block px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider mb-1 ${
+                            isCandidacy
+                              ? "bg-slate-200 text-slate-700"
+                              : isExpired
+                                ? "bg-rose-50 text-rose-700 border border-rose-100"
+                                : "bg-[#660033]/10 text-[#660033]"
+                          }`}
+                        >
+                          {normStatus}
+                        </span>
+
+                        <span className="text-[9px] text-slate-400 block tracking-tight font-mono whitespace-nowrap mt-1">
+                          {isCandidacy
+                            ? "Candidacy Valid"
                             : isExpired
-                              ? "bg-rose-50 text-rose-700 border border-rose-100"
-                              : "bg-[#660033]/10 text-[#660033]"
-                        }`}
-                      >
-                        {normStatus}
-                      </span>
-
-                      <span className="text-[9px] text-slate-400 block tracking-tight font-mono whitespace-nowrap mt-1">
-                        {isCandidacy
-                          ? "Candidacy Valid"
-                          : isExpired
-                            ? "Review Overdue"
-                            : `Expires ${prog.endDate ? new Date(prog.endDate).toLocaleDateString(undefined, { month: "short", year: "numeric" }) : ""}`}
-                      </span>
+                              ? "Review Overdue"
+                              : `Expires ${prog.endDate ? new Date(prog.endDate).toLocaleDateString(undefined, { month: "short", year: "numeric" }) : "N/A"}`}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-8 text-slate-400">
+                <p className="text-sm">No programs found for this campus.</p>
+              </div>
+            )}
           </div>
         </div>
       </div>
