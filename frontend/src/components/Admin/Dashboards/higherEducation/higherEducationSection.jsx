@@ -11,8 +11,8 @@ import {
 } from "chart.js";
 import { Bar, Doughnut } from "react-chartjs-2";
 
-// 🌟 IMPORTANT: Update this path to point to your actual Axios config file!
 import api from "../../../../api/axios";
+
 ChartJS.register(
   CategoryScale,
   LinearScale,
@@ -29,24 +29,20 @@ export default function AccreditationDashboard() {
   const [error, setError] = useState(null);
 
   const [selectedBranchIdx, setSelectedBranchIdx] = useState(0);
+  const [selectedStatusFilter, setSelectedStatusFilter] = useState("ALL");
   const currentYear = useMemo(() => new Date().getFullYear(), []);
 
-  // 🌟 Fetch and Transform Data using Axios
+  // Fetch and Transform Data using Axios
   useEffect(() => {
     const fetchPrograms = async () => {
       try {
         setLoading(true);
         setError(null);
 
-        // 1. Fetch using your custom Axios instance
-        // Note: "/api/v1" is automatically prepended by your Axios baseURL
         const response = await api.get("/higher-education/programs?limit=1000");
-
-        // 2. Axios automatically parses JSON into response.data
         const json = response.data;
         const flatPrograms = json.data || [];
 
-        // 3. Transform the flat array into the grouped structure expected by the UI
         const groupedByCampus = flatPrograms.reduce((acc, curr) => {
           const branch = curr.campusBranch || "Unknown Campus";
 
@@ -65,7 +61,6 @@ export default function AccreditationDashboard() {
           return acc;
         }, {});
 
-        // Convert the grouped object back into an array
         const formattedData = Object.values(groupedByCampus).sort((a, b) =>
           a.branchName.localeCompare(b.branchName),
         );
@@ -73,7 +68,6 @@ export default function AccreditationDashboard() {
         setAccreditationData(formattedData);
       } catch (err) {
         console.error("Error fetching higher ed data:", err);
-        // Safely extract the error message from the Axios error object
         const errorMessage =
           err.response?.data?.message ||
           err.message ||
@@ -143,6 +137,20 @@ export default function AccreditationDashboard() {
     };
   }, [accreditationData, currentYear]);
 
+  // Dynamic status options for the filter dropdown
+  const availableStatuses = useMemo(() => {
+    const statuses = new Set();
+    accreditationData.forEach((branch) => {
+      branch.programs?.forEach((prog) => {
+        let normStatus = prog.accreditationStatus || "Not Accredited";
+        if (normStatus === "Level 3") normStatus = "Level III Re-Accredited";
+        if (normStatus === "Level 2") normStatus = "Level II Re-Accredited";
+        statuses.add(normStatus);
+      });
+    });
+    return Array.from(statuses);
+  }, [accreditationData]);
+
   // Chart Setup: Status
   const doughnutData = {
     labels: ["Level III Status", "Level II Status", "Accreditable Candidates"],
@@ -176,6 +184,19 @@ export default function AccreditationDashboard() {
   const activeBranchPrograms =
     accreditationData[selectedBranchIdx]?.programs || [];
 
+  // Filter programs by selected Accreditation Level
+  const filteredBranchPrograms = useMemo(() => {
+    if (selectedStatusFilter === "ALL") return activeBranchPrograms;
+
+    return activeBranchPrograms.filter((prog) => {
+      let normStatus = prog.accreditationStatus || "Not Accredited";
+      if (normStatus === "Level 3") normStatus = "Level III Re-Accredited";
+      if (normStatus === "Level 2") normStatus = "Level II Re-Accredited";
+
+      return normStatus === selectedStatusFilter;
+    });
+  }, [activeBranchPrograms, selectedStatusFilter]);
+
   // Loading State UI
   if (loading) {
     return (
@@ -208,7 +229,7 @@ export default function AccreditationDashboard() {
   }
 
   return (
-    <div className="bg-slate-50 min-h-screen p-8 text-slate-800 rounded-2xl">
+    <div className="bg-slate-50 min-h-screen p-8 text-slate-800 rounded-2xl font-sans">
       <div className="max-w-6xl mx-auto space-y-6">
         {/* Header Grid */}
         <div>
@@ -332,7 +353,7 @@ export default function AccreditationDashboard() {
 
         {/* PROGRAM ACCREDITATION REGISTRY DETAIL ROWS */}
         <div className="bg-white rounded-2xl border border-slate-200/70 shadow-[0_4px_20px_rgba(0,0,0,0.01)] overflow-hidden flex flex-col">
-          <div className="p-6 pb-2 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="p-6 pb-4 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
               <span className="text-[10px] font-bold uppercase tracking-wider font-mono text-slate-400 block">
                 Program Registry
@@ -342,31 +363,54 @@ export default function AccreditationDashboard() {
               </h2>
             </div>
 
-            {/* Campus Selector Controls */}
-            {accreditationData.length > 0 && (
-              <div className="flex flex-wrap gap-1 bg-slate-100 p-1 rounded-xl self-start sm:self-auto">
-                {accreditationData.map((branch, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => setSelectedBranchIdx(idx)}
-                    className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${
-                      selectedBranchIdx === idx
-                        ? "bg-white text-[#660033] shadow-sm"
-                        : "text-slate-500 hover:text-slate-800"
-                    }`}
-                  >
-                    {branch.branchName}
-                  </button>
-                ))}
+            {/* Controls Layer: Level Filter Dropdown + Campus Selector */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+              {/* Accreditation Level Selector Dropdown */}
+              <div className="relative">
+                <select
+                  value={selectedStatusFilter}
+                  onChange={(e) => setSelectedStatusFilter(e.target.value)}
+                  aria-label="Filter by accreditation level"
+                  className="w-full sm:w-auto appearance-none bg-slate-100/80 hover:bg-slate-200/60 text-slate-700 text-xs font-bold py-1.5 pl-3 pr-8 rounded-xl border border-slate-200/80 focus:outline-none focus:ring-2 focus:ring-[#660033]/20 cursor-pointer transition-all"
+                >
+                  <option value="ALL">All Accreditation Levels</option>
+                  {availableStatuses.map((status) => (
+                    <option key={status} value={status}>
+                      {status}
+                    </option>
+                  ))}
+                </select>
+                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2.5 text-slate-500 text-[10px]">
+                  ▼
+                </div>
               </div>
-            )}
+
+              {/* Campus Selector Tabs */}
+              {accreditationData.length > 0 && (
+                <div className="flex flex-wrap gap-1 bg-slate-100 p-1 rounded-xl">
+                  {accreditationData.map((branch, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setSelectedBranchIdx(idx)}
+                      className={`px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                        selectedBranchIdx === idx
+                          ? "bg-white text-[#660033] shadow-sm"
+                          : "text-slate-500 hover:text-slate-800"
+                      }`}
+                    >
+                      {branch.branchName}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Dynamic Scrollable Grid Items */}
           <div className="p-6 max-h-[360px] overflow-y-auto no-scrollbar">
-            {activeBranchPrograms.length > 0 ? (
+            {filteredBranchPrograms.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {activeBranchPrograms.map((prog, idx) => {
+                {filteredBranchPrograms.map((prog, idx) => {
                   let normStatus = prog.accreditationStatus || "Not Accredited";
                   if (normStatus === "Level 3")
                     normStatus = "Level III Re-Accredited";
@@ -412,7 +456,14 @@ export default function AccreditationDashboard() {
                             ? "Candidacy Valid"
                             : isExpired
                               ? "Review Overdue"
-                              : `Expires ${prog.endDate ? new Date(prog.endDate).toLocaleDateString(undefined, { month: "short", year: "numeric" }) : "N/A"}`}
+                              : `Expires ${
+                                  prog.endDate
+                                    ? new Date(prog.endDate).toLocaleDateString(
+                                        undefined,
+                                        { month: "short", year: "numeric" },
+                                      )
+                                    : "N/A"
+                                }`}
                         </span>
                       </div>
                     </div>
@@ -420,8 +471,15 @@ export default function AccreditationDashboard() {
                 })}
               </div>
             ) : (
-              <div className="flex flex-col items-center justify-center py-8 text-slate-400">
-                <p className="text-sm">No programs found for this campus.</p>
+              <div className="flex flex-col items-center justify-center py-12 text-slate-400 bg-slate-50/50 rounded-xl border border-dashed border-slate-200">
+                <span className="text-2xl mb-1">🔍</span>
+                <p className="text-xs font-bold text-slate-600">
+                  No programs found
+                </p>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  There are no programs matching "{selectedStatusFilter}" for
+                  this campus.
+                </p>
               </div>
             )}
           </div>

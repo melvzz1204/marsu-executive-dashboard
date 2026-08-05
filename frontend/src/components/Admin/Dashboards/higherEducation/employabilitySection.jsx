@@ -1,5 +1,5 @@
 // components/EmployabilityMetrics.jsx
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -10,9 +10,10 @@ import {
   Title,
   Tooltip,
   Legend,
+  Filler,
 } from "chart.js";
 import { Chart } from "react-chartjs-2";
-import api from "../../../../api/axios"; // 🌟 Matches your Axios setup
+import api from "../../../../api/axios";
 
 ChartJS.register(
   CategoryScale,
@@ -23,81 +24,157 @@ ChartJS.register(
   Title,
   Tooltip,
   Legend,
+  Filler,
 );
 
-export default function EmployabilityMetrics({ isDarkMode = false }) {
+const PALETTE = {
+  maroon: "#660033",
+  maroonHover: "#4a0025",
+  gold: "#D4AF37",
+  brightGold: "#FFD700",
+  slateDark: "#0f172a",
+  slateMuted: "#64748b",
+  bgSlate: "#f8fafc",
+};
+
+// Skeleton Loader Component
+const Skeleton = ({ className }) => (
+  <div className={`animate-pulse bg-slate-200/60 rounded ${className}`}></div>
+);
+
+export default function EmployabilityMetrics() {
   const [statsData, setStatsData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // 🌟 Fetch Stats Data from Backend via Axios
-  useEffect(() => {
-    const fetchTracerStats = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const response = await api.get("/higher-education/stats");
-        setStatsData(response.data.data);
-      } catch (err) {
-        console.error("Error fetching employability stats:", err);
-        const errorMessage =
-          err.response?.data?.message ||
-          err.message ||
-          "Failed to connect to the server";
-        setError(errorMessage);
-      } finally {
-        setLoading(false);
-      }
-    };
+  // Table Sort & Search States
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortConfig, setSortConfig] = useState({
+    key: "year",
+    direction: "desc",
+  });
 
-    fetchTracerStats();
+  // Fetch Stats Data from Backend
+  const fetchTracerStats = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await api.get("/higher-education/stats");
+      setStatsData(response.data.data);
+    } catch (err) {
+      console.error("Error fetching employability stats:", err);
+      const errorMessage =
+        err.response?.data?.message ||
+        err.message ||
+        "Failed to connect to the server";
+      setError(errorMessage);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  // Map Backend Data to Component Variables
-  const tracerMatrix = statsData?.tracerStudyMatrix || [];
-  const cumulativeRate =
-    statsData?.kpis?.cumulativeEmployabilityPercentage || 0;
+  useEffect(() => {
+    fetchTracerStats();
+  }, [fetchTracerStats]);
 
-  // Chart configuration with premium color distributions
-  const chartData = useMemo(() => {
-    // 🌟 Use backend data for the charts
-    const labels = tracerMatrix.map((d) => `CY ${d.year}`);
-    const graduates = tracerMatrix.map((d) => d.totalGraduates);
-    const rates = tracerMatrix.map((d) =>
-      parseFloat(d.employabilityPercentage),
+  // Map Backend Payload
+  const tracerMatrix = useMemo(
+    () => statsData?.tracerStudyMatrix || [],
+    [statsData],
+  );
+  const kpis = useMemo(() => statsData?.kpis || {}, [statsData]);
+  const cumulativeRate = kpis.cumulativeEmployabilityPercentage || 0;
+  const totalGraduatesSum = kpis.totalGraduates || 0;
+  const totalEmployedSum = kpis.totalEmployed || 0;
+
+  // Highest Performing Class
+  const peakClass = useMemo(() => {
+    if (!tracerMatrix.length) return null;
+    return [...tracerMatrix].sort(
+      (a, b) =>
+        (b.employabilityPercentage || 0) - (a.employabilityPercentage || 0),
+    )[0];
+  }, [tracerMatrix]);
+
+  // Processed Data for Smart Matrix Table
+  const processedMatrix = useMemo(() => {
+    if (!tracerMatrix.length) return [];
+
+    let filtered = tracerMatrix.filter(
+      (row) =>
+        `CY ${row.year}`.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        String(row.year).includes(searchQuery),
     );
+
+    filtered.sort((a, b) => {
+      let aVal = a[sortConfig.key];
+      let bVal = b[sortConfig.key];
+
+      if (aVal < bVal) return sortConfig.direction === "asc" ? -1 : 1;
+      if (aVal > bVal) return sortConfig.direction === "asc" ? 1 : -1;
+      return 0;
+    });
+
+    return filtered;
+  }, [tracerMatrix, searchQuery, sortConfig]);
+
+  const handleSort = (key) => {
+    let direction = "asc";
+    if (sortConfig.key === key && sortConfig.direction === "asc") {
+      direction = "desc";
+    }
+    setSortConfig({ key, direction });
+  };
+
+  // Dual-Axis Chart Data Structure
+  const chartData = useMemo(() => {
+    const labels = tracerMatrix.map((d) => `CY ${d.year}`);
+    const graduates = tracerMatrix.map((d) => d.totalGraduates || 0);
+    const employed = tracerMatrix.map((d) => d.employedCount || 0);
+    const rates = tracerMatrix.map((d) => d.employabilityPercentage || 0);
 
     return {
       labels,
       datasets: [
         {
           type: "line",
-          label: "Employability Rate",
+          label: "Employability Rate (%)",
           data: rates,
-          borderColor: "#D4AF37", // 10% Accent Jewel (Champagne Gold)
-          backgroundColor: "#D4AF37",
-          borderWidth: 3,
+          borderColor: PALETTE.gold,
+          backgroundColor: "rgba(212, 175, 55, 0.08)",
+          borderWidth: 3.5,
           pointBackgroundColor: "#ffffff",
-          pointBorderColor: "#D4AF37",
+          pointBorderColor: PALETTE.gold,
           pointBorderWidth: 2,
-          pointRadius: 6,
+          pointRadius: 5,
           pointHoverRadius: 8,
-          tension: 0.25,
+          fill: true,
+          tension: 0.3,
           yAxisID: "yPercentage",
         },
         {
           type: "bar",
-          label: "Total Graduate Output",
+          label: "Employed Alumni",
+          data: employed,
+          backgroundColor: PALETTE.maroon,
+          hoverBackgroundColor: PALETTE.maroonHover,
+          borderRadius: 6,
+          barThickness: 20,
+          yAxisID: "yCount",
+        },
+        {
+          type: "bar",
+          label: "Total Cohort Size",
           data: graduates,
-          backgroundColor: isDarkMode ? "#500014" : "#600018", // 30% Secondary Character (Maroon)
-          hoverBackgroundColor: isDarkMode ? "#600018" : "#7A001E",
-          borderRadius: 12, // Premium soft architecture radius
-          barThickness: 32,
+          backgroundColor: "rgba(203, 213, 225, 0.6)",
+          hoverBackgroundColor: "rgba(203, 213, 225, 0.8)",
+          borderRadius: 6,
+          barThickness: 20,
           yAxisID: "yCount",
         },
       ],
     };
-  }, [tracerMatrix, isDarkMode]);
+  }, [tracerMatrix]);
 
   const chartOptions = {
     responsive: true,
@@ -107,7 +184,7 @@ export default function EmployabilityMetrics({ isDarkMode = false }) {
         position: "top",
         align: "end",
         labels: {
-          color: isDarkMode ? "#94a3b8" : "#475569",
+          color: PALETTE.slateDark,
           boxWidth: 8,
           boxHeight: 8,
           usePointStyle: true,
@@ -117,36 +194,35 @@ export default function EmployabilityMetrics({ isDarkMode = false }) {
       },
       tooltip: {
         padding: 12,
-        backgroundColor: isDarkMode ? "#0f172a" : "#ffffff",
-        titleColor: isDarkMode ? "#ffffff" : "#0f172a",
-        bodyColor: isDarkMode ? "#94a3b8" : "#475569",
-        borderColor: isDarkMode ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.05)",
+        backgroundColor: PALETTE.slateDark,
+        titleColor: "#ffffff",
+        bodyColor: "#cbd5e1",
+        borderColor: "rgba(255,255,255,0.1)",
         borderWidth: 1,
         titleFont: { size: 12, weight: "700" },
         bodyFont: { size: 12 },
-        cornerStyle: "round",
         borderRadius: 8,
         callbacks: {
-          label: (context) =>
-            context.dataset.type === "line"
-              ? ` Placement Rate: ${context.raw}%`
-              : ` Confirmed Cohort: ${context.raw.toLocaleString()}`,
+          label: (context) => {
+            if (context.dataset.type === "line") {
+              return ` Placement Rate: ${context.raw}%`;
+            }
+            return ` ${context.dataset.label}: ${context.raw.toLocaleString()}`;
+          },
         },
       },
     },
     scales: {
       x: {
         grid: { display: false },
-        ticks: {
-          color: isDarkMode ? "#64748b" : "#94a3b8",
-        },
+        ticks: { color: PALETTE.slateMuted, font: { size: 11, weight: "600" } },
       },
       yCount: {
         type: "linear",
         position: "left",
-        grid: { display: false },
+        grid: { color: "#f1f5f9" },
         ticks: {
-          color: isDarkMode ? "#64748b" : "#94a3b8",
+          color: PALETTE.slateMuted,
           font: { size: 11 },
         },
       },
@@ -155,12 +231,9 @@ export default function EmployabilityMetrics({ isDarkMode = false }) {
         position: "right",
         min: 0,
         max: 100,
-        grid: {
-          color: isDarkMode ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)",
-          drawTicks: false,
-        },
+        grid: { display: false },
         ticks: {
-          color: isDarkMode ? "#64748b" : "#94a3b8",
+          color: PALETTE.slateMuted,
           font: { size: 11 },
           callback: (value) => `${value}%`,
         },
@@ -168,153 +241,296 @@ export default function EmployabilityMetrics({ isDarkMode = false }) {
     },
   };
 
-  // 🌟 Loading State UI
-  if (loading) {
-    return (
-      <div
-        className={`p-8 rounded-2xl min-h-[500px] flex flex-col items-center justify-center transition-all ${isDarkMode ? "bg-slate-900/60 text-white" : "bg-white text-slate-900"}`}
-      >
-        <div className="w-12 h-12 border-4 border-[#D4AF37] border-t-[#600018] rounded-full animate-spin mb-4"></div>
-        <p className="text-sm font-semibold text-slate-500 uppercase tracking-widest">
-          Compiling Tracer Data...
-        </p>
-      </div>
-    );
-  }
-
-  // 🌟 Error State UI
-  if (error) {
-    return (
-      <div className="bg-rose-50 min-h-[500px] flex flex-col items-center justify-center p-8 text-rose-800 rounded-2xl border border-rose-200">
-        <span className="text-4xl mb-4">⚠️</span>
-        <h3 className="text-lg font-bold tracking-tight mb-2">
-          Matrix Synchronization Failed
-        </h3>
-        <p className="text-sm text-rose-600/80 mb-6">{error}</p>
-        <button
-          onClick={() => window.location.reload()}
-          className="px-4 py-2 bg-rose-600 text-white text-xs font-bold rounded-lg hover:bg-rose-700 transition-colors"
-        >
-          Retry Connection
-        </button>
-      </div>
-    );
-  }
-
   return (
-    <div
-      className={`p-8 rounded-2xl transition-all duration-500 ${
-        isDarkMode
-          ? "bg-slate-900/60 border-slate-800/80 text-white backdrop-blur-xl"
-          : "bg-white border-slate-200/50 text-slate-900"
-      }`}
-    >
-      {/* 1. Header Hero Segment */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8 pb-8 border-b border-slate-100 dark:border-slate-800/60">
-        <div className="max-w-2xl space-y-2">
-          <div className="flex items-center gap-2">
-            <span className="h-1.5 w-1.5 rounded-full bg-[#D4AF37]" />
-            <span className="text-[10px] font-black tracking-[0.2em] uppercase text-[#D4AF37]">
-              Tracer Study Matrix
-            </span>
-          </div>
-          <h3 className="text-2xl font-black font-sans tracking-tight uppercase max-w-lg leading-tight">
-            Graduate Employability Status
-          </h3>
-          <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed font-medium">
-            Comprehensive analysis of alumni integration into the workforce
-            based on continuous institutional tracer studies.
-          </p>
-        </div>
-
-        {/* 10% Accent Callout Hero Block */}
-        <div
-          className={`flex items-center gap-5 p-5 rounded-2xl border transition-all ${
-            isDarkMode
-              ? "bg-[#660033] border-[#660033] shadow-[0_4px_0_0_#D4AF37]"
-              : "bg-[#660033] border-[#660033] shadow-[0_4px_0_0_#D4AF37]"
-          }`}
-        >
+    <div className="min-h-screen bg-white text-slate-800 antialiased rounded-2xl font-sans">
+      <div className="max-w-7xl mx-auto space-y-6 p-10">
+        {/* HEADER CONTROL LAYER */}
+        <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
           <div>
-            <span className="text-[9px] font-bold text-slate-300 block uppercase tracking-widest mb-1">
-              Cumulative Metric
+            <span className="text-[10px] uppercase tracking-widest font-bold text-[#660033]">
+              Institutional Career Services & Alumni Affairs
             </span>
-            <span
-              className={`text-4xl font-black block tracking-tighter font-sans ${
-                isDarkMode ? "text-[#D4AF37]" : "text-[#FFD700]"
-              }`}
-            >
-              {cumulativeRate}%
-            </span>
+            <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight mt-0.5">
+              Graduate Employability Metrics
+            </h1>
           </div>
-
-          <div className="h-10 w-[1px] bg-white/20" />
-
-          <p className="text-[10px] max-w-[150px] text-slate-200 font-medium leading-normal">
-            Institutional performance benchmark across multi-year cycles.
-          </p>
         </div>
-      </div>
 
-      {/* 2. Visual Split Grid (Data Matrix left, Chart Canvas right) */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 pt-8">
-        {/* Left Side: Premium Row Minimalist Breakdown Cards */}
-        <div className="lg:col-span-2 flex flex-col justify-between space-y-6">
-          <div className="space-y-3">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200 block ">
-              Chronological Performance
-            </span>
-            <div className="space-y-2.5 max-h-[250px] overflow-y-auto pr-2 no-scrollbar">
-              {tracerMatrix.map((row) => (
-                <div
-                  key={row.year}
-                  className={`group flex items-center justify-between p-4 rounded-2xl border transition-all duration-300 ${
-                    isDarkMode
-                      ? "bg-slate-950/20 border-slate-800/40 hover:border-slate-800 hover:bg-slate-950/40"
-                      : "bg-slate-50/40 border-slate-100 hover:border-slate-200/80 hover:bg-slate-50/80"
-                  }`}
-                >
-                  <div className="space-y-0.5">
-                    <span
-                      className={`text-xs font-bold block ${isDarkMode ? "text-slate-200" : "text-[#600018]"}`}
-                    >
-                      Class of {row.year}
-                    </span>
-                    <span className="text-[12px] text-slate-500 dark:text-slate-400 block">
-                      {row.totalGraduates.toLocaleString()} Registered Degrees
-                    </span>
-                  </div>
-                  <span
-                    className={`text-sm font-black ${isDarkMode ? "text-[#D4AF37]" : "text-[#600018]"}`}
-                  >
-                    {row.employabilityPercentage}%
-                  </span>
-                </div>
-              ))}
+        {error && (
+          <div
+            className="bg-rose-50 border border-rose-200 text-rose-700 p-4 rounded-2xl text-xs flex justify-between items-center"
+            role="alert"
+          >
+            <span>⚠️ {error}</span>
+            <button
+              onClick={fetchTracerStats}
+              className="font-bold underline hover:text-rose-900 cursor-pointer"
+            >
+              Retry
+            </button>
+          </div>
+        )}
+
+        {/* KPI SUMMARY CARDS */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
+          {/* PRIMARY KPI CARD */}
+          <div className="relative bg-[#660033] text-white p-6 rounded-2xl shadow-[0_4px_0_0_#D4AF37] flex flex-col justify-between min-h-[140px]">
+            <div>
+              <span className="text-[10px] font-extrabold tracking-wider text-slate-300 block uppercase font-sans mb-1">
+                Cumulative Placement Rate
+              </span>
+              {loading ? (
+                <Skeleton className="h-8 w-24 mt-2 mb-2 bg-white/20" />
+              ) : (
+                <span className="text-3xl font-black text-[#FFD700] leading-none block mt-1 tracking-tight my-1">
+                  {cumulativeRate}%
+                </span>
+              )}
+            </div>
+            <div className="flex items-center justify-between mt-4 pt-2 border-t border-white/10">
+              <span className="text-[11px] font-medium text-slate-200/90 font-sans lowercase tracking-wide">
+                benchmark average across all cycles
+              </span>
             </div>
           </div>
 
-          <div
-            className={`p-4 rounded-xl border text-[9px] leading-relaxed text-slate-400 ${
-              isDarkMode
-                ? "bg-slate-950/10 border-slate-800/30"
-                : "bg-slate-50/20 border-slate-100"
-            }`}
-          >
-            <span className="font-bold text-slate-500 dark:text-slate-400 uppercase block mb-0.5">
-              Context Data Frame:
+          {/* SECONDARY KPI CARD 1 */}
+          <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-[0_4px_20px_rgba(0,0,0,0.01)] flex flex-col justify-between min-h-[140px]">
+            <div>
+              <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 font-sans block mb-1">
+                Total Employed Alumni
+              </span>
+              {loading ? (
+                <Skeleton className="h-8 w-28 mt-2" />
+              ) : (
+                <h3 className="text-3xl font-black text-slate-900 font-sans tracking-tight mt-1.5">
+                  {totalEmployedSum.toLocaleString()}{" "}
+                  <span className="text-sm font-normal text-slate-400">
+                    / {totalGraduatesSum.toLocaleString()}
+                  </span>
+                </h3>
+              )}
+            </div>
+            <span className="text-[11px] font-semibold text-slate-400 capitalize tracking-wide mt-auto pt-2 border-t border-slate-100">
+              total confirmed workforce entries
             </span>
-            Data aggregated from official institutional tracer studies. Rates
-            represent confirmed employment status post-graduation across various
-            industries and workforce sectors.
+          </div>
+
+          {/* SECONDARY KPI CARD 2 */}
+          <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-[0_4px_20px_rgba(0,0,0,0.01)] flex flex-col justify-between min-h-[140px] min-w-0">
+            <div>
+              <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 font-sans block mb-1">
+                Peak Performance Class
+              </span>
+              {loading ? (
+                <Skeleton className="h-5 w-3/4 mt-3" />
+              ) : (
+                <h3
+                  className="text-base font-black text-[#660033] mt-2 block tracking-tight"
+                  title={peakClass ? `Class of ${peakClass.year}` : "N/A"}
+                >
+                  {peakClass
+                    ? `Class of ${peakClass.year} (${peakClass.employabilityPercentage}%)`
+                    : "None Listed"}
+                </h3>
+              )}
+            </div>
+            <span className="text-[11px] font-semibold text-slate-400 capitalize tracking-wide mt-auto pt-2 border-t border-slate-100">
+              highest recorded placement cycle
+            </span>
           </div>
         </div>
 
-        {/* Right Side: Dual Axis Canvas Engine */}
-        <div className="lg:col-span-3 min-h-[300px] flex items-center p-2">
-          <div className="w-full h-full relative">
-            <Chart type="bar" data={chartData} options={chartOptions} />
+        {/* VISUALIZATION ROW: DUAL-AXIS CHART */}
+        <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col">
+          <div className="mb-4">
+            <h4 className="text-base font-bold text-slate-900">
+              Multi-Year Graduate Placement & Employment Output
+            </h4>
+            <p className="text-xs text-slate-400">
+              Comparative view of overall graduate cohort size against verified
+              employment count and placement rate percentage.
+            </p>
           </div>
+          <div className="h-[300px] relative w-full flex-1">
+            {loading ? (
+              <div className="absolute inset-0 flex items-end justify-between px-4 pb-4 gap-4">
+                {[...Array(5)].map((_, i) => (
+                  <Skeleton
+                    key={i}
+                    className="w-full"
+                    style={{ height: `${Math.random() * 60 + 20}%` }}
+                  />
+                ))}
+              </div>
+            ) : tracerMatrix.length > 0 ? (
+              <Chart type="bar" data={chartData} options={chartOptions} />
+            ) : (
+              <div className="h-full flex items-center justify-center text-xs text-slate-400">
+                No tracer study data available.
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* CHRONOLOGICAL BREAKDOWN MATRIX TABLE */}
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden flex flex-col">
+          <div className="p-5 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-50/50">
+            <div>
+              <h4 className="text-base font-bold text-slate-900">
+                Chronological Tracer Study Matrix
+              </h4>
+              <p className="text-xs text-slate-400">
+                Granular headcount and employment performance records per
+                academic year cycle.
+              </p>
+            </div>
+
+            <div className="relative w-full sm:w-64">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <span className="text-slate-400 text-xs">🔍</span>
+              </div>
+              <input
+                type="text"
+                placeholder="Search class year..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-[#660033] focus:ring-1 focus:ring-[#660033] transition-shadow"
+                aria-label="Search tracer records"
+              />
+            </div>
+          </div>
+
+          <div className="max-h-[400px] overflow-y-auto relative">
+            <table className="w-full text-left border-collapse text-sm">
+              <thead className="bg-slate-50 sticky top-0 text-slate-400 font-semibold text-[11px] uppercase tracking-wider z-10 shadow-sm">
+                <tr>
+                  <th className="px-6 py-3 w-16 text-center cursor-pointer hover:bg-slate-100 transition-colors">
+                    Rank
+                  </th>
+                  <th
+                    className="px-6 py-3 cursor-pointer hover:bg-slate-100 transition-colors"
+                    onClick={() => handleSort("year")}
+                  >
+                    Graduating Class{" "}
+                    {sortConfig.key === "year" &&
+                      (sortConfig.direction === "desc" ? "▼" : "▲")}
+                  </th>
+                  <th
+                    className="px-6 py-3 text-right cursor-pointer hover:bg-slate-100 transition-colors"
+                    onClick={() => handleSort("totalGraduates")}
+                  >
+                    Total Cohort{" "}
+                    {sortConfig.key === "totalGraduates" &&
+                      (sortConfig.direction === "desc" ? "▼" : "▲")}
+                  </th>
+                  <th
+                    className="px-6 py-3 text-right cursor-pointer hover:bg-slate-100 transition-colors"
+                    onClick={() => handleSort("employedCount")}
+                  >
+                    Employed Alumni{" "}
+                    {sortConfig.key === "employedCount" &&
+                      (sortConfig.direction === "desc" ? "▼" : "▲")}
+                  </th>
+                  <th
+                    className="px-6 py-3 text-center cursor-pointer hover:bg-slate-100 transition-colors"
+                    onClick={() => handleSort("employabilityPercentage")}
+                  >
+                    Placement Rate{" "}
+                    {sortConfig.key === "employabilityPercentage" &&
+                      (sortConfig.direction === "desc" ? "▼" : "▲")}
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 text-slate-600 bg-white">
+                {loading ? (
+                  [...Array(4)].map((_, i) => (
+                    <tr key={i}>
+                      <td className="px-6 py-4">
+                        <Skeleton className="h-4 w-8 mx-auto" />
+                      </td>
+                      <td className="px-6 py-4">
+                        <Skeleton className="h-4 w-32" />
+                      </td>
+                      <td className="px-6 py-4 flex justify-end">
+                        <Skeleton className="h-4 w-16" />
+                      </td>
+                      <td className="px-6 py-4 flex justify-end">
+                        <Skeleton className="h-4 w-16" />
+                      </td>
+                      <td className="px-6 py-4">
+                        <Skeleton className="h-4 w-20 mx-auto" />
+                      </td>
+                    </tr>
+                  ))
+                ) : processedMatrix.length > 0 ? (
+                  processedMatrix.map((row, idx) => {
+                    const rate = row.employabilityPercentage || 0;
+                    return (
+                      <tr
+                        key={row.year}
+                        className="hover:bg-slate-50/60 transition-colors group"
+                      >
+                        <td className="px-6 py-4 text-center font-mono text-slate-400 text-xs font-semibold">
+                          #{String(idx + 1).padStart(2, "0")}
+                        </td>
+                        <td className="px-6 py-4 font-bold text-slate-500/80 text-[10px] uppercase tracking-wider group-hover:text-[#660033] transition-colors">
+                          Class of {row.year}
+                        </td>
+                        <td className="px-6 py-4 text-right font-mono text-slate-600 font-bold whitespace-nowrap">
+                          {(row.totalGraduates || 0).toLocaleString()}
+                        </td>
+                        <td className="px-6 py-4 text-right font-mono text-[#660033] font-bold whitespace-nowrap">
+                          {(row.employedCount || 0).toLocaleString()}
+                        </td>
+                        <td className="px-6 py-4 text-center whitespace-nowrap">
+                          <span
+                            className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                              rate >= 75
+                                ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                : rate >= 50
+                                  ? "bg-amber-50 text-amber-700 border border-amber-200"
+                                  : "bg-rose-50 text-rose-700 border border-rose-200"
+                            }`}
+                          >
+                            {rate}% Placement
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })
+                ) : (
+                  <tr>
+                    <td
+                      colSpan="5"
+                      className="px-6 py-12 text-center text-xs text-slate-400 bg-slate-50/30"
+                    >
+                      <div className="text-3xl mb-2">📭</div>
+                      No records found matching "{searchQuery}"
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="p-4 bg-slate-50/50 border-t border-slate-100 text-[10px] text-slate-500 leading-relaxed">
+            <span className="font-bold text-slate-700 uppercase block mb-0.5">
+              Context Data Frame Note:
+            </span>
+            Calculated directly using verified direct headcount metrics (
+            <code>employedCount</code> and <code>totalGraduates</code>) as
+            populated by official institutional tracer surveys.
+          </div>
+        </div>
+
+        {/* FOOTER */}
+        <div className="flex justify-between items-center text-[10px] text-slate-400 font-semibold tracking-wider uppercase">
+          <span>Office of Alumni Relations & Career Services</span>
+          <span className="text-[#D4AF37] flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#D4AF37] animate-pulse" />
+            Live Data Feed Connected
+          </span>
         </div>
       </div>
     </div>

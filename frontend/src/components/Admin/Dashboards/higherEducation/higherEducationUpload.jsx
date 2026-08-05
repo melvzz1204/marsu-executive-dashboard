@@ -162,7 +162,7 @@ export default function HigherEducationUpload() {
 
       const json = await response.json();
 
-      // DUPLICATE DETECTED: Trigger the Overwrite Modal
+      // DUPLICATE DETECTED: Trigger Overwrite Modal
       if (response.status === 409 && json.isDuplicate) {
         setDuplicateDetails(json.message);
         setShowOverwriteModal(true);
@@ -176,13 +176,14 @@ export default function HigherEducationUpload() {
         );
       }
 
-      // SUCCESS
+      // SUCCESS - Store response stats for UI
       setStatusMessage({
         type: "success",
         text: json.message || "File uploaded and processed successfully!",
+        stats: json.stats || null,
       });
       handleClearFile();
-      fetchLogs(); // Refresh the logs table
+      fetchLogs(); // Refresh upload history
     } catch (err) {
       setStatusMessage({
         type: "error",
@@ -205,29 +206,48 @@ export default function HigherEducationUpload() {
           </h2>
           <p className="text-xs text-slate-500">
             Select or drag an official Excel file (`.xlsx`, `.xls`) to ingest
-            program registries and tracer data into the system[cite: 13].
+            program registries, graduate counts, and employability tracer
+            metrics into the system[cite: 14].
           </p>
         </div>
 
         {/* Upload Status Banner */}
         {statusMessage && (
           <div
-            className={`p-4 rounded-2xl mb-6 text-xs font-bold flex items-center justify-between ${
+            className={`p-4 rounded-2xl mb-6 text-xs font-bold flex flex-col gap-2 ${
               statusMessage.type === "success"
                 ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
                 : "bg-rose-50 text-rose-800 border border-rose-200"
             }`}
           >
-            <span>
-              {statusMessage.type === "success" ? "✅ " : "⚠️ "}
-              {statusMessage.text}
-            </span>
-            <button
-              onClick={() => setStatusMessage(null)}
-              className="text-slate-400 hover:text-slate-600 font-bold cursor-pointer"
-            >
-              ✕
-            </button>
+            <div className="flex items-center justify-between">
+              <span>
+                {statusMessage.type === "success" ? "✅ " : "⚠️ "}
+                {statusMessage.text}
+              </span>
+              <button
+                onClick={() => setStatusMessage(null)}
+                className="text-slate-400 hover:text-slate-600 font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Ingestion Stats Breakdown Badge */}
+            {statusMessage.stats && (
+              <div className="flex flex-wrap items-center gap-2.5 pt-2 border-t border-emerald-200/60 text-[11px]">
+                <span className="bg-emerald-100/80 text-emerald-900 px-2.5 py-1 rounded-lg font-semibold">
+                  📚 Programs Ingested:{" "}
+                  <strong>{statusMessage.stats.programsProcessed || 0}</strong>
+                </span>
+                <span className="bg-emerald-100/80 text-emerald-900 px-2.5 py-1 rounded-lg font-semibold">
+                  🎓 Tracer & Graduate Records:{" "}
+                  <strong>
+                    {statusMessage.stats.tracerRecordsProcessed || 0}
+                  </strong>
+                </span>
+              </div>
+            )}
           </div>
         )}
 
@@ -282,7 +302,7 @@ export default function HigherEducationUpload() {
               >
                 {file
                   ? "Ready to ingest • Click or drop another file to replace"
-                  : "Supports Microsoft Excel spreadsheets (.xlsx, .xls)"}
+                  : "Supports program registry, graduate counts, and employability tracer columns[cite: 14]"}
               </p>
             </div>
           </label>
@@ -343,7 +363,7 @@ export default function HigherEducationUpload() {
                 <th className="px-8 py-4">Date & Time</th>
                 <th className="px-8 py-4">File Name</th>
                 <th className="px-8 py-4">Uploaded By</th>
-                <th className="px-8 py-4">Records Processed</th>
+                <th className="px-8 py-4">Total Records Ingested</th>
                 <th className="px-8 py-4">Status</th>
               </tr>
             </thead>
@@ -389,14 +409,6 @@ export default function HigherEducationUpload() {
                         >
                           {statusBadge.label}
                         </span>
-                        {log.errorMessage && (
-                          <div
-                            className="mt-1 text-[10px] text-rose-500 font-medium max-w-[200px] truncate"
-                            title={log.errorMessage}
-                          >
-                            {log.errorMessage}
-                          </div>
-                        )}
                       </td>
                     </tr>
                   );
@@ -432,11 +444,11 @@ export default function HigherEducationUpload() {
             {/* Warning Box */}
             <div className="bg-amber-50/70 border border-amber-200/80 rounded-2xl p-3.5 text-[11px] text-amber-900 leading-relaxed font-medium">
               Overwriting will permanently replace the existing program
-              registries and graduate tracer metrics for these records. <br />
+              registries, graduate counts, and employability tracer metrics for
+              these records[cite: 14]. <br />
               <br />
               <span className="font-bold">Note:</span> Existing accreditation
-              statuses will be protected if the spreadsheet cells are left
-              blank[cite: 13].
+              statuses will be protected if spreadsheet cells are left blank.
             </div>
 
             {/* Modal Actions */}

@@ -197,12 +197,28 @@ exports.uploadHigherEducationExcel = async (req, res) => {
           }
         }
 
+        const graduateCount = rowData["Graduate_Count"]
+          ? parseInt(rowData["Graduate_Count"], 10) || 0
+          : 0;
+
+        const rawEmployed = rowData["No._of_Graduate_Employed"];
+        let employedCount = 0;
+
+        if (
+          rawEmployed !== undefined &&
+          rawEmployed !== null &&
+          rawEmployed !== ""
+        ) {
+          employedCount = parseInt(rawEmployed, 10) || 0;
+        } else {
+          employedCount = Math.round(graduateCount * employabilityRate);
+        }
+
         parsedTracers.push({
           year: yearVal,
-          graduateCount: rowData["Graduate_Count"]
-            ? parseInt(rowData["Graduate_Count"], 10) || 0
-            : 0,
+          graduateCount,
           employabilityRate,
+          employedCount,
         });
       }
     });
@@ -227,8 +243,18 @@ exports.uploadHigherEducationExcel = async (req, res) => {
       existingPrograms = await HigherEducation.find({ $or: programConditions });
     }
 
-    // IF MATCHES FOUND AND ADMIN HAS NOT CONFIRMED OVERWRITE -> RETURN 409
+    // IF MATCHES FOUND AND ADMIN HAS NOT CONFIRMED OVERWRITE -> LOG & RETURN 409
     if (existingPrograms.length > 0 && !forceOverwrite) {
+      await UploadLog.create({
+        module: "HIGHER_EDUCATION",
+        fileName,
+        fileSize,
+        uploadedBy,
+        status: "DUPLICATE_BLOCK",
+        isOverwrite: false,
+        errorMessage: `Upload blocked. Found ${existingPrograms.length} matching existing program(s).`,
+      }).catch(() => {});
+
       return res.status(409).json({
         success: false,
         isDuplicate: true,
@@ -289,13 +315,13 @@ exports.uploadHigherEducationExcel = async (req, res) => {
 
     const totalRecordsProcessed = parsedPrograms.length + parsedTracers.length;
 
-    // 7. RECORD ONLY SUCCESSFUL UPLOAD OR OVERWRITE LOG
+    // 7. RECORD SUCCESSFUL UPLOAD OR OVERWRITE LOG
     await UploadLog.create({
       module: "HIGHER_EDUCATION",
       fileName,
       fileSize,
       uploadedBy,
-      status: "SUCCESS",
+      status: forceOverwrite ? "OVERWRITE" : "SUCCESS",
       recordsProcessed: totalRecordsProcessed,
       isOverwrite: forceOverwrite,
     });
@@ -315,6 +341,17 @@ exports.uploadHigherEducationExcel = async (req, res) => {
       "Critical ExcelJS Higher Education Processing Failure Exception:",
       error,
     );
+
+    // Record failure in UploadLog
+    await UploadLog.create({
+      module: "HIGHER_EDUCATION",
+      fileName,
+      fileSize,
+      uploadedBy,
+      status: "FAILED",
+      errorMessage: error.message,
+      isOverwrite: forceOverwrite,
+    }).catch(() => {});
 
     return res.status(500).json({ success: false, error: error.message });
   }

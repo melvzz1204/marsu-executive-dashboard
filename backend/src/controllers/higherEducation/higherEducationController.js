@@ -67,13 +67,32 @@ exports.getHigherEducationStats = async (req, res) => {
     // 4. Multi-Year Tracer Matrix (from HigherEducationTracer)
     const tracerData = await HigherEducationTracer.find().sort({ year: 1 });
 
-    const tracerStudyMatrix = tracerData.map((item) => ({
-      year: item.year,
-      totalGraduates: item.graduateCount,
-      employabilityPercentage: Math.round((item.employabilityRate || 0) * 10000) / 100,
-    }));
+    const tracerStudyMatrix = tracerData.map((item) => {
+      // Calculate employed count fallback if not explicitly set in database
+      const count =
+        item.employedCount !== undefined && item.employedCount !== null
+          ? item.employedCount
+          : Math.round((item.graduateCount || 0) * (item.employabilityRate || 0));
 
-    // Calculate Overall Average Employability Percentage
+      return {
+        year: item.year,
+        totalGraduates: item.graduateCount,
+        employedCount: count, // 💡 NEW FIELD PASSED TO FRONTEND
+        employabilityPercentage: Math.round((item.employabilityRate || 0) * 10000) / 100,
+      };
+    });
+
+    // Calculate Overall Totals and Average Employability
+    const totalGraduatesSum = tracerData.reduce((acc, curr) => acc + (curr.graduateCount || 0), 0);
+    
+    const totalEmployedSum = tracerData.reduce((acc, curr) => {
+      const employed =
+        curr.employedCount !== undefined && curr.employedCount !== null
+          ? curr.employedCount
+          : Math.round((curr.graduateCount || 0) * (curr.employabilityRate || 0));
+      return acc + employed;
+    }, 0);
+
     const avgEmployability =
       tracerData.length > 0
         ? tracerData.reduce((acc, curr) => acc + (curr.employabilityRate || 0), 0) / tracerData.length
@@ -88,6 +107,8 @@ exports.getHigherEducationStats = async (req, res) => {
           totalPrograms,
           activeAccreditations,
           expiredOrPending,
+          totalGraduates: totalGraduatesSum, // 💡 Optional KPI
+          totalEmployed: totalEmployedSum,   // 💡 Optional KPI
           cumulativeEmployabilityPercentage: cumulativeEmployability,
         },
         accreditationBreakdown,
