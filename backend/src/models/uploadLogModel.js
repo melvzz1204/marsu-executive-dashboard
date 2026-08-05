@@ -1,7 +1,13 @@
-/* const mongoose = require("mongoose");
+const mongoose = require("mongoose");
 
 const uploadLogSchema = new mongoose.Schema(
   {
+    module: {
+      type: String,
+      enum: ["ENROLLMENT", "HIGHER_EDUCATION", "RESEARCH_EXTENSION", "SYSTEM"],
+      default: "ENROLLMENT",
+      trim: true,
+    },
     fileName: {
       type: String,
       required: true,
@@ -17,7 +23,7 @@ const uploadLogSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["SUCCESS", "FAILED", "DUPLICATE_BLOCK"],
+      enum: ["SUCCESS", "FAILED", "DUPLICATE_BLOCK", "PARTIAL_SUCCESS"],
       required: true,
     },
     groupsProcessed: {
@@ -51,8 +57,7 @@ const uploadLogSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
-  },
+  }
 );
 
 module.exports = mongoose.model("UploadLog", uploadLogSchema);
- */

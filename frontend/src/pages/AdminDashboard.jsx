@@ -1,7 +1,13 @@
 import React, { useState } from "react";
 import Sidebar from "../components/Admin/sideBar";
-import EnrollmentsUpload from "../components/Admin/EnrollmentsUpload";
-import UploadHistory from "../components/Admin/uploadHistory";
+
+// Imports for Enrollments
+import EnrollmentsUpload from "../components/Admin/Dashboards/enrollments/EnrollmentsUpload";
+import UploadHistory from "../components/Admin/Dashboards/enrollments/uploadHistory";
+
+// 🌟 Import your new Higher Education Upload component
+import HigherEducationUpload from "../components/Admin/Dashboards/higherEducation/higherEducationUpload";
+
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("enrollments");
 
@@ -57,11 +63,15 @@ export default function AdminDashboard() {
 
         {/* Dynamic View Body */}
         <div className="p-8 max-w-4xl w-full mx-auto space-y-6">
+          {/* Conditional Rendering based on Sidebar state */}
           {activeTab === "enrollments" ? (
             <>
               <EnrollmentsUpload />
               <UploadHistory />
             </>
+          ) : activeTab === "higher-ed" ? (
+            // 🌟 Render your new component when Higher Education is clicked
+            <HigherEducationUpload />
           ) : (
             <div className="bg-white p-12 rounded-3xl border border-slate-200 text-center text-slate-500 font-medium">
               Module for {categoryLabels[activeTab]} is currently under

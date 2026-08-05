@@ -34,7 +34,7 @@ const protect = async (req, res, next) => {
   }
 };
 
-// 🔑 ADDED: Role authorization middleware
+// ADDED: Role authorization middleware
 const authorize = (...roles) => {
   return (req, res, next) => {
     // Ensure req.user exists and its role is included in the allowed roles array

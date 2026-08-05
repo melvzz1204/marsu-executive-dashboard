@@ -1,5 +1,5 @@
 // components/EmployabilityMetrics.jsx
-import React, { useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -12,7 +12,7 @@ import {
   Legend,
 } from "chart.js";
 import { Chart } from "react-chartjs-2";
-import employability from "./employability.js";
+import api from "../../../../api/axios"; // 🌟 Matches your Axios setup
 
 ChartJS.register(
   CategoryScale,
@@ -26,14 +26,46 @@ ChartJS.register(
 );
 
 export default function EmployabilityMetrics({ isDarkMode = false }) {
-  const coreData = employability[0];
-  const trendData = coreData?.trend_analysis_data || [];
+  const [statsData, setStatsData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // 🌟 Fetch Stats Data from Backend via Axios
+  useEffect(() => {
+    const fetchTracerStats = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const response = await api.get("/higher-education/stats");
+        setStatsData(response.data.data);
+      } catch (err) {
+        console.error("Error fetching employability stats:", err);
+        const errorMessage =
+          err.response?.data?.message ||
+          err.message ||
+          "Failed to connect to the server";
+        setError(errorMessage);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTracerStats();
+  }, []);
+
+  // Map Backend Data to Component Variables
+  const tracerMatrix = statsData?.tracerStudyMatrix || [];
+  const cumulativeRate =
+    statsData?.kpis?.cumulativeEmployabilityPercentage || 0;
 
   // Chart configuration with premium color distributions
   const chartData = useMemo(() => {
-    const labels = trendData.map((d) => `CY ${d.year}`);
-    const graduates = trendData.map((d) => d.graduate_count);
-    const rates = trendData.map((d) => parseFloat(d.employability_rate));
+    // 🌟 Use backend data for the charts
+    const labels = tracerMatrix.map((d) => `CY ${d.year}`);
+    const graduates = tracerMatrix.map((d) => d.totalGraduates);
+    const rates = tracerMatrix.map((d) =>
+      parseFloat(d.employabilityPercentage),
+    );
 
     return {
       labels,
@@ -65,7 +97,7 @@ export default function EmployabilityMetrics({ isDarkMode = false }) {
         },
       ],
     };
-  }, [trendData, isDarkMode]);
+  }, [tracerMatrix, isDarkMode]);
 
   const chartOptions = {
     responsive: true,
@@ -136,6 +168,39 @@ export default function EmployabilityMetrics({ isDarkMode = false }) {
     },
   };
 
+  // 🌟 Loading State UI
+  if (loading) {
+    return (
+      <div
+        className={`p-8 rounded-2xl min-h-[500px] flex flex-col items-center justify-center transition-all ${isDarkMode ? "bg-slate-900/60 text-white" : "bg-white text-slate-900"}`}
+      >
+        <div className="w-12 h-12 border-4 border-[#D4AF37] border-t-[#600018] rounded-full animate-spin mb-4"></div>
+        <p className="text-sm font-semibold text-slate-500 uppercase tracking-widest">
+          Compiling Tracer Data...
+        </p>
+      </div>
+    );
+  }
+
+  // 🌟 Error State UI
+  if (error) {
+    return (
+      <div className="bg-rose-50 min-h-[500px] flex flex-col items-center justify-center p-8 text-rose-800 rounded-2xl border border-rose-200">
+        <span className="text-4xl mb-4">⚠️</span>
+        <h3 className="text-lg font-bold tracking-tight mb-2">
+          Matrix Synchronization Failed
+        </h3>
+        <p className="text-sm text-rose-600/80 mb-6">{error}</p>
+        <button
+          onClick={() => window.location.reload()}
+          className="px-4 py-2 bg-rose-600 text-white text-xs font-bold rounded-lg hover:bg-rose-700 transition-colors"
+        >
+          Retry Connection
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div
       className={`p-8 rounded-2xl transition-all duration-500 ${
@@ -149,19 +214,19 @@ export default function EmployabilityMetrics({ isDarkMode = false }) {
         <div className="max-w-2xl space-y-2">
           <div className="flex items-center gap-2">
             <span className="h-1.5 w-1.5 rounded-full bg-[#D4AF37]" />
-            <span className="text-[10px] font-black tracking-[0.2em] uppercase  text-[#D4AF37]">
+            <span className="text-[10px] font-black tracking-[0.2em] uppercase text-[#D4AF37]">
               Tracer Study Matrix
             </span>
           </div>
           <h3 className="text-2xl font-black font-sans tracking-tight uppercase max-w-lg leading-tight">
-            {coreData?.title}
+            Graduate Employability Status
           </h3>
           <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed font-medium">
-            {coreData?.description?.summary}
+            Comprehensive analysis of alumni integration into the workforce
+            based on continuous institutional tracer studies.
           </p>
         </div>
 
-        {/* 10% Accent Callout Hero Block */}
         {/* 10% Accent Callout Hero Block */}
         <div
           className={`flex items-center gap-5 p-5 rounded-2xl border transition-all ${
@@ -179,7 +244,7 @@ export default function EmployabilityMetrics({ isDarkMode = false }) {
                 isDarkMode ? "text-[#D4AF37]" : "text-[#FFD700]"
               }`}
             >
-              {coreData?.highlighted_rate}
+              {cumulativeRate}%
             </span>
           </div>
 
@@ -196,11 +261,11 @@ export default function EmployabilityMetrics({ isDarkMode = false }) {
         {/* Left Side: Premium Row Minimalist Breakdown Cards */}
         <div className="lg:col-span-2 flex flex-col justify-between space-y-6">
           <div className="space-y-3">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-800 dark:text-slate-800 block ">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200 block ">
               Chronological Performance
             </span>
-            <div className="space-y-2.5">
-              {trendData.map((row) => (
+            <div className="space-y-2.5 max-h-[250px] overflow-y-auto pr-2 no-scrollbar">
+              {tracerMatrix.map((row) => (
                 <div
                   key={row.year}
                   className={`group flex items-center justify-between p-4 rounded-2xl border transition-all duration-300 ${
@@ -210,15 +275,19 @@ export default function EmployabilityMetrics({ isDarkMode = false }) {
                   }`}
                 >
                   <div className="space-y-0.5">
-                    <span className="text-xs font-bold block text-[#600018] ">
+                    <span
+                      className={`text-xs font-bold block ${isDarkMode ? "text-slate-200" : "text-[#600018]"}`}
+                    >
                       Class of {row.year}
                     </span>
-                    <span className="text-[12px]  text-slate-800 block">
-                      {row.graduate_count.toLocaleString()} Registered Degrees
+                    <span className="text-[12px] text-slate-500 dark:text-slate-400 block">
+                      {row.totalGraduates.toLocaleString()} Registered Degrees
                     </span>
                   </div>
-                  <span className="text-sm font-black text-[#600018] dark:text-slate-800 ">
-                    {row.employability_rate}
+                  <span
+                    className={`text-sm font-black ${isDarkMode ? "text-[#D4AF37]" : "text-[#600018]"}`}
+                  >
+                    {row.employabilityPercentage}%
                   </span>
                 </div>
               ))}
@@ -235,7 +304,9 @@ export default function EmployabilityMetrics({ isDarkMode = false }) {
             <span className="font-bold text-slate-500 dark:text-slate-400 uppercase block mb-0.5">
               Context Data Frame:
             </span>
-            {coreData?.description?.context}
+            Data aggregated from official institutional tracer studies. Rates
+            represent confirmed employment status post-graduation across various
+            industries and workforce sectors.
           </div>
         </div>
 

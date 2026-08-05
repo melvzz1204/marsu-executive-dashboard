@@ -8,6 +8,7 @@ const licensurePerformanceRoutes = require("./routes/achievements/licensurePerfo
 const reportRoutes = require("./routes/reports/reportRoutes");
 const researchAnalyticsRouter = require("./routes/research/researchRoutes");
 const enrollmentRoutes = require("./routes/enrollment/enrollmentRoutes");
+const higherEducationRoutes = require("./routes/higherEducation/higherEducationRoutes");
 
 // for public viewing
 const publicViewingRoutes = require("./routes/enrollment/publicViewingRoutes");
@@ -35,6 +36,7 @@ app.use("/api/v1/licensure-performance", licensurePerformanceRoutes);
 app.use("/api/v1/reports", reportRoutes);
 app.use("/api/v1/research", researchAnalyticsRouter);
 app.use("/api/v1/enrollment", enrollmentRoutes);
+app.use("/api/v1/higher-education", higherEducationRoutes);
 
 //public viewing
 app.use("/api/v1/public-viewing", publicViewingRoutes);

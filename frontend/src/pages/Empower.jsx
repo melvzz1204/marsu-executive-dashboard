@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import EnrollmentDashboard from "../components/Admin/Dashboards/enrollmentDashboard";
+import EnrollmentDashboard from "../components/Admin/Dashboards/enrollments/enrollmentDashboard";
 import FloatingChatBot from "../components/Empower/FloatingChatbot";
 import EmpowerLogo from "../../public/empower.png";
 import MarsuLogo from "../../public/marsu-logo.png"; // 🌟 NEW: Import your MarSU Logo here
