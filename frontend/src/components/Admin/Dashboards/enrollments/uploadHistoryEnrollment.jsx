@@ -34,13 +34,21 @@ export default function UploadHistory({ refreshTrigger }) {
   const getStatusBadge = (status = "", isOverwrite = false) => {
     const rawStatus = status.toString().toUpperCase().trim();
 
+    // Catch explicit overwrite flag OR backend statuses ("OVERWRITE", "OVERWRITTEN", "UPDATED")
+    const isOverwritten =
+      Boolean(isOverwrite) ||
+      rawStatus === "OVERWRITE" ||
+      rawStatus === "OVERWRITTEN" ||
+      rawStatus === "UPDATED";
+
+    if (isOverwritten) {
+      return {
+        label: "Updated (Overwrite)",
+        className: "bg-indigo-100 text-indigo-800 border-indigo-200",
+      };
+    }
+
     if (rawStatus === "SUCCESS") {
-      if (isOverwrite) {
-        return {
-          label: "Updated (Overwrite)",
-          className: "bg-blue-100 text-blue-800 border-blue-200",
-        };
-      }
       return {
         label: "New Upload",
         className: "bg-emerald-100 text-emerald-800 border-emerald-200",
@@ -214,7 +222,8 @@ export default function UploadHistory({ refreshTrigger }) {
               </tr>
             ) : (
               logs.map((log, index) => {
-                const statusBadge = getStatusBadge(log.status, log.isOverwrite);
+                const isOverwriteFlag = log.isOverwrite || log.isOverwritten;
+                const statusBadge = getStatusBadge(log.status, isOverwriteFlag);
                 const rawTimestamp = log.uploadedAt || log.createdAt;
 
                 return (
