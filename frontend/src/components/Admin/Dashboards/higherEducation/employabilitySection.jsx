@@ -127,6 +127,7 @@ export default function EmployabilityMetrics() {
   };
 
   // Dual-Axis Chart Data Structure
+  // Dual-Axis Chart Data Structure
   const chartData = useMemo(() => {
     const labels = tracerMatrix.map((d) => `CY ${d.year}`);
     const graduates = tracerMatrix.map((d) => d.totalGraduates || 0);
@@ -150,6 +151,7 @@ export default function EmployabilityMetrics() {
           pointHoverRadius: 8,
           fill: true,
           tension: 0.3,
+          order: 1,
           yAxisID: "yPercentage",
         },
         {
@@ -158,8 +160,15 @@ export default function EmployabilityMetrics() {
           data: employed,
           backgroundColor: PALETTE.maroon,
           hoverBackgroundColor: PALETTE.maroonHover,
-          borderRadius: 6,
-          barThickness: 20,
+          borderRadius: {
+            topLeft: 4,
+            topRight: 0,
+            bottomLeft: 0,
+            bottomRight: 0,
+          },
+          barPercentage: 1.0, // Removes internal gap between left and right bar
+          categoryPercentage: 0.4, // Width ratio of the bar group per year
+          order: 2,
           yAxisID: "yCount",
         },
         {
@@ -168,8 +177,15 @@ export default function EmployabilityMetrics() {
           data: graduates,
           backgroundColor: "rgba(203, 213, 225, 0.6)",
           hoverBackgroundColor: "rgba(203, 213, 225, 0.8)",
-          borderRadius: 6,
-          barThickness: 20,
+          borderRadius: {
+            topLeft: 0,
+            topRight: 4,
+            bottomLeft: 0,
+            bottomRight: 0,
+          },
+          barPercentage: 1.0, // Removes internal gap between left and right bar
+          categoryPercentage: 0.4, // Width ratio of the bar group per year
+          order: 3,
           yAxisID: "yCount",
         },
       ],
@@ -352,7 +368,9 @@ export default function EmployabilityMetrics() {
               employment count and placement rate percentage.
             </p>
           </div>
-          <div className="h-[300px] relative w-full flex-1">
+
+          {/* FIXED HEIGHT CONTAINER */}
+          <div className="h-[300px] min-h-[200px] relative w-full">
             {loading ? (
               <div className="absolute inset-0 flex items-end justify-between px-4 pb-4 gap-4">
                 {[...Array(5)].map((_, i) => (
@@ -505,7 +523,6 @@ export default function EmployabilityMetrics() {
                       colSpan="5"
                       className="px-6 py-12 text-center text-xs text-slate-400 bg-slate-50/30"
                     >
-                      <div className="text-3xl mb-2">📭</div>
                       No records found matching "{searchQuery}"
                     </td>
                   </tr>

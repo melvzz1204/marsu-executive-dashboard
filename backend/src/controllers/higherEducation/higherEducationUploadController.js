@@ -175,9 +175,6 @@ exports.uploadHigherEducationExcel = async (req, res) => {
           endDate,
           isAccredited,
           reviewStatus,
-          hasExplicitAccreditation: Boolean(
-            rawAccreditation && rawAccreditation !== "Not Accredited",
-          ),
         });
       }
 
@@ -232,19 +229,14 @@ exports.uploadHigherEducationExcel = async (req, res) => {
       });
     }
 
-    // 5. SCAN DATABASE FOR DUPLICATE RECORDS
-    const programConditions = parsedPrograms.map((p) => ({
-      campusBranch: p.campusBranch,
-      programName: p.programName,
-    }));
+    // 5. SCAN DATABASE FOR EXISTING RECORDS
+    const totalExistingPrograms = await HigherEducation.countDocuments();
+    const totalExistingTracers = await HigherEducationTracer.countDocuments();
+    const hasExistingData =
+      totalExistingPrograms > 0 || totalExistingTracers > 0;
 
-    let existingPrograms = [];
-    if (programConditions.length > 0) {
-      existingPrograms = await HigherEducation.find({ $or: programConditions });
-    }
-
-    // IF MATCHES FOUND AND ADMIN HAS NOT CONFIRMED OVERWRITE -> LOG & RETURN 409
-    if (existingPrograms.length > 0 && !forceOverwrite) {
+    // IF DATA EXISTS AND OVERWRITE IS NOT CONFIRMED -> BLOCK & RETURN 409
+    if (hasExistingData && !forceOverwrite) {
       await UploadLog.create({
         module: "HIGHER_EDUCATION",
         fileName,
@@ -252,70 +244,34 @@ exports.uploadHigherEducationExcel = async (req, res) => {
         uploadedBy,
         status: "DUPLICATE_BLOCK",
         isOverwrite: false,
-        errorMessage: `Upload blocked. Found ${existingPrograms.length} matching existing program(s).`,
+        errorMessage: `Upload blocked. Found existing dataset in database. Confirmation required to overwrite.`,
       }).catch(() => {});
 
       return res.status(409).json({
         success: false,
         isDuplicate: true,
-        message: `Found ${existingPrograms.length} existing higher education program(s) in the database matching this Excel file.`,
+        message: `Found existing higher education records in the database. Re-uploading will replace the dataset with your spreadsheet.`,
       });
     }
 
-    // 6. SAVE OR OVERWRITE RECORDS IN MONGODB
-    const saveProgramPromises = parsedPrograms.map(async (programData) => {
-      let programToSave = { ...programData };
+    // 6. SAVE OR REPLACE RECORDS IN MONGODB
+    if (forceOverwrite) {
+      // Clear current collection datasets to reflect deletions made in Excel
+      await HigherEducation.deleteMany({});
+      await HigherEducationTracer.deleteMany({});
+    }
 
-      if (forceOverwrite) {
-        const existing = existingPrograms.find(
-          (ep) =>
-            ep.campusBranch === programData.campusBranch &&
-            ep.programName === programData.programName,
-        );
+    if (parsedPrograms.length > 0) {
+      await HigherEducation.insertMany(parsedPrograms);
+    }
 
-        if (existing) {
-          if (!programData.hasExplicitAccreditation) {
-            programToSave.accreditationStatus = existing.accreditationStatus;
-            programToSave.isAccredited = existing.isAccredited;
-            programToSave.reviewStatus = existing.reviewStatus;
-          }
-          if (!programToSave.startDate)
-            programToSave.startDate = existing.startDate;
-          if (!programToSave.endDate) programToSave.endDate = existing.endDate;
-          if (
-            programToSave.yearInitialOperation === "N/A" ||
-            !programToSave.yearInitialOperation
-          ) {
-            programToSave.yearInitialOperation = existing.yearInitialOperation;
-          }
-        }
-      }
-
-      delete programToSave.hasExplicitAccreditation;
-
-      return HigherEducation.findOneAndUpdate(
-        {
-          campusBranch: programData.campusBranch,
-          programName: programData.programName,
-        },
-        { $set: programToSave },
-        { upsert: true, new: true, runValidators: true },
-      );
-    });
-
-    const saveTracerPromises = parsedTracers.map(async (tracerData) => {
-      return HigherEducationTracer.findOneAndUpdate(
-        { year: tracerData.year },
-        { $set: tracerData },
-        { upsert: true, new: true, runValidators: true },
-      );
-    });
-
-    await Promise.all([...saveProgramPromises, ...saveTracerPromises]);
+    if (parsedTracers.length > 0) {
+      await HigherEducationTracer.insertMany(parsedTracers);
+    }
 
     const totalRecordsProcessed = parsedPrograms.length + parsedTracers.length;
 
-    // 7. RECORD SUCCESSFUL UPLOAD OR OVERWRITE LOG
+    // 7. RECORD LOG
     await UploadLog.create({
       module: "HIGHER_EDUCATION",
       fileName,
@@ -329,8 +285,8 @@ exports.uploadHigherEducationExcel = async (req, res) => {
     return res.status(201).json({
       success: true,
       message: forceOverwrite
-        ? `Successfully overwritten higher education dataset! Processed ${parsedPrograms.length} program(s) and ${parsedTracers.length} tracer record(s).`
-        : `Successfully ingested higher education dataset! Processed ${parsedPrograms.length} program(s) and ${parsedTracers.length} tracer record(s).`,
+        ? `Successfully synchronized dataset! Processed ${parsedPrograms.length} program(s) and ${parsedTracers.length} tracer record(s).`
+        : `Successfully uploaded dataset! Processed ${parsedPrograms.length} program(s) and ${parsedTracers.length} tracer record(s).`,
       stats: {
         programsProcessed: parsedPrograms.length,
         tracerRecordsProcessed: parsedTracers.length,
@@ -342,7 +298,6 @@ exports.uploadHigherEducationExcel = async (req, res) => {
       error,
     );
 
-    // Record failure in UploadLog
     await UploadLog.create({
       module: "HIGHER_EDUCATION",
       fileName,
@@ -359,7 +314,6 @@ exports.uploadHigherEducationExcel = async (req, res) => {
 
 /**
  * GET /api/v1/higher-education/logs
- * Retrieves the spreadsheet upload history logs
  */
 exports.getUploadLogs = async (req, res) => {
   try {

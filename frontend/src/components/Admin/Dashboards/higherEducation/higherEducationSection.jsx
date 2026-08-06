@@ -1,3 +1,4 @@
+// components/AccreditationDashboard.jsx
 import React, { useMemo, useState, useEffect } from "react";
 import {
   Chart as ChartJS,
@@ -24,6 +25,7 @@ ChartJS.register(
 );
 
 export default function AccreditationDashboard() {
+  const [stats, setStats] = useState(null);
   const [accreditationData, setAccreditationData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -32,16 +34,21 @@ export default function AccreditationDashboard() {
   const [selectedStatusFilter, setSelectedStatusFilter] = useState("ALL");
   const currentYear = useMemo(() => new Date().getFullYear(), []);
 
-  // Fetch and Transform Data using Axios
+  // Fetch Stats and Programs from Backend
   useEffect(() => {
-    const fetchPrograms = async () => {
+    const fetchData = async () => {
       try {
         setLoading(true);
         setError(null);
 
-        const response = await api.get("/higher-education/programs?limit=1000");
-        const json = response.data;
-        const flatPrograms = json.data || [];
+        const [statsRes, programsRes] = await Promise.all([
+          api.get("/higher-education/stats"),
+          api.get("/higher-education/programs?limit=1000"),
+        ]);
+
+        setStats(statsRes.data.data);
+
+        const flatPrograms = programsRes.data.data || [];
 
         const groupedByCampus = flatPrograms.reduce((acc, curr) => {
           const branch = curr.campusBranch || "Unknown Campus";
@@ -56,6 +63,7 @@ export default function AccreditationDashboard() {
             accreditationStatus: curr.accreditationStatus,
             endDate: curr.endDate,
             yearOfInitialOperation: curr.yearInitialOperation,
+            reviewStatus: curr.reviewStatus,
           });
 
           return acc;
@@ -78,108 +86,62 @@ export default function AccreditationDashboard() {
       }
     };
 
-    fetchPrograms();
+    fetchData();
   }, []);
-
-  // Data Aggregator Logic
-  const processedData = useMemo(() => {
-    let totalPrograms = 0;
-    let expiredCount = 0;
-    let ongoingCount = 0;
-
-    const statusMap = {
-      "Level III Re-Accredited": 0,
-      "Level II Re-Accredited": 0,
-      Accreditable: 0,
-    };
-    const branchLabels = [];
-    const branchProgramCounts = [];
-
-    if (accreditationData && accreditationData.length > 0) {
-      accreditationData.forEach((branch) => {
-        branchLabels.push(branch.branchName);
-        branchProgramCounts.push(branch.programs?.length || 0);
-
-        if (branch.programs) {
-          branch.programs.forEach((prog) => {
-            totalPrograms++;
-
-            let status = prog.accreditationStatus;
-            if (status === "Level 3") status = "Level III Re-Accredited";
-            if (status === "Level 2") status = "Level II Re-Accredited";
-
-            if (statusMap[status] !== undefined) {
-              statusMap[status]++;
-            }
-
-            if (prog.endDate) {
-              const expirationYear = new Date(prog.endDate).getFullYear();
-              if (expirationYear < currentYear) {
-                expiredCount++;
-              } else {
-                ongoingCount++;
-              }
-            } else {
-              ongoingCount++;
-            }
-          });
-        }
-      });
-    }
-
-    return {
-      totalPrograms,
-      expiredCount,
-      ongoingCount,
-      statusMap,
-      branchLabels,
-      branchProgramCounts,
-    };
-  }, [accreditationData, currentYear]);
 
   // Dynamic status options for the filter dropdown
   const availableStatuses = useMemo(() => {
     const statuses = new Set();
     accreditationData.forEach((branch) => {
       branch.programs?.forEach((prog) => {
-        let normStatus = prog.accreditationStatus || "Not Accredited";
-        if (normStatus === "Level 3") normStatus = "Level III Re-Accredited";
-        if (normStatus === "Level 2") normStatus = "Level II Re-Accredited";
-        statuses.add(normStatus);
+        if (prog.accreditationStatus) {
+          statuses.add(prog.accreditationStatus);
+        }
       });
     });
     return Array.from(statuses);
   }, [accreditationData]);
 
-  // Chart Setup: Status
-  const doughnutData = {
-    labels: ["Level III Status", "Level II Status", "Accreditable Candidates"],
-    datasets: [
-      {
-        data: [
-          processedData.statusMap["Level III Re-Accredited"],
-          processedData.statusMap["Level II Re-Accredited"],
-          processedData.statusMap["Accreditable"],
-        ],
-        backgroundColor: ["#660033", "#D4AF37", "#94A3B8"],
-        borderWidth: 2,
-        borderColor: "#ffffff",
-      },
-    ],
-  };
+  // Chart Setup: Status Breakdown (Doughnut)
+  const doughnutData = useMemo(() => {
+    const breakdown = stats?.accreditationBreakdown || [];
+    const labels = breakdown.map((item) => item.level);
+    const data = breakdown.map((item) => item.count);
 
-  // Chart Setup: Capacity
-  const barData = {
-    labels: processedData.branchLabels,
-    datasets: [
-      {
-        label: "Total Programs",
-        data: processedData.branchProgramCounts,
-        backgroundColor: "#660033",
-        borderRadius: 6,
-      },
-    ],
-  };
+    return {
+      labels: labels.length > 0 ? labels : ["No Data"],
+      datasets: [
+        {
+          data: data.length > 0 ? data : [1],
+          backgroundColor: [
+            "#660033",
+            "#D4AF37",
+            "#94A3B8",
+            "#334155",
+            "#cbd5e1",
+          ],
+          borderWidth: 2,
+          borderColor: "#ffffff",
+        },
+      ],
+    };
+  }, [stats]);
+
+  // Chart Setup: Programs per Campus (Bar)
+  const barData = useMemo(() => {
+    const breakdown = stats?.campusBreakdown || [];
+    return {
+      labels: breakdown.map((item) => item.campus),
+      datasets: [
+        {
+          label: "Total Programs",
+          data: breakdown.map((item) => item.count),
+          backgroundColor: "#660033",
+          borderRadius: 6,
+        },
+      ],
+    };
+  }, [stats]);
 
   const activeBranchPrograms =
     accreditationData[selectedBranchIdx]?.programs || [];
@@ -188,13 +150,9 @@ export default function AccreditationDashboard() {
   const filteredBranchPrograms = useMemo(() => {
     if (selectedStatusFilter === "ALL") return activeBranchPrograms;
 
-    return activeBranchPrograms.filter((prog) => {
-      let normStatus = prog.accreditationStatus || "Not Accredited";
-      if (normStatus === "Level 3") normStatus = "Level III Re-Accredited";
-      if (normStatus === "Level 2") normStatus = "Level II Re-Accredited";
-
-      return normStatus === selectedStatusFilter;
-    });
+    return activeBranchPrograms.filter(
+      (prog) => prog.accreditationStatus === selectedStatusFilter,
+    );
   }, [activeBranchPrograms, selectedStatusFilter]);
 
   // Loading State UI
@@ -220,13 +178,15 @@ export default function AccreditationDashboard() {
         <p className="text-sm text-rose-600/80 mb-6">{error}</p>
         <button
           onClick={() => window.location.reload()}
-          className="px-4 py-2 bg-rose-600 text-white text-xs font-bold rounded-lg hover:bg-rose-700 transition-colors"
+          className="px-4 py-2 bg-rose-600 text-white text-xs font-bold rounded-lg hover:bg-rose-700 transition-colors cursor-pointer"
         >
           Retry Connection
         </button>
       </div>
     );
   }
+
+  const kpis = stats?.kpis || {};
 
   return (
     <div className="bg-slate-50 min-h-screen p-8 text-slate-800 rounded-2xl font-sans">
@@ -249,7 +209,7 @@ export default function AccreditationDashboard() {
                 Total Programs
               </span>
               <span className="text-3xl font-black text-[#D4AF37] block font-sans tracking-tight leading-none my-1">
-                {processedData.totalPrograms}
+                {kpis.totalPrograms || 0}
               </span>
             </div>
             <span className="text-[11px] font-medium text-slate-200/90 block font-sans capitalize tracking-wide mt-2 pt-2 border-t border-white/10">
@@ -263,10 +223,10 @@ export default function AccreditationDashboard() {
                 Active Accreditations
               </span>
               <h3 className="text-3xl font-black text-slate-900 font-sans tracking-tight mt-1">
-                {processedData.ongoingCount}
+                {kpis.activeAccreditations || 0}
               </h3>
             </div>
-            <span className="text-[11px] font-semibold text-emerald-600 tracking-wide mt-2 pt-2 border-t border-slate-100 capitalize">
+            <span className="text-[11px] font-semibold text-emerald-600 tracking-wide mt-2 pt-2 border-t border-slate-100 uppercase">
               up to date or in progress
             </span>
           </div>
@@ -277,10 +237,10 @@ export default function AccreditationDashboard() {
                 Expired / Pending Review
               </span>
               <h3 className="text-3xl font-black text-rose-700 font-sans tracking-tight mt-1">
-                {processedData.expiredCount}
+                {kpis.expiredOrPending || 0}
               </h3>
             </div>
-            <span className="text-[11px] font-bold text-rose-500 capitalize tracking-wide mt-2 pt-2 border-t border-slate-100">
+            <span className="text-[11px] font-bold text-rose-500 uppercase tracking-wide mt-2 pt-2 border-t border-slate-100">
               requires immediate renewal
             </span>
           </div>
@@ -300,33 +260,27 @@ export default function AccreditationDashboard() {
             </div>
 
             <div className="mt-6 pt-4 border-t border-slate-100 space-y-2">
-              <div className="flex justify-between text-xs font-medium text-slate-600">
-                <span className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#660033]" />{" "}
-                  Level III
-                </span>
-                <span className="font-bold">
-                  {processedData.statusMap["Level III Re-Accredited"]}
-                </span>
-              </div>
-              <div className="flex justify-between text-xs font-medium text-slate-600">
-                <span className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#D4AF37]" />{" "}
-                  Level II
-                </span>
-                <span className="font-bold">
-                  {processedData.statusMap["Level II Re-Accredited"]}
-                </span>
-              </div>
-              <div className="flex justify-between text-xs font-medium text-slate-600">
-                <span className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-slate-400" />{" "}
-                  Candidates
-                </span>
-                <span className="font-bold">
-                  {processedData.statusMap["Accreditable"]}
-                </span>
-              </div>
+              {(stats?.accreditationBreakdown || []).map((item, idx) => (
+                <div
+                  key={idx}
+                  className="flex justify-between text-xs font-medium text-slate-600"
+                >
+                  <span className="flex items-center gap-1.5">
+                    <span
+                      className="w-2.5 h-2.5 rounded-full"
+                      style={{
+                        backgroundColor:
+                          doughnutData.datasets[0].backgroundColor[
+                            idx %
+                              doughnutData.datasets[0].backgroundColor.length
+                          ],
+                      }}
+                    />{" "}
+                    {item.level}
+                  </span>
+                  <span className="font-bold">{item.count}</span>
+                </div>
+              ))}
             </div>
           </div>
 
@@ -363,9 +317,8 @@ export default function AccreditationDashboard() {
               </h2>
             </div>
 
-            {/* Controls Layer: Level Filter Dropdown + Campus Selector */}
+            {/* Controls Layer */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-              {/* Accreditation Level Selector Dropdown */}
               <div className="relative">
                 <select
                   value={selectedStatusFilter}
@@ -385,7 +338,6 @@ export default function AccreditationDashboard() {
                 </div>
               </div>
 
-              {/* Campus Selector Tabs */}
               {accreditationData.length > 0 && (
                 <div className="flex flex-wrap gap-1 bg-slate-100 p-1 rounded-xl">
                   {accreditationData.map((branch, idx) => (
@@ -411,18 +363,8 @@ export default function AccreditationDashboard() {
             {filteredBranchPrograms.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {filteredBranchPrograms.map((prog, idx) => {
-                  let normStatus = prog.accreditationStatus || "Not Accredited";
-                  if (normStatus === "Level 3")
-                    normStatus = "Level III Re-Accredited";
-                  if (normStatus === "Level 2")
-                    normStatus = "Level II Re-Accredited";
-
-                  const isCandidacy =
-                    normStatus === "Accreditable" ||
-                    normStatus === "Candidate Status";
-                  const isExpired =
-                    prog.endDate &&
-                    new Date(prog.endDate).getFullYear() < currentYear;
+                  const status = prog.accreditationStatus || "Not Accredited";
+                  const isExpired = prog.reviewStatus === "Review Overdue";
 
                   return (
                     <div
@@ -441,29 +383,25 @@ export default function AccreditationDashboard() {
                       <div className="text-right shrink-0 pt-0.5">
                         <span
                           className={`inline-block px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider mb-1 ${
-                            isCandidacy
-                              ? "bg-slate-200 text-slate-700"
-                              : isExpired
-                                ? "bg-rose-50 text-rose-700 border border-rose-100"
-                                : "bg-[#660033]/10 text-[#660033]"
+                            isExpired
+                              ? "bg-rose-50 text-rose-700 border border-rose-100"
+                              : "bg-[#660033]/10 text-[#660033]"
                           }`}
                         >
-                          {normStatus}
+                          {status}
                         </span>
 
                         <span className="text-[9px] text-slate-400 block tracking-tight font-mono whitespace-nowrap mt-1">
-                          {isCandidacy
-                            ? "Candidacy Valid"
-                            : isExpired
-                              ? "Review Overdue"
-                              : `Expires ${
-                                  prog.endDate
-                                    ? new Date(prog.endDate).toLocaleDateString(
-                                        undefined,
-                                        { month: "short", year: "numeric" },
-                                      )
-                                    : "N/A"
-                                }`}
+                          {isExpired
+                            ? "Review Overdue"
+                            : prog.endDate
+                              ? `Expires ${new Date(
+                                  prog.endDate,
+                                ).toLocaleDateString(undefined, {
+                                  month: "short",
+                                  year: "numeric",
+                                })}`
+                              : "N/A"}
                         </span>
                       </div>
                     </div>

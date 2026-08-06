@@ -3,9 +3,8 @@ import Sidebar from "../components/Admin/sideBar";
 
 // Imports for Enrollments
 import EnrollmentsUpload from "../components/Admin/Dashboards/enrollments/EnrollmentsUpload";
-import UploadHistory from "../components/Admin/Dashboards/enrollments/uploadHistory";
 
-// 🌟 Import your new Higher Education Upload component
+// Imports for Higher Education
 import HigherEducationUpload from "../components/Admin/Dashboards/higherEducation/higherEducationUpload";
 
 export default function AdminDashboard() {
@@ -67,11 +66,11 @@ export default function AdminDashboard() {
           {activeTab === "enrollments" ? (
             <>
               <EnrollmentsUpload />
-              <UploadHistory />
             </>
           ) : activeTab === "higher-ed" ? (
-            // 🌟 Render your new component when Higher Education is clicked
-            <HigherEducationUpload />
+            <>
+              <HigherEducationUpload />
+            </>
           ) : (
             <div className="bg-white p-12 rounded-3xl border border-slate-200 text-center text-slate-500 font-medium">
               Module for {categoryLabels[activeTab]} is currently under

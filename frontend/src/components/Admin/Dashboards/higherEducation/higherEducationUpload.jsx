@@ -1,4 +1,7 @@
-import React, { useState, useEffect, useCallback } from "react";
+// components/higherEducation/HigherEducationUpload.jsx
+import React, { useState } from "react";
+import api from "../../../../api/axios";
+import UploadHistory from "./uploadHistoryHigherEducation";
 
 export default function HigherEducationUpload() {
   // File Upload State
@@ -11,78 +14,8 @@ export default function HigherEducationUpload() {
   const [showOverwriteModal, setShowOverwriteModal] = useState(false);
   const [duplicateDetails, setDuplicateDetails] = useState("");
 
-  // History Logs State
-  const [logs, setLogs] = useState([]);
-  const [loadingLogs, setLoadingLogs] = useState(false);
-
-  const API_BASE = "http://127.0.0.1:5000/api/v1/higher-education";
-
-  // ==========================================
-  // FETCH UPLOAD HISTORY LOGS
-  // ==========================================
-  const fetchLogs = useCallback(async () => {
-    setLoadingLogs(true);
-    try {
-      const token = localStorage.getItem("token");
-      const res = await fetch(`${API_BASE}/logs`, {
-        headers: { Authorization: `Bearer ${token || ""}` },
-      });
-      const data = await res.json();
-      if (data.success) {
-        setLogs(data.data);
-      }
-    } catch (error) {
-      console.error("Failed to fetch upload logs:", error);
-    } finally {
-      setLoadingLogs(false);
-    }
-  }, []);
-
-  // Fetch logs on mount
-  useEffect(() => {
-    fetchLogs();
-  }, [fetchLogs]);
-
-  // ==========================================
-  // STATUS BADGE FORMATTER
-  // ==========================================
-  const getStatusBadge = (status = "", isOverwrite = false) => {
-    const rawStatus = status.toString().toUpperCase().trim();
-
-    // Check boolean flag first to display "Overwritten" badge
-    if (rawStatus === "SUCCESS" && isOverwrite) {
-      return {
-        label: "Overwritten",
-        className: "bg-indigo-100 text-indigo-800 border-indigo-200",
-      };
-    }
-
-    if (rawStatus === "SUCCESS") {
-      return {
-        label: "Success",
-        className: "bg-emerald-100 text-emerald-800 border-emerald-200",
-      };
-    }
-
-    if (rawStatus === "PARTIAL_SUCCESS") {
-      return {
-        label: "Partial Success",
-        className: "bg-amber-100 text-amber-800 border-amber-200",
-      };
-    }
-
-    if (rawStatus === "FAILED") {
-      return {
-        label: "Failed",
-        className: "bg-rose-100 text-rose-800 border-rose-200",
-      };
-    }
-
-    return {
-      label: rawStatus.replace(/_/g, " "),
-      className: "bg-slate-100 text-slate-700 border-slate-200",
-    };
-  };
+  // History Refresh Trigger State
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   // ==========================================
   // FILE HANDLING EVENT HANDLERS
@@ -146,7 +79,6 @@ export default function HigherEducationUpload() {
     if (shouldOverwrite) setShowOverwriteModal(false);
 
     try {
-      const token = localStorage.getItem("token");
       const formData = new FormData();
       formData.append("file", file);
 
@@ -154,41 +86,35 @@ export default function HigherEducationUpload() {
         formData.append("overwrite", "true");
       }
 
-      const response = await fetch(`${API_BASE}/upload`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token || ""}` },
-        body: formData,
+      const response = await api.post("/higher-education/upload", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
       });
 
-      const json = await response.json();
-
-      // DUPLICATE DETECTED: Trigger Overwrite Modal
-      if (response.status === 409 && json.isDuplicate) {
-        setDuplicateDetails(json.message);
-        setShowOverwriteModal(true);
-        setUploading(false);
-        return;
-      }
-
-      if (!response.ok || !json.success) {
-        throw new Error(
-          json.message || json.error || "Failed to upload dataset.",
-        );
-      }
-
-      // SUCCESS - Store response stats for UI
+      // SUCCESS
       setStatusMessage({
         type: "success",
-        text: json.message || "File uploaded and processed successfully!",
-        stats: json.stats || null,
+        text:
+          response.data.message || "File uploaded and processed successfully!",
+        stats: response.data.stats || null,
       });
+
       handleClearFile();
-      fetchLogs(); // Refresh upload history
+      setRefreshTrigger((prev) => prev + 1); // Trigger history table reload
     } catch (err) {
-      setStatusMessage({
-        type: "error",
-        text: err.message,
-      });
+      // DUPLICATE DETECTED: Trigger Overwrite Modal
+      if (err.response?.status === 409 && err.response?.data?.isDuplicate) {
+        setDuplicateDetails(err.response.data.message);
+        setShowOverwriteModal(true);
+      } else {
+        setStatusMessage({
+          type: "error",
+          text:
+            err.response?.data?.message ||
+            err.response?.data?.error ||
+            err.message ||
+            "Failed to upload dataset.",
+        });
+      }
     } finally {
       setUploading(false);
     }
@@ -196,9 +122,7 @@ export default function HigherEducationUpload() {
 
   return (
     <div className="space-y-8">
-      {/* ======================================================== */}
-      {/* UPLOAD CARD CONTAINER                                    */}
-      {/* ======================================================== */}
+      {/* UPLOAD CARD CONTAINER */}
       <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm p-10">
         <div className="border-b border-slate-100 pb-5 mb-6">
           <h2 className="text-lg font-black font-oswald uppercase tracking-tight text-slate-900">
@@ -207,7 +131,7 @@ export default function HigherEducationUpload() {
           <p className="text-xs text-slate-500">
             Select or drag an official Excel file (`.xlsx`, `.xls`) to ingest
             program registries, graduate counts, and employability tracer
-            metrics into the system[cite: 14].
+            metrics into the system
           </p>
         </div>
 
@@ -233,7 +157,6 @@ export default function HigherEducationUpload() {
               </button>
             </div>
 
-            {/* Ingestion Stats Breakdown Badge */}
             {statusMessage.stats && (
               <div className="flex flex-wrap items-center gap-2.5 pt-2 border-t border-emerald-200/60 text-[11px]">
                 <span className="bg-emerald-100/80 text-emerald-900 px-2.5 py-1 rounded-lg font-semibold">
@@ -302,7 +225,7 @@ export default function HigherEducationUpload() {
               >
                 {file
                   ? "Ready to ingest • Click or drop another file to replace"
-                  : "Supports program registry, graduate counts, and employability tracer columns[cite: 14]"}
+                  : "Supports program registry, graduate counts, and employability tracer columns"}
               </p>
             </div>
           </label>
@@ -334,98 +257,13 @@ export default function HigherEducationUpload() {
         </div>
       </div>
 
-      {/* ======================================================== */}
-      {/* UPLOAD HISTORY TABLE                                     */}
-      {/* ======================================================== */}
-      <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm overflow-hidden">
-        <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-          <div>
-            <h3 className="text-sm font-black font-oswald uppercase tracking-tight text-slate-900">
-              Upload History
-            </h3>
-            <p className="text-[11px] text-slate-500 mt-0.5">
-              Recent spreadsheet ingestions for Higher Education
-            </p>
-          </div>
-          <button
-            onClick={fetchLogs}
-            disabled={loadingLogs}
-            className="text-xs font-bold text-[#580017] hover:text-[#420011] transition-colors flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
-          >
-            {loadingLogs ? "Refreshing..." : "↻ Refresh"}
-          </button>
-        </div>
+      {/* SEPARATE UPLOAD HISTORY COMPONENT */}
+      <UploadHistory refreshTrigger={refreshTrigger} />
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead className="bg-slate-50 text-[10px] font-black uppercase tracking-wider text-slate-500">
-              <tr>
-                <th className="px-8 py-4">Date & Time</th>
-                <th className="px-8 py-4">File Name</th>
-                <th className="px-8 py-4">Uploaded By</th>
-                <th className="px-8 py-4">Total Records Ingested</th>
-                <th className="px-8 py-4">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 text-xs text-slate-700">
-              {logs.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan="5"
-                    className="px-8 py-8 text-center text-slate-400"
-                  >
-                    No upload history found.
-                  </td>
-                </tr>
-              ) : (
-                logs.map((log) => {
-                  const statusBadge = getStatusBadge(
-                    log.status,
-                    log.isOverwrite,
-                  );
-                  return (
-                    <tr
-                      key={log._id}
-                      className="hover:bg-slate-50/80 transition-colors"
-                    >
-                      <td className="px-8 py-4 whitespace-nowrap text-slate-500 font-medium">
-                        {new Date(log.uploadedAt).toLocaleString()}
-                      </td>
-                      <td className="px-8 py-4 font-bold text-slate-800">
-                        {log.fileName}
-                        <span className="block text-[10px] text-slate-400 font-normal mt-0.5">
-                          {log.fileSize || "Unknown size"}
-                        </span>
-                      </td>
-                      <td className="px-8 py-4 font-medium text-slate-600">
-                        {log.uploadedBy || "System Admin"}
-                      </td>
-                      <td className="px-8 py-4 font-bold text-slate-900">
-                        {log.recordsProcessed || 0}
-                      </td>
-                      <td className="px-8 py-4">
-                        <span
-                          className={`inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-wider border ${statusBadge.className}`}
-                        >
-                          {statusBadge.label}
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* ======================================================== */}
-      {/* OVERWRITE CONFIRMATION MODAL                             */}
-      {/* ======================================================== */}
+      {/* OVERWRITE CONFIRMATION MODAL */}
       {showOverwriteModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-fade-in">
           <div className="bg-white rounded-3xl border border-slate-200 max-w-md w-full p-6 shadow-2xl space-y-5 transform transition-all">
-            {/* Modal Header */}
             <div className="flex items-start gap-4">
               <div className="w-10 h-10 rounded-2xl bg-amber-50 text-amber-600 border border-amber-200 flex items-center justify-center text-xl shrink-0">
                 ⚠️
@@ -441,17 +279,12 @@ export default function HigherEducationUpload() {
               </div>
             </div>
 
-            {/* Warning Box */}
             <div className="bg-amber-50/70 border border-amber-200/80 rounded-2xl p-3.5 text-[11px] text-amber-900 leading-relaxed font-medium">
               Overwriting will permanently replace the existing program
               registries, graduate counts, and employability tracer metrics for
-              these records[cite: 14]. <br />
-              <br />
-              <span className="font-bold">Note:</span> Existing accreditation
-              statuses will be protected if spreadsheet cells are left blank.
+              these records
             </div>
 
-            {/* Modal Actions */}
             <div className="flex items-center justify-end gap-2.5 pt-2">
               <button
                 onClick={() => setShowOverwriteModal(false)}
