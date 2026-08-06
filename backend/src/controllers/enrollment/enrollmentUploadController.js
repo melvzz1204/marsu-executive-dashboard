@@ -1,6 +1,6 @@
 const ExcelJS = require("exceljs");
 const EnrollmentAnalytics = require("../../models/enrollment/enrollmentAnalyticsModel");
-const UploadLog = require("../../models/enrollment/UploadLogModel");
+const UploadLog = require("../../models/uploadLogModel");
 
 /**
  * Safely extracts string content from ExcelJS cell values regardless of cell type
@@ -90,6 +90,7 @@ exports.uploadEnrollmentExcel = async (req, res) => {
     // 1. Defend against missing file payload
     if (!req.file) {
       await UploadLog.create({
+        module: "ENROLLMENT",
         fileName: "N/A",
         fileSize: "0 KB",
         uploadedBy,
@@ -116,6 +117,7 @@ exports.uploadEnrollmentExcel = async (req, res) => {
 
     if (!workbook.worksheets || workbook.worksheets.length === 0) {
       await UploadLog.create({
+        module: "ENROLLMENT",
         fileName,
         fileSize,
         uploadedBy,
@@ -310,6 +312,7 @@ exports.uploadEnrollmentExcel = async (req, res) => {
         : "Could not find any tabs matching a valid school year format with enrollment data.";
 
       await UploadLog.create({
+        module: "ENROLLMENT",
         fileName,
         fileSize,
         uploadedBy,
@@ -376,6 +379,7 @@ exports.uploadEnrollmentExcel = async (req, res) => {
 
     // 7. RECORD SUCCESSFUL UPLOAD OR OVERWRITE LOG
     await UploadLog.create({
+      module: "ENROLLMENT",
       fileName,
       fileSize,
       uploadedBy,
@@ -399,6 +403,7 @@ exports.uploadEnrollmentExcel = async (req, res) => {
     console.error("Critical ExcelJS Data Processing Failure Exception:", error);
 
     await UploadLog.create({
+      module: "ENROLLMENT",
       fileName,
       fileSize,
       uploadedBy,
@@ -418,7 +423,9 @@ exports.uploadEnrollmentExcel = async (req, res) => {
  */
 exports.getUploadLogs = async (req, res) => {
   try {
-    const logs = await UploadLog.find().sort({ uploadedAt: -1 }).limit(100);
+    const logs = await UploadLog.find({ module: "ENROLLMENT" })
+    .sort({ uploadedAt: -1 })
+    .limit(100);
 
     return res.status(200).json({
       success: true,

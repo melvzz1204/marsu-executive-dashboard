@@ -1,9 +1,13 @@
 import React, { useState } from "react";
+import UploadHistory from "./uploadHistoryEnrollment";
 
 export default function EnrollmentsUpload() {
   const [file, setFile] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [statusMessage, setStatusMessage] = useState(null);
+
+  // Trigger to auto-refresh UploadHistory table on new upload
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   // State for drag highlight animation
   const [isDragging, setIsDragging] = useState(false);
@@ -115,6 +119,7 @@ export default function EnrollmentsUpload() {
         text: json.message || "File uploaded and processed successfully!",
       });
       handleClearFile();
+      setRefreshTrigger((prev) => prev + 1); // Refresh history table
     } catch (err) {
       setStatusMessage({
         type: "error",
@@ -128,7 +133,7 @@ export default function EnrollmentsUpload() {
   return (
     <div className="space-y-6">
       {/* Upload Card Container */}
-      <div className="bg-white p-8 rounded-3xl border border-slate-200/80 shadow-sm p-10">
+      <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm p-8">
         <div className="border-b border-slate-100 pb-5 mb-6">
           <h2 className="text-lg font-black font-oswald uppercase tracking-tight text-slate-900">
             Upload Enrollment Records
@@ -244,9 +249,10 @@ export default function EnrollmentsUpload() {
         </div>
       </div>
 
-      {/* ======================================================== */}
-      {/* OVERWRITE CONFIRMATION MODAL                             */}
-      {/* ======================================================== */}
+      {/* Mounted Upload History Table */}
+      <UploadHistory refreshTrigger={refreshTrigger} />
+
+      {/* Duplicate Overwrite Modal */}
       {showOverwriteModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-fade-in">
           <div className="bg-white rounded-3xl border border-slate-200 max-w-md w-full p-6 shadow-2xl space-y-5 transform transition-all">

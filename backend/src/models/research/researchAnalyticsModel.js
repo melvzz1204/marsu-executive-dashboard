@@ -1,78 +1,191 @@
 const mongoose = require("mongoose");
 
-// Sub-document schema tracking individual department/college allocations
-const CollegeMetricSchema = new mongoose.Schema({
-  collegeId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "College", // Links to your master College collection
-    required: true,
-  },
-  collegeCode: {
-    type: String, // e.g., "CICS", "CE", "CED", "CIT", "CBMA" to cleanly plot axis labels
-    required: true,
-    trim: true,
-    uppercase: true,
-  },
-  papersPublished: {
-    type: Number,
-    required: true,
-    min: [0, "Publications cannot be negative"],
-    default: 0,
-  },
-  grantsSecuredMillions: {
-    type: Number, // Stored as a float decimal (e.g., 12.5 for ₱12.5M) to maximize processing scalability
-    required: true,
-    min: [0, "Funding allocations cannot be negative"],
-    default: 0.0,
-  },
-});
-
-// Main schema for Research Capital Performance Records
-const ResearchAnalyticsSchema = new mongoose.Schema({
-  fiscalYear: {
-    type: Number,
-    required: [true, "Please specify the reporting fiscal/academic year"],
-    unique: true, // Ensures only one master record ledger handles a specific tracking year window
-  },
-  summaryKpis: {
-    totalPapers: {
-      type: Number, // Unified snapshot aggregate (e.g., 172)
+const researchPaperSchema = new mongoose.Schema(
+  {
+    title: {
+      type: String,
+      required: [true, "Research title is required"],
+      trim: true,
+    },
+    authors: [
+      {
+        type: String,
+        required: true,
+        trim: true,
+      },
+    ],
+    year: {
+      type: Number,
+      required: [true, "Publication/Presentation year is required"],
+      index: true,
+    },
+    scope: {
+      type: String,
       required: true,
+      enum: [
+        "International",
+        "National",
+        "Regional",
+        "Local",
+        "International Scope",
+        "National Scope",
+        "Regional Scope",
+      ],
+      default: "Regional Scope",
+    },
+    conferenceOrJournal: {
+      type: String,
+      trim: true,
+      default: "N/A",
+    },
+    category: {
+      type: String,
+      required: true,
+      enum: [
+        "Social Perception",
+        "Qualitative Study",
+        "Impact Analysis",
+        "Model Development",
+        "Other",
+      ],
+      default: "Other",
+    },
+    venue: {
+      type: String,
+      trim: true,
+      default: "N/A",
+    },
+    durationDays: {
+      type: Number,
       default: 0,
+      min: [0, "Duration cannot be negative"],
     },
-    totalFundingMillions: {
-      type: Number, // Combined fiscal aggregate (e.g., 32.8 for ₱32.8M)
-      required: true,
+    status: {
+      type: String,
+      enum: ["COMPLETED", "ONGOING", "PUBLISHED", "UNDER_REVIEW"],
+      default: "COMPLETED",
+    },
+
+    // --- Research Lifecycle & IP Fields ---
+    proposalStatus: {
+      type: String,
+      trim: true,
+      enum: ["Approved", "Pending", "Disapproved", "Under Review", "N/A"],
+      default: "N/A",
+    },
+    completionStatus: {
+      type: String,
+      trim: true,
+      enum: ["Completed", "Ongoing", "Terminated", "N/A"],
+      default: "N/A",
+    },
+    presentationStage: {
+      type: String,
+      trim: true,
+      default: "N/A", // Matches Presentation_Stage in Excel (e.g., International, National, Regional, Institutional)
+    },
+    presentationForumVenue: {
+      type: String,
+      trim: true,
+      default: "N/A", // Matches "Presentation Forum / Venue" header in Excel
+    },
+    publicationStatus: {
+      type: String,
+      trim: true,
+      enum: ["Published", "Unpublished", "Under Review", "Accepted", "N/A"],
+      default: "N/A",
+    },
+    intellectualPropertyTypeAcquired: {
+      type: String,
+      trim: true,
+      enum: [
+        "Patents",
+        "Copyrighted",
+        "Patented",
+        "Utility Model",
+        "Trademark",
+        "None",
+        "N/A",
+      ],
+      default: "None",
+    },
+
+    // --- Dynamic Metric Calculation Flags (Auto-calculated during save/upload) ---
+    isCompleted: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    isPresenting: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    isPublished: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    hasIntellectualProperty: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+
+    // --- Institutional & Financial Fields ---
+    collegeCode: {
+      type: String, // e.g., "CICS", "CE", "CED", "CIT", "CBMA"
+      required: [true, "College code is required"],
+      trim: true,
+      uppercase: true,
+    },
+    collegeId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "College",
+      required: false,
+    },
+    fundingGrantMillions: {
+      type: Number, // Stored as decimal (e.g., 2.5 for ₱2.5M)
       default: 0.0,
+      min: [0, "Funding allocation cannot be negative"],
+    },
+    isConfidential: {
+      type: Boolean,
+      default: false,
     },
   },
-  departmentalBreakdown: [CollegeMetricSchema], // Array populating the clustered bar chart rows
-  isConfidential: {
-    type: Boolean,
-    default: true, // Matches your visual dashboard baseline disclaimer watermark
-  },
-  updatedAt: {
-    type: Date,
-    default: Date.now,
-  },
-});
-
-// Pre-save hook middleware to auto-calculate the high-level KPI blocks from the array input array
-ResearchAnalyticsSchema.pre("save", function () {
-  if (this.departmentalBreakdown && this.departmentalBreakdown.length > 0) {
-    this.summaryKpis.totalPapers = this.departmentalBreakdown.reduce(
-      (sum, item) => sum + item.papersPublished, 
-      0
-    );
-    
-    const totalFunding = this.departmentalBreakdown.reduce(
-      (sum, item) => sum + item.grantsSecuredMillions, 
-      0
-    );
-    // Rounds out the floating point decimal safely to two places
-    this.summaryKpis.totalFundingMillions = Math.round(totalFunding * 100) / 100;
+  {
+    timestamps: true,
   }
-  this.updatedAt = Date.now();
+);
+
+/**
+ * Pre-save Middleware: Automatically compute summary flags based on input data.
+ * This ensures that counting operations during analytics queries can run fast indexes.
+ */
+researchPaperSchema.pre("save", async function () {
+  this.isCompleted =
+    this.completionStatus === "Completed" || this.status === "COMPLETED";
+
+  this.isPresenting = Boolean(
+    (this.presentationStage && this.presentationStage !== "N/A") ||
+    (this.presentationForumVenue && this.presentationForumVenue !== "N/A")
+  );
+
+  this.isPublished =
+    this.publicationStatus === "Published" || this.status === "PUBLISHED";
+
+  this.hasIntellectualProperty = Boolean(
+    this.intellectualPropertyTypeAcquired &&
+    !["None", "N/A", ""].includes(this.intellectualPropertyTypeAcquired)
+  );
 });
 
-module.exports = mongoose.model("ResearchAnalytics", ResearchAnalyticsSchema);
+// Search Index for fast keyword querying
+researchPaperSchema.index({
+  title: "text",
+  authors: "text",
+  presentationForumVenue: "text",
+});
+
+module.exports = mongoose.model("ResearchPaper", researchPaperSchema);

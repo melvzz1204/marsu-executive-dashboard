@@ -1,5 +1,5 @@
 /* import UndergradEnrollment from "../staticData/enrollments/undergradEnrollmentData.jsx";
- */ import EnrollmentFull from "../components/Admin/Dashboards/enrollmentDashboard";
+ */ import EnrollmentFull from "./Admin/Dashboards/enrollments/enrollmentDashboard";
 
 export default function EnrollmentChart() {
   return (
