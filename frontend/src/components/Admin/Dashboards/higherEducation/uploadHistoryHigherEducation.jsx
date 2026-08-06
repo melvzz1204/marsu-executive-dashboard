@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import api from "../../../../api/axios";
 
 export default function UploadHistory({ refreshTrigger }) {
@@ -7,7 +7,6 @@ export default function UploadHistory({ refreshTrigger }) {
   const [clearingLogs, setClearingLogs] = useState(false);
   const [error, setError] = useState(null);
 
-  // Safely format ISO timestamps
   const formatDate = (isoString) => {
     if (!isoString) return "—";
     try {
@@ -32,9 +31,6 @@ export default function UploadHistory({ refreshTrigger }) {
     }
   };
 
-  // ==========================================
-  // FETCH UPLOAD HISTORY LOGS
-  // ==========================================
   const fetchLogs = useCallback(async () => {
     setLoadingLogs(true);
     setError(null);
@@ -51,14 +47,10 @@ export default function UploadHistory({ refreshTrigger }) {
     }
   }, []);
 
-  // Fetch logs on mount & whenever refreshTrigger updates
   useEffect(() => {
     fetchLogs();
   }, [fetchLogs, refreshTrigger]);
 
-  // ==========================================
-  // CLEAR UPLOAD HISTORY LOGS
-  // ==========================================
   const handleClearLogs = async () => {
     if (
       !window.confirm("Are you sure you want to clear all upload history logs?")
@@ -87,69 +79,60 @@ export default function UploadHistory({ refreshTrigger }) {
       setClearingLogs(false);
     }
   };
-  // ==========================================
-  // STATUS BADGE FORMATTER
-  // ==========================================
+
+  // Status Badge: Strictly Overwrite or Success
   const getStatusBadge = (status = "", isOverwrite = false) => {
     const rawStatus = status.toString().toUpperCase().trim();
-
     const isOverwritten =
       Boolean(isOverwrite) ||
-      rawStatus === "OVERWRITE" ||
-      rawStatus === "OVERWRITTEN" ||
-      rawStatus === "UPDATED";
+      ["OVERWRITE", "OVERWRITTEN", "UPDATED"].includes(rawStatus);
 
     if (isOverwritten) {
       return {
-        label: "Updated (Overwrite)",
-        className: "bg-indigo-100 text-indigo-800 border-indigo-200",
-      };
-    }
-
-    if (rawStatus === "SUCCESS") {
-      return {
-        label: "Success",
-        className: "bg-emerald-100 text-emerald-800 border-emerald-200",
-      };
-    }
-
-    if (rawStatus === "PARTIAL_SUCCESS") {
-      return {
-        label: "Partial Success",
-        className: "bg-amber-100 text-amber-800 border-amber-200",
-      };
-    }
-
-    if (rawStatus === "FAILED") {
-      return {
-        label: "Failed",
-        className: "bg-rose-100 text-rose-800 border-rose-200",
+        label: "Overwrite",
+        className: "bg-indigo-50 text-indigo-700 border-indigo-200/80",
+        dotColor: "bg-indigo-500",
       };
     }
 
     return {
-      label: rawStatus.replace(/_/g, " "),
-      className: "bg-slate-100 text-slate-700 border-slate-200",
+      label: "Success",
+      className: "bg-emerald-50 text-emerald-700 border-emerald-200/80",
+      dotColor: "bg-emerald-500",
     };
   };
 
+  // Strictly retain ingested logs (SUCCESS, PARTIAL_SUCCESS, OVERWRITE)
+  const cleanLogs = useMemo(() => {
+    return logs.filter((log) => {
+      const rawStatus = (log.status || "").toString().toUpperCase().trim();
+      const isOverwritten =
+        Boolean(log.isOverwrite || log.isOverwritten) ||
+        ["OVERWRITE", "OVERWRITTEN", "UPDATED"].includes(rawStatus);
+
+      const isSuccess =
+        rawStatus === "SUCCESS" || rawStatus === "PARTIAL_SUCCESS";
+      return isSuccess || isOverwritten;
+    });
+  }, [logs]);
+
   return (
-    <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm overflow-hidden mt-8">
-      <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+    <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm overflow-hidden mt-8 transition-all">
+      {/* Header */}
+      <div className="px-6 py-5 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-50/50">
         <div>
           <h3 className="text-sm font-black font-oswald uppercase tracking-tight text-slate-900">
             Upload History
           </h3>
-          <p className="text-[11px] text-slate-500 mt-0.5">
+          <p className="text-[11px] text-slate-500 font-medium mt-0.5">
             Recent spreadsheet ingestions for Higher Education
           </p>
         </div>
 
-        {/* Action Controls */}
         <div className="flex items-center gap-3">
           <button
             onClick={handleClearLogs}
-            disabled={logs.length === 0 || clearingLogs || loadingLogs}
+            disabled={cleanLogs.length === 0 || clearingLogs || loadingLogs}
             className="px-3.5 py-1.5 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 text-xs font-bold text-rose-700 transition-all flex items-center gap-1.5 disabled:opacity-40 disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed cursor-pointer"
           >
             {clearingLogs ? "Clearing..." : "🗑️ Clear History"}
@@ -174,50 +157,51 @@ export default function UploadHistory({ refreshTrigger }) {
         </div>
       )}
 
+      {/* Table Data */}
       <div className="overflow-x-auto">
-        <table className="w-full text-left">
-          <thead className="bg-slate-50/80 border-b border-slate-100 text-[10px] font-black uppercase tracking-wider text-slate-500 font-oswald">
-            <tr>
-              <th className="px-8 py-4">Date & Time</th>
-              <th className="px-8 py-4">File Name</th>
-              <th className="px-8 py-4">Uploaded By</th>
-              <th className="px-8 py-4">Total Records Ingested</th>
-              <th className="px-8 py-4 text-right">Status</th>
+        <table className="w-full text-left border-collapse">
+          <thead>
+            <tr className="bg-slate-50/80 border-b border-slate-100 text-[10px] font-black uppercase tracking-wider text-slate-500 font-oswald">
+              <th className="px-5 py-3.5">Date & Time</th>
+              <th className="px-5 py-3.5">File Name</th>
+              <th className="px-5 py-3.5">Uploaded By</th>
+              <th className="px-5 py-3.5">Total Records Ingested</th>
+              <th className="px-5 py-3.5 text-right">Status</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 text-xs text-slate-700">
             {loadingLogs ? (
               [...Array(3)].map((_, i) => (
                 <tr key={i} className="animate-pulse">
-                  <td className="px-8 py-4">
+                  <td className="px-5 py-3.5">
                     <div className="h-3.5 bg-slate-200 rounded w-28"></div>
                   </td>
-                  <td className="px-8 py-4">
+                  <td className="px-5 py-3.5">
                     <div className="h-3.5 bg-slate-200 rounded w-36 mb-1"></div>
                     <div className="h-2.5 bg-slate-200 rounded w-16"></div>
                   </td>
-                  <td className="px-8 py-4">
+                  <td className="px-5 py-3.5">
                     <div className="h-3.5 bg-slate-200 rounded w-24"></div>
                   </td>
-                  <td className="px-8 py-4">
+                  <td className="px-5 py-3.5">
                     <div className="h-3.5 bg-slate-200 rounded w-12"></div>
                   </td>
-                  <td className="px-8 py-4 text-right">
+                  <td className="px-5 py-3.5 text-right">
                     <div className="h-5 bg-slate-200 rounded-full w-20 ml-auto"></div>
                   </td>
                 </tr>
               ))
-            ) : logs.length === 0 ? (
+            ) : cleanLogs.length === 0 ? (
               <tr>
                 <td
                   colSpan="5"
-                  className="px-8 py-8 text-center text-slate-400 font-medium"
+                  className="px-5 py-10 text-center text-slate-400 font-medium"
                 >
-                  No upload history found.
+                  No successful or overwritten upload records found.
                 </td>
               </tr>
             ) : (
-              logs.map((log, index) => {
+              cleanLogs.map((log, index) => {
                 const isOverwriteFlag = log.isOverwrite || log.isOverwritten;
                 const statusBadge = getStatusBadge(log.status, isOverwriteFlag);
                 const rawTimestamp = log.uploadedAt || log.createdAt;
@@ -227,10 +211,10 @@ export default function UploadHistory({ refreshTrigger }) {
                     key={log._id || index}
                     className="hover:bg-slate-50/80 transition-colors"
                   >
-                    <td className="px-8 py-4 whitespace-nowrap text-slate-500 font-medium">
+                    <td className="px-5 py-3.5 whitespace-nowrap text-slate-500 font-medium">
                       {formatDate(rawTimestamp)}
                     </td>
-                    <td className="px-8 py-4 font-bold text-slate-800">
+                    <td className="px-5 py-3.5 font-bold text-slate-800 whitespace-nowrap">
                       <div className="flex flex-col">
                         <span className="truncate max-w-[200px]">
                           {log.fileName || "Spreadsheet.xlsx"}
@@ -240,16 +224,19 @@ export default function UploadHistory({ refreshTrigger }) {
                         </span>
                       </div>
                     </td>
-                    <td className="px-8 py-4 font-medium text-slate-600">
+                    <td className="px-5 py-3.5 font-medium text-slate-600 whitespace-nowrap">
                       {log.uploadedBy || "System Admin"}
                     </td>
-                    <td className="px-8 py-4 font-mono font-bold text-slate-900">
+                    <td className="px-5 py-3.5 font-mono font-bold text-slate-900 whitespace-nowrap">
                       {log.recordsProcessed ?? 0}
                     </td>
-                    <td className="px-8 py-4 text-right whitespace-nowrap">
+                    <td className="px-5 py-3.5 text-right whitespace-nowrap">
                       <span
-                        className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ${statusBadge.className}`}
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ${statusBadge.className}`}
                       >
+                        <span
+                          className={`w-1.5 h-1.5 rounded-full ${statusBadge.dotColor}`}
+                        ></span>
                         {statusBadge.label}
                       </span>
                     </td>

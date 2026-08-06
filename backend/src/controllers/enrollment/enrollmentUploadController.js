@@ -284,7 +284,7 @@ exports.uploadEnrollmentExcel = async (req, res) => {
 
     const groupsToSave = Object.values(datasetByYearCampusAndSemester);
 
-    // 💡 AUTO-DETECT TARGET YEAR & SEMESTER FROM PARSED DATA
+    // AUTO-DETECT TARGET YEAR & SEMESTER FROM PARSED DATA
     let detectedSemester = null;
     if (groupsToSave.length > 0) {
       if (!targetYear) {
@@ -345,12 +345,28 @@ exports.uploadEnrollmentExcel = async (req, res) => {
       $or: duplicateConditions,
     });
 
-    // ⚠️ IF MATCHES FOUND AND ADMIN HAS NOT CONFIRMED OVERWRITE -> RETURN 409
+    // ⚠️ IF MATCHES FOUND AND ADMIN HAS NOT CONFIRMED OVERWRITE -> LOG & RETURN 409
     if (existingRecords.length > 0 && !forceOverwrite) {
+      const blockMessage = `Found ${existingRecords.length} existing campus/semester group(s) in the database matching this Excel file.`;
+
+      await UploadLog.create({
+        module: "ENROLLMENT",
+        fileName,
+        fileSize,
+        uploadedBy,
+        targetYear: formattedTargetYear,
+        semester: detectedSemester,
+        status: "DUPLICATE_BLOCK",
+        groupsProcessed: groupsToSave.length,
+        recordsProcessed: totalProgramRecords,
+        isOverwrite: false,
+        errorMessage: blockMessage,
+      });
+
       return res.status(409).json({
         success: false,
         isDuplicate: true,
-        message: `Found ${existingRecords.length} existing campus/semester group(s) in the database matching this Excel file.`,
+        message: blockMessage,
       });
     }
 
@@ -385,7 +401,7 @@ exports.uploadEnrollmentExcel = async (req, res) => {
       uploadedBy,
       targetYear: formattedTargetYear,
       semester: detectedSemester,
-      status: "SUCCESS",
+      status: forceOverwrite ? "OVERWRITE" : "SUCCESS",
       groupsProcessed: groupsToSave.length,
       recordsProcessed: totalProgramRecords,
       isOverwrite: forceOverwrite,
@@ -424,8 +440,8 @@ exports.uploadEnrollmentExcel = async (req, res) => {
 exports.getUploadLogs = async (req, res) => {
   try {
     const logs = await UploadLog.find({ module: "ENROLLMENT" })
-    .sort({ uploadedAt: -1 })
-    .limit(100);
+      .sort({ uploadedAt: -1 })
+      .limit(100);
 
     return res.status(200).json({
       success: true,
