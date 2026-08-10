@@ -72,15 +72,28 @@ VITE_API_URL=https://marsu-executive-dashbaord.onrender.com/api/v1
 
 The SPA fallback is already configured in `frontend/vercel.json`.
 
+### Vercel requesting localhost
+
+If browser developer tools show a request to `http://localhost:5000/api/v1`, the
+deployed frontend was built without the production API value. In Vercel, open
+**Settings > Environment Variables**, set `VITE_API_URL` for **Production** to
+the Render URL above, then redeploy with **Use existing Build Cache** disabled.
+A production browser request must target `onrender.com`, never `localhost`.
+
 ## Local development
 
 The local setup does not change when Render or Vercel settings change:
 
-1. Keep local secrets and MongoDB settings in `backend/.env`.
+1. Keep local secrets and MongoDB settings in `backend/.env` and set
+   `NODE_ENV=development`.
 2. Keep `VITE_API_URL=http://localhost:5000/api/v1` in
    `frontend/.env.development`.
 3. From `backend`, run `npm run dev`.
 4. From `frontend`, run `npm run dev`.
+
+In development, the backend accepts `localhost` and `127.0.0.1` frontend origins
+on any port. Production continues to accept only exact origins listed in
+Render's `CORS_ORIGINS`.
 
 Use `backend/.env.example` and `frontend/.env.example` as templates only. Never
 commit the real `.env` files.

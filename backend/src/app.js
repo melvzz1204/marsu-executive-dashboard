@@ -23,9 +23,24 @@ const configuredOrigins = (process.env.CORS_ORIGINS || "")
   .map((origin) => origin.trim().replace(/\/$/, ""))
   .filter(Boolean);
 const isProduction = process.env.NODE_ENV === "production";
+const isLocalDevelopmentOrigin = (origin) => {
+  if (isProduction || !origin) return false;
+
+  try {
+    const { hostname } = new URL(origin);
+    return hostname === "localhost" || hostname === "127.0.0.1";
+  } catch {
+    return false;
+  }
+};
 const corsOptions = {
   origin(origin, callback) {
-    if (!origin || configuredOrigins.includes(origin.replace(/\/$/, ""))) {
+    const normalizedOrigin = origin?.replace(/\/$/, "");
+    if (
+      !origin ||
+      configuredOrigins.includes(normalizedOrigin) ||
+      isLocalDevelopmentOrigin(origin)
+    ) {
       return callback(null, true);
     }
     const error = new Error("Origin is not allowed by CORS.");

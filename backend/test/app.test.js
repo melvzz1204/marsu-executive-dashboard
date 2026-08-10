@@ -40,6 +40,27 @@ test("GET /health reports a healthy process", async () => {
   assert.ok(response.headers["content-security-policy"]);
 });
 
+test("CORS accepts local frontend origins on any development port", async () => {
+  const origin = "http://localhost:4173";
+  const response = await request(app)
+    .options("/api/v1/auth/login")
+    .set("Origin", origin)
+    .set("Access-Control-Request-Method", "POST");
+
+  assert.equal(response.status, 204);
+  assert.equal(response.headers["access-control-allow-origin"], origin);
+});
+
+test("CORS rejects origins outside the configured or local allowlist", async () => {
+  const response = await request(app)
+    .options("/api/v1/auth/login")
+    .set("Origin", "https://untrusted.example")
+    .set("Access-Control-Request-Method", "POST");
+
+  assert.equal(response.status, 403);
+  assert.equal(response.body.success, false);
+});
+
 test("GET /ready reports unavailable when MongoDB is disconnected", async () => {
   const response = await request(app).get("/ready");
 
