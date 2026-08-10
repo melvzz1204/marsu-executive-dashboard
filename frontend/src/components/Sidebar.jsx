@@ -276,9 +276,10 @@ const Sidebar = ({
 
       {/* SIDEBAR MAIN CONTAINER */}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 flex h-dvh w-[min(20rem,calc(100vw-3rem))] flex-col overflow-hidden border-r border-[#D4AF37]/20 bg-[#600018] text-white shadow-xl transition-transform duration-300 lg:sticky lg:top-0 lg:h-screen lg:translate-x-0 lg:transition-[width] ${
+        className={`fixed inset-0 z-40 flex h-dvh w-full flex-col overflow-hidden bg-[#600018] text-white shadow-xl transition-transform duration-300 lg:sticky lg:top-0 lg:h-screen lg:border-r lg:border-[#D4AF37]/20 lg:translate-x-0 lg:transition-[width] ${
           isOpen ? "translate-x-0 lg:w-80" : "-translate-x-full lg:w-20"
         }`}
+        aria-label="Dashboard navigation"
       >
         {/* Sidebar Toggle Floating Button */}
         <button
@@ -302,7 +303,7 @@ const Sidebar = ({
         </button>
 
         {/* 📌 FIXED TOP SECTION */}
-        <div className="flex flex-col pt-8 px-4 space-y-5 shrink-0">
+        <div className="flex shrink-0 flex-col space-y-3 px-4 pt-5 sm:px-6 sm:pt-7 lg:space-y-5 lg:px-4 lg:pt-8">
           {/* Brand Header */}
           <div
             className={`flex items-center gap-3.5 pb-4 border-b border-white/10 ${isOpen ? "px-2" : "justify-center"}`}
@@ -318,11 +319,11 @@ const Sidebar = ({
             </div>
 
             {isOpen && (
-              <div className="animate-fade-in whitespace-nowrap">
+              <div className="min-w-0 animate-fade-in">
                 <h1 className="text-l font-extrabold uppercase tracking-wide leading-tight font-oswald text-white">
                   Marinduque State <br /> University
                 </h1>
-                <p className="text-[9px] font-bold text-[#D4AF37] tracking-widest uppercase mt-0.5">
+                <p className="mt-0.5 text-[9px] font-bold uppercase tracking-widest text-[#D4AF37]">
                   Intelligence Matrix
                 </p>
               </div>
@@ -331,7 +332,7 @@ const Sidebar = ({
 
           {/* 🌟 EMPOWER PORTAL CTA */}
           <div
-            className={`relative group ${isOpen ? "w-full" : "w-12 mx-auto"}`}
+            className={`relative hidden lg:block group ${isOpen ? "w-full" : "w-12 mx-auto"}`}
           >
             <div className="absolute -inset-0.5 bg-gradient-to-r from-[#D4AF37] via-amber-500 to-[#D4AF37] rounded-2xl blur-md opacity-40 group-hover:opacity-100 transition duration-500 group-hover:duration-200 animate-pulse" />
 
@@ -378,11 +379,22 @@ const Sidebar = ({
             </button>
           </div>
 
-          <div className="border-b border-white/15 my-1" />
+          {isOpen && (
+            <div className="rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 lg:hidden">
+              <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#D4AF37]">
+                Choose an insight
+              </p>
+              <p className="mt-1 text-xs leading-relaxed text-white/70">
+                Select a module below to open its focused analytics view.
+              </p>
+            </div>
+          )}
+
+          <div className="my-1 border-b border-white/15" />
         </div>
 
         {/* 📜 INDEPENDENTLY SCROLLABLE CORE MODULES CONTAINER */}
-        <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar px-4 py-3 space-y-2">
+        <div className="no-scrollbar min-h-0 flex-1 space-y-2 overflow-y-auto px-4 py-3 sm:px-6 lg:px-4">
           {isOpen && (
             <span className="block text-[10px] font-extrabold uppercase tracking-widest text-[#D4AF37]/70 px-2 pb-1 font-oswald">
               Core Modules
@@ -401,7 +413,7 @@ const Sidebar = ({
                   }}
                   className={`cursor-pointer flex items-center rounded-xl font-semibold tracking-wide transition-all group relative ${
                     isOpen
-                      ? "px-4 py-3 gap-5 w-full"
+                      ? "w-full gap-5 px-4 py-3.5 lg:py-3"
                       : "w-12 h-12 justify-center mx-auto"
                   } ${
                     isActive
@@ -440,7 +452,7 @@ const Sidebar = ({
         </div>
 
         {/* 📌 FIXED BOTTOM SECTION - COMPACT / SUBDUED LOGOUT BUTTON */}
-        <div className="px-4 py-2 border-t border-white/10 shrink-0">
+        <div className="shrink-0 border-t border-white/10 px-4 py-2 sm:px-6 lg:px-4">
           <button
             onClick={handleLogout}
             className={`flex items-center rounded-lg text-xs font-medium text-white/50 hover:text-rose-300 hover:bg-rose-500/10 transition-all duration-200 group cursor-pointer ${
@@ -475,7 +487,7 @@ const Sidebar = ({
 
         {/* Footer System Strip */}
         <div
-          className={`p-4 border-t border-white/10 bg-[#4a0012] shrink-0 ${isOpen ? "" : "text-center"}`}
+          className={`shrink-0 border-t border-white/10 bg-[#4a0012] p-4 sm:px-6 lg:px-4 ${isOpen ? "" : "text-center"}`}
         >
           {isOpen ? (
             <div className="flex items-center justify-between animate-fade-in">

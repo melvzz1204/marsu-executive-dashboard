@@ -47,17 +47,12 @@ function MainDashboard() {
         setIsOpen={setIsSidebarOpen}
       />
 
-      {isSidebarOpen && (
-        <button
-          type="button"
-          className="fixed inset-0 z-30 bg-slate-950/45 backdrop-blur-[1px] lg:hidden"
-          onClick={() => setIsSidebarOpen(false)}
-          aria-label="Close navigation menu"
-        />
-      )}
-
       {/* Main Panel Content Area */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
+      <div
+        className={`min-w-0 flex-1 flex-col overflow-y-auto ${
+          isSidebarOpen ? "hidden lg:flex" : "flex"
+        }`}
+      >
         <div
           className={`sticky top-0 z-20 flex items-center justify-between border-b px-4 py-3 lg:hidden ${
             isDarkMode
@@ -68,7 +63,7 @@ function MainDashboard() {
           <button
             type="button"
             onClick={() => setIsSidebarOpen(true)}
-            className={`flex h-10 w-10 items-center justify-center rounded-lg border ${
+            className={`flex h-10 items-center justify-center gap-2 rounded-lg border px-3 text-xs font-bold uppercase tracking-wide ${
               isDarkMode
                 ? "border-slate-700 text-slate-100"
                 : "border-slate-200 text-[#600018]"
@@ -76,7 +71,7 @@ function MainDashboard() {
             aria-label="Open navigation menu"
           >
             <svg
-              className="h-5 w-5"
+              className="h-4 w-4"
               fill="none"
               stroke="currentColor"
               strokeWidth="2"
@@ -89,13 +84,28 @@ function MainDashboard() {
                 d="M4 6h16M4 12h16M4 18h16"
               />
             </svg>
+            <span>Navigation</span>
           </button>
-          <span className="max-w-[70vw] truncate text-xs font-bold uppercase tracking-wider text-[#600018]">
+          <span
+            className={`max-w-[54vw] truncate text-xs font-bold uppercase tracking-wider ${
+              isDarkMode ? "text-slate-100" : "text-[#600018]"
+            }`}
+          >
             {currentTab}
           </span>
         </div>
 
-        <main className="w-full max-w-screen-2xl mx-auto space-y-6 p-4 sm:p-6 lg:space-y-10 lg:p-12">
+        <div className="mx-4 mt-4 rounded-2xl border border-[#D4AF37]/30 bg-[#600018] px-4 py-3 text-white shadow-sm sm:hidden">
+          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#D4AF37]">
+            Mobile viewing
+          </p>
+          <p className="mt-1 text-xs leading-relaxed text-white/80">
+            For the clearest analytics view, rotate your phone horizontally or
+            open the dashboard on a desktop screen.
+          </p>
+        </div>
+
+        <main className="mx-auto w-full max-w-screen-2xl space-y-6 p-4 sm:p-6 lg:space-y-10 lg:p-12">
           {/* HEADER STRIP ROW */}
           <div
             className={`flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pb-6 border-b transition-colors duration-300 ${
@@ -172,10 +182,12 @@ function MainDashboard() {
             </div>
           </div>
           {currentTab === "dashboard" && (
-            <div className="space-y-6 lg:space-y-10 animate-fade-in">
+            <div className="animate-fade-in space-y-6 lg:space-y-10">
               <ExecutiveKPIs isDarkMode={isDarkMode} />
-              <EnrollmentChart isDarkMode={isDarkMode} />
-              <ResearchMetrics isDarkMode={isDarkMode} />
+              <div className="hidden sm:block">
+                <EnrollmentChart isDarkMode={isDarkMode} />
+                <ResearchMetrics isDarkMode={isDarkMode} />
+              </div>
             </div>
           )}
           {currentTab === "Higher Education" && (

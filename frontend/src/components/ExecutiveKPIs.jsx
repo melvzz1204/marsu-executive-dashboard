@@ -154,7 +154,9 @@ export function ExecutiveKPIs() {
     /* Render wrapper to automatically handle grid flow on responsive breakpoints */
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 w-full">
       {kpiData.map((kpi, index) => (
-        <KPICard key={index} {...kpi} />
+        <div key={kpi.title} className={index > 3 ? "hidden sm:block" : ""}>
+          <KPICard {...kpi} />
+        </div>
       ))}
     </div>
   );

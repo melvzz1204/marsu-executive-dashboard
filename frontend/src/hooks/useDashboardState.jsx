@@ -11,7 +11,9 @@ export function useDashboardState() {
   const [userRole, setUserRole] = useState("staff");
   const [userInitials, setUserInitials] = useState("..");
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(
+    () => window.matchMedia("(max-width: 1023px)").matches,
+  );
 
   // Helper parser engine for administrative initials computation
   const generateInitials = (fullName) => {
@@ -28,6 +30,15 @@ export function useDashboardState() {
     const lastInitial = structuralTokens[structuralTokens.length - 1].charAt(0);
     return `${firstInitial}${lastInitial}`.toUpperCase();
   };
+
+  useEffect(() => {
+    const mobileViewport = window.matchMedia("(max-width: 1023px)");
+    const handleViewportChange = (event) => setIsSidebarOpen(event.matches);
+
+    mobileViewport.addEventListener("change", handleViewportChange);
+    return () =>
+      mobileViewport.removeEventListener("change", handleViewportChange);
+  }, []);
 
   useEffect(() => {
     const fetchExecutiveOwner = async () => {
