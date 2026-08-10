@@ -2,8 +2,9 @@
 # Set secret values in Render's dashboard or environment groups; do not commit them.
 services:
   - type: web
-    name: marsu-dashboard-api
+    name: marsu-executive-dashbaord
     runtime: node
+    branch: security-testing
     rootDir: backend
     buildCommand: npm ci
     startCommand: npm start

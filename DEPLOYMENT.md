@@ -1,67 +1,93 @@
 # MarSU Executive Dashboard deployment
 
-The application is split into a Vite frontend and an Express/MongoDB backend.
+Local and hosted settings are separate. Never edit local `.env` files when
+deploying:
 
-## Deploy the backend on Render
+| Environment | Backend settings   | Frontend settings            |
+| ----------- | ------------------ | ---------------------------- |
+| Local       | `backend/.env`     | `frontend/.env.development`  |
+| Hosted      | Render Environment | Vercel Environment Variables |
 
-1. Create a Render Web Service from this repository.
-2. Set the service root directory to `backend`.
-3. Use:
-   - Build command: `npm ci`
-   - Start command: `npm start`
-   - Health check path: `/health`
-4. Configure these environment variables in Render:
-   - `NODE_ENV=production`
-   - `MONGO_URI=<your MongoDB Atlas connection string>`
-   - `JWT_SECRET=<at least 32 random characters>`
-   - `CORS_ORIGINS=https://<your-vercel-domain>,https://<your-custom-domain-if-used>`
-   - `TRUST_PROXY=true`
-   - Optional: `JWT_EXPIRES_IN=8h`, `RATE_LIMIT_MAX=300`
+Both local files remain ignored by Git, so production changes cannot overwrite
+local configuration.
 
-Do not put MongoDB credentials or `JWT_SECRET` in the repository. The committed
-[`backend/.env.example`](backend/.env.example) contains local-development
-placeholders only.
+## Current Render 404 fix
 
-After deployment, verify `https://<render-service>.onrender.com/health` returns
-JSON with `success: true`.
+Render is currently deploying `main`, but the `/health` endpoint is on
+`security-testing`. The old `main` branch prints `Server received...` and
+`404 Unmatched request...`, which identifies the wrong deployment.
 
-## Deploy the frontend on Vercel
+For the existing Render service:
 
-1. Import the repository into Vercel.
-2. Set the project root directory to `frontend`.
-3. Vercel detects Vite; use `npm run build` and output directory `dist`.
-4. Add this environment variable in Vercel for Production (and Preview if
-   needed):
-   - `VITE_API_URL=https://<your-render-service>.onrender.com/api/v1`
-5. Redeploy after changing environment variables.
+1. Open **Settings**.
+2. Set **Branch** to `security-testing`.
+3. Set **Root Directory** to `backend`.
+4. Set **Build Command** to `npm ci`.
+5. Set **Start Command** to `npm start`.
+6. Set **Health Check Path** to `/health`.
+7. Save, then select **Manual Deploy > Clear build cache & deploy**.
 
-The [`frontend/vercel.json`](frontend/vercel.json) file enables SPA fallback so
-direct visits to routes such as `/admin-dashboard` resolve to the React
-application.
+A correct deployment logs `MarSU API <commit> is running on port <port>` and
+`Health check available at /health`. It does not log `404 Unmatched request` for
+`/health`.
 
-## CORS rules
+## Render backend
 
-The backend reads the comma-separated [`CORS_ORIGINS`](backend/src/app.js:21)
-variable. In production, it is required and must contain the exact frontend
-origin(s), including `https://` and excluding a trailing slash. Local requests
-without an `Origin` header remain allowed for health checks and command-line
-tooling.
+The repository's `render.yaml` contains the non-secret service configuration.
+Create a Render Blueprint from the repository, or use the existing Web Service
+settings listed above. Add only these secret values in Render:
+
+- `MONGO_URI`: the complete MongoDB Atlas URI
+- `JWT_SECRET`: a random value containing at least 32 characters
+- `CORS_ORIGINS`: the exact Vercel URL, for example
+  `https://marsu-dashboard.vercel.app`
+
+Do not set `PORT`; Render supplies it. Do not add `:10000` to public URLs.
+Render's public health URL is:
+
+```text
+https://marsu-executive-dashbaord.onrender.com/health
+```
+
+Expected response:
+
+```json
+{ "success": true, "status": "ok" }
+```
+
+## Vercel frontend
+
+1. Import the same GitHub repository into Vercel.
+2. Set **Root Directory** to `frontend`.
+3. Keep the detected **Framework Preset** as Vite.
+4. Add one production variable:
+
+```text
+VITE_API_URL=https://marsu-executive-dashbaord.onrender.com/api/v1
+```
+
+5. Deploy.
+6. Copy the final Vercel origin into Render's `CORS_ORIGINS` and redeploy
+   Render.
+
+The SPA fallback is already configured in `frontend/vercel.json`.
 
 ## Local development
 
-Copy [`backend/.env.example`](backend/.env.example) to `backend/.env`, then run
-the backend from `backend` with `npm install` and `npm run dev`. The frontend's
-[`frontend/.env.development`](frontend/.env.development) points to the local
-API. Keep `.env` files out of version control.
+The local setup does not change when Render or Vercel settings change:
 
-## Validation commands
+1. Keep local secrets and MongoDB settings in `backend/.env`.
+2. Keep `VITE_API_URL=http://localhost:5000/api/v1` in
+   `frontend/.env.development`.
+3. From `backend`, run `npm run dev`.
+4. From `frontend`, run `npm run dev`.
 
-```text
-cd backend && npm test
-cd backend && npm run check
-cd frontend && npm run build
-```
+Use `backend/.env.example` and `frontend/.env.example` as templates only. Never
+commit the real `.env` files.
 
-The frontend now uses the shared [`API_BASE_URL`](frontend/src/api/axios.js:11),
-including login and enrollment dashboard/upload requests, so production builds
-do not retain localhost URLs.
+## Future branch setup
+
+For the simplest long-term workflow, merge `security-testing` into `main`, then
+change Render and Vercel back to the `main` production branch. Until that merge
+happens, both services must deploy `security-testing` or they will continue to
+serve the older application.
