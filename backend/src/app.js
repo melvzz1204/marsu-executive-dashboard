@@ -1,5 +1,9 @@
 const express = require("express");
 const cors = require("cors");
+const helmet = require("helmet");
+const { rateLimit } = require("express-rate-limit");
+const mongoose = require("mongoose");
+const { notFound, errorHandler } = require("./middleware/errorMiddleware");
 
 // 1. Import Route Files
 const authRoutes = require("./routes/authRoutes");
@@ -14,20 +18,49 @@ const higherEducationRoutes = require("./routes/higherEducation/higherEducationR
 const publicViewingRoutes = require("./routes/enrollment/publicViewingRoutes");
 
 const app = express();
+const configuredOrigins = (process.env.CORS_ORIGINS || "")
+  .split(",")
+  .map((origin) => origin.trim().replace(/\/$/, ""))
+  .filter(Boolean);
+const isProduction = process.env.NODE_ENV === "production";
 const corsOptions = {
-  origin: ["http://localhost:5173", "http://127.0.0.1:5173"],
-  methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
+  origin(origin, callback) {
+    if (!origin || configuredOrigins.includes(origin.replace(/\/$/, ""))) {
+      return callback(null, true);
+    }
+    const error = new Error("Origin is not allowed by CORS.");
+    error.statusCode = 403;
+    return callback(error);
+  },
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true,
 };
 
-// Global Middleware
-app.use(cors(corsOptions));
-app.use(express.json());
+if (isProduction && configuredOrigins.length === 0) {
+  throw new Error("CORS_ORIGINS must be configured in production.");
+}
 
-app.use((req, res, next) => {
-  console.log(`📡 Server received a ${req.method} request to: "${req.url}"`);
-  next();
-});
+app.disable("x-powered-by");
+app.set("trust proxy", process.env.TRUST_PROXY === "true" ? 1 : false);
+app.use(helmet());
+app.use(cors(corsOptions));
+app.use(express.json({ limit: "1mb" }));
+app.use(express.urlencoded({ extended: false, limit: "1mb" }));
+app.use(
+  "/api/",
+  rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: Number(process.env.RATE_LIMIT_MAX) || 300,
+    standardHeaders: "draft-8",
+    legacyHeaders: false,
+    message: {
+      success: false,
+      error: "Too Many Requests",
+      message: "Too many requests. Please try again later.",
+    },
+  }),
+);
 
 // 2. Mount Route Files
 app.use("/api/v1/auth", authRoutes);
@@ -38,16 +71,35 @@ app.use("/api/v1/research", researchAnalyticsRouter);
 app.use("/api/v1/enrollment", enrollmentRoutes);
 app.use("/api/v1/higher-education", higherEducationRoutes);
 
-//public viewing
+// Public viewing
 app.use("/api/v1/public-viewing", publicViewingRoutes);
 
-// Catch-All 404 Middleware (Returns JSON instead of plain text)
-app.use((req, res) => {
-  console.log(`[DEBUG LOG] 404 Unmatched request: ${req.method} ${req.url}`);
-  res.status(404).json({
-    success: false,
-    error: `Route ${req.method} ${req.url} was not found on this server.`,
+// Render and uptime monitors commonly probe the service root. Keep it separate
+// from /health so the root response can identify the API without implying that
+// the MongoDB dependency is ready.
+app.get("/", (req, res) => {
+  return res.status(200).json({
+    success: true,
+    service: "MarSU Executive Dashboard API",
+    status: "ok",
+    health: "/health",
+    readiness: "/ready",
   });
 });
+
+app.get("/health", (req, res) => {
+  return res.status(200).json({ success: true, status: "ok" });
+});
+
+app.get("/ready", (req, res) => {
+  const ready = mongoose.connection.readyState === 1;
+  return res.status(ready ? 200 : 503).json({
+    success: ready,
+    status: ready ? "ready" : "not_ready",
+  });
+});
+
+app.use(notFound);
+app.use(errorHandler);
 
 module.exports = app;

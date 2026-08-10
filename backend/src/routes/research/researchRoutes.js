@@ -1,14 +1,7 @@
 const express = require("express");
-const multer = require("multer");
 const router = express.Router();
-
-// Configure Multer memory storage so ExcelJS can access the file buffer directly
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB limit
-  },
-});
+const { protect, authorize } = require("../../middleware/authMiddleware");
+const { excelUpload } = require("../../middleware/uploadMiddleware");
 
 // Import Paper Controllers
 const {
@@ -24,6 +17,8 @@ const {
   getResearchUploadLogs,
 } = require("../../controllers/research/researchUploadController");
 
+router.use(protect);
+
 // ==========================================
 // 📊 DASHBOARD & DATABASE ENDPOINTS
 // ==========================================
@@ -33,23 +28,28 @@ router.get("/stats", getResearchStats);
 
 // Database endpoints for modal search & paper registry
 router.get("/papers", getResearchPapers);
-router.post("/papers", createResearchPaper);
+router.post("/papers", authorize("admin"), createResearchPaper);
 
 // ==========================================
 // 📁 EXCEL INGESTION & AUDIT LOG ENDPOINTS
 // ==========================================
 
 // Ingest research spreadsheet (handles drag-and-drop file uploads)
-router.post("/upload", upload.single("file"), uploadResearchExcel);
+router.post(
+  "/upload",
+  authorize("admin"),
+  excelUpload.single("file"),
+  uploadResearchExcel,
+);
 
 // Retrieve upload history audit logs
-router.get("/logs", getResearchUploadLogs);
+router.get("/logs", authorize("admin"), getResearchUploadLogs);
 
 // ==========================================
 // 🛠️ UTILITY / SEEDING ENDPOINTS
 // ==========================================
 
 // Seeding endpoint
-router.post("/seed", seedResearchPapers);
+router.post("/seed", authorize("admin"), seedResearchPapers);
 
 module.exports = router;

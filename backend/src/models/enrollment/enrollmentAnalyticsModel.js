@@ -44,17 +44,21 @@ const EnrollmentAnalyticsSchema = new mongoose.Schema({
   academicYear: {
     type: Number, // e.g., 2021 (Represents AY 2021-2022)
     required: [true, "Academic Year tracker is required"],
+    min: [2000, "Academic year must be 2000 or later"],
+    max: [2100, "Academic year must be 2100 or earlier"],
   },
   campus: {
     type: String, // e.g., "Boac", "Gasan", "Santa Cruz", "Torrijos"
     required: [true, "Campus location filter is required"],
     trim: true,
+    minlength: [1, "Campus is required"],
   },
   semester: {
     type: String, // e.g., "1st Semester", "2nd Semester"
     required: [true, "Semester is required"],
     default: "1st Semester",
     trim: true,
+    enum: ["1st Semester", "2nd Semester", "Summer"],
   },
   summaryKpis: {
     totalStudents: {
@@ -93,38 +97,36 @@ EnrollmentAnalyticsSchema.index(
 
 // Pre-save lifecycle automation engine to calculate summary blocks dynamically
 EnrollmentAnalyticsSchema.pre("save", async function () {
-  if (this.programs && this.programs.length > 0) {
-    // 1. Calculate Active Program Count & Total Headcount
-    this.summaryKpis.activeProgramsCount = this.programs.filter(
-      (p) => p.isActive,
-    ).length;
-    this.summaryKpis.totalStudents = this.programs.reduce(
-      (sum, p) => sum + p.studentCount,
-      0,
-    );
+  const programs = this.programs || [];
 
-    // 2. Automatically locate and map the largest program details
-    const peakProgram = [...this.programs].sort(
-      (a, b) => b.studentCount - a.studentCount,
-    )[0];
-    this.summaryKpis.largestProgramName = peakProgram
-      ? peakProgram.programName
-      : "N/A";
+  this.summaryKpis.activeProgramsCount = programs.filter(
+    (program) => program.isActive,
+  ).length;
+  this.summaryKpis.totalStudents = programs.reduce(
+    (sum, program) => sum + program.studentCount,
+    0,
+  );
 
-    // 3. Compute percentage of students in CHED/RDC priority tracks
-    const priorityStudentCount = this.programs
-      .filter((p) => p.isPriorityProgram)
-      .reduce((sum, p) => sum + p.studentCount, 0);
+  const peakProgram = programs.reduce(
+    (largest, program) =>
+      !largest || program.studentCount > largest.studentCount
+        ? program
+        : largest,
+    null,
+  );
+  this.summaryKpis.largestProgramName = peakProgram
+    ? peakProgram.programName
+    : "N/A";
 
-    if (this.summaryKpis.totalStudents > 0) {
-      const priorityRatio =
-        (priorityStudentCount / this.summaryKpis.totalStudents) * 100;
-      this.summaryKpis.priorityEnrollmentPercentage =
-        Math.round(priorityRatio * 10) / 10; // e.g., 72.9
-    } else {
-      this.summaryKpis.priorityEnrollmentPercentage = 0.0;
-    }
-  }
+  const priorityStudentCount = programs
+    .filter((program) => program.isPriorityProgram)
+    .reduce((sum, program) => sum + program.studentCount, 0);
+  this.summaryKpis.priorityEnrollmentPercentage =
+    this.summaryKpis.totalStudents > 0
+      ? Math.round(
+          (priorityStudentCount / this.summaryKpis.totalStudents) * 1000,
+        ) / 10
+      : 0;
 
   // 4. Automated YoY Growth Percentage tracking lookup logic
   try {

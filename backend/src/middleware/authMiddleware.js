@@ -2,13 +2,14 @@ const jwt = require("jsonwebtoken");
 
 const protect = async (req, res, next) => {
   try {
+    const authorization = req.headers.authorization;
     let token;
 
-    if (
-      req.headers.authorization &&
-      req.headers.authorization.startsWith("Bearer")
-    ) {
-      token = req.headers.authorization.split(" ")[1];
+    if (authorization) {
+      const [scheme, credentials, extra] = authorization.trim().split(/\s+/);
+      if (scheme === "Bearer" && credentials && !extra) {
+        token = credentials;
+      }
     }
 
     if (!token) {
@@ -18,15 +19,25 @@ const protect = async (req, res, next) => {
       });
     }
 
-    // Verify token payload
-    const decoded = jwt.verify(
-      token,
-      process.env.JWT_SECRET || "fallback_secret_key",
-    );
+    if (!process.env.JWT_SECRET) {
+      const error = new Error("JWT configuration is unavailable.");
+      error.statusCode = 500;
+      return next(error);
+    }
 
-    // 💡 CRITICAL: This attaches the payload to req.user so authController can read req.user.id
+    const decoded = jwt.verify(token, process.env.JWT_SECRET, {
+      algorithms: ["HS256"],
+    });
+
+    if (!decoded.id || !decoded.role) {
+      return res.status(401).json({
+        success: false,
+        message: "Token payload is invalid",
+      });
+    }
+
     req.user = decoded;
-    next();
+    return next();
   } catch (error) {
     return res
       .status(401)

@@ -58,10 +58,12 @@ function normalizeScope(scopeStr) {
 function normalizeCategory(catStr) {
   if (!catStr) return "Other";
   const clean = catStr.toUpperCase();
-  if (clean.includes("PERCEPTION") || clean.includes("SOCIAL")) return "Social Perception";
+  if (clean.includes("PERCEPTION") || clean.includes("SOCIAL"))
+    return "Social Perception";
   if (clean.includes("QUALITATIVE")) return "Qualitative Study";
   if (clean.includes("IMPACT")) return "Impact Analysis";
-  if (clean.includes("MODEL") || clean.includes("DEVELOPMENT")) return "Model Development";
+  if (clean.includes("MODEL") || clean.includes("DEVELOPMENT"))
+    return "Model Development";
   return "Other";
 }
 
@@ -72,8 +74,9 @@ function normalizeCategory(catStr) {
 exports.uploadResearchExcel = async (req, res) => {
   const fileName = req.file?.originalname || "Unknown_File.xlsx";
   const fileSize = formatFileSize(req.file?.size);
-  const uploadedBy = req.body.uploadedBy || req.user?.name || "System Admin";
-  const forceOverwrite = req.body.overwrite === "true" || req.body.overwrite === true;
+  const uploadedBy = req.user?.name || req.user?.id || "Authenticated Admin";
+  const forceOverwrite =
+    req.body.overwrite === "true" || req.body.overwrite === true;
 
   try {
     // 1. Defend against missing file payload
@@ -121,27 +124,65 @@ exports.uploadResearchExcel = async (req, res) => {
       const colIndexes = {};
 
       headerRow.eachCell((cell, colNumber) => {
-        const headerText = extractCellValue(cell).toUpperCase().replace(/[\s_]+/g, "");
+        const headerText = extractCellValue(cell)
+          .toUpperCase()
+          .replace(/[\s_]+/g, "");
 
         if (headerText.includes("TITLE")) colIndexes.title = colNumber;
         if (headerText.includes("AUTHOR")) colIndexes.authors = colNumber;
         if (headerText.includes("YEAR")) colIndexes.year = colNumber;
         if (headerText.includes("SCOPE")) colIndexes.scope = colNumber;
-        if (headerText.includes("CONF") || headerText.includes("JOURNAL")) colIndexes.conferenceOrJournal = colNumber;
+        if (headerText.includes("CONF") || headerText.includes("JOURNAL"))
+          colIndexes.conferenceOrJournal = colNumber;
         if (headerText.includes("CAT")) colIndexes.category = colNumber;
-        if (headerText.includes("VENUE") && !headerText.includes("FORUM")) colIndexes.venue = colNumber;
-        if (headerText.includes("DURATION") || headerText.includes("DAYS")) colIndexes.durationDays = colNumber;
-        if (headerText.includes("STATUS") && !headerText.includes("PROPOSAL") && !headerText.includes("COMPLETION") && !headerText.includes("PUBLIC")) colIndexes.status = colNumber;
-        if (headerText.includes("COLLEGE") || headerText.includes("DEPT")) colIndexes.collegeCode = colNumber;
-        if (headerText.includes("FUND") || headerText.includes("GRANT")) colIndexes.fundingGrantMillions = colNumber;
+        if (headerText.includes("VENUE") && !headerText.includes("FORUM"))
+          colIndexes.venue = colNumber;
+        if (headerText.includes("DURATION") || headerText.includes("DAYS"))
+          colIndexes.durationDays = colNumber;
+        if (
+          headerText.includes("STATUS") &&
+          !headerText.includes("PROPOSAL") &&
+          !headerText.includes("COMPLETION") &&
+          !headerText.includes("PUBLIC")
+        )
+          colIndexes.status = colNumber;
+        if (headerText.includes("COLLEGE") || headerText.includes("DEPT"))
+          colIndexes.collegeCode = colNumber;
+        if (headerText.includes("FUND") || headerText.includes("GRANT"))
+          colIndexes.fundingGrantMillions = colNumber;
 
         // Headers from Excel Template
-        if (headerText.includes("PROPOSALSTATUS") || headerText.includes("PROPOSAL")) colIndexes.proposalStatus = colNumber;
-        if (headerText.includes("COMPLETIONSTATUS") || headerText.includes("COMPLETION")) colIndexes.completionStatus = colNumber;
-        if (headerText.includes("PRESENTATIONSTAGE") || headerText.includes("STAGE")) colIndexes.presentationStage = colNumber;
-        if (headerText.includes("PRESENTATIONFORUM") || headerText.includes("FORUM")) colIndexes.presentationForumVenue = colNumber;
-        if (headerText.includes("PUBLICATIONSTATUS") || headerText.includes("PUBLICATION")) colIndexes.publicationStatus = colNumber;
-        if (headerText.includes("INTELLECTUAL") || headerText.includes("PROPERTY") || headerText.includes("IP")) colIndexes.intellectualPropertyTypeAcquired = colNumber;
+        if (
+          headerText.includes("PROPOSALSTATUS") ||
+          headerText.includes("PROPOSAL")
+        )
+          colIndexes.proposalStatus = colNumber;
+        if (
+          headerText.includes("COMPLETIONSTATUS") ||
+          headerText.includes("COMPLETION")
+        )
+          colIndexes.completionStatus = colNumber;
+        if (
+          headerText.includes("PRESENTATIONSTAGE") ||
+          headerText.includes("STAGE")
+        )
+          colIndexes.presentationStage = colNumber;
+        if (
+          headerText.includes("PRESENTATIONFORUM") ||
+          headerText.includes("FORUM")
+        )
+          colIndexes.presentationForumVenue = colNumber;
+        if (
+          headerText.includes("PUBLICATIONSTATUS") ||
+          headerText.includes("PUBLICATION")
+        )
+          colIndexes.publicationStatus = colNumber;
+        if (
+          headerText.includes("INTELLECTUAL") ||
+          headerText.includes("PROPERTY") ||
+          headerText.includes("IP")
+        )
+          colIndexes.intellectualPropertyTypeAcquired = colNumber;
       });
 
       // Header index fallbacks if headers are missing
@@ -155,7 +196,8 @@ exports.uploadResearchExcel = async (req, res) => {
       if (!colIndexes.durationDays) colIndexes.durationDays = 8;
       if (!colIndexes.status) colIndexes.status = 9;
       if (!colIndexes.collegeCode) colIndexes.collegeCode = 10;
-      if (!colIndexes.fundingGrantMillions) colIndexes.fundingGrantMillions = 11;
+      if (!colIndexes.fundingGrantMillions)
+        colIndexes.fundingGrantMillions = 11;
 
       worksheet.eachRow((row, rowNumber) => {
         if (rowNumber === 1) return; // Skip header row
@@ -166,7 +208,10 @@ exports.uploadResearchExcel = async (req, res) => {
 
           const rawAuthors = extractCellValue(row.getCell(colIndexes.authors));
           const authors = rawAuthors
-            ? rawAuthors.split(",").map((a) => a.trim()).filter(Boolean)
+            ? rawAuthors
+                .split(",")
+                .map((a) => a.trim())
+                .filter(Boolean)
             : ["Unknown Author"];
 
           const rawYear = extractCellValue(row.getCell(colIndexes.year));
@@ -175,40 +220,89 @@ exports.uploadResearchExcel = async (req, res) => {
           const rawScope = extractCellValue(row.getCell(colIndexes.scope));
           const scope = normalizeScope(rawScope);
 
-          const conferenceOrJournal = extractCellValue(row.getCell(colIndexes.conferenceOrJournal)) || "N/A";
+          const conferenceOrJournal =
+            extractCellValue(row.getCell(colIndexes.conferenceOrJournal)) ||
+            "N/A";
 
-          const rawCategory = extractCellValue(row.getCell(colIndexes.category));
+          const rawCategory = extractCellValue(
+            row.getCell(colIndexes.category),
+          );
           const category = normalizeCategory(rawCategory);
 
-          const venue = extractCellValue(row.getCell(colIndexes.venue)) || "N/A";
+          const venue =
+            extractCellValue(row.getCell(colIndexes.venue)) || "N/A";
 
-          const rawDuration = extractCellValue(row.getCell(colIndexes.durationDays));
+          const rawDuration = extractCellValue(
+            row.getCell(colIndexes.durationDays),
+          );
           const durationDays = parseInt(rawDuration, 10) || 0;
 
-          const rawStatus = extractCellValue(row.getCell(colIndexes.status)).toUpperCase();
-          const validStatuses = ["COMPLETED", "ONGOING", "PUBLISHED", "UNDER_REVIEW"];
-          const status = validStatuses.includes(rawStatus) ? rawStatus : "COMPLETED";
+          const rawStatus = extractCellValue(
+            row.getCell(colIndexes.status),
+          ).toUpperCase();
+          const validStatuses = [
+            "COMPLETED",
+            "ONGOING",
+            "PUBLISHED",
+            "UNDER_REVIEW",
+          ];
+          const status = validStatuses.includes(rawStatus)
+            ? rawStatus
+            : "COMPLETED";
 
-          const collegeCode = extractCellValue(row.getCell(colIndexes.collegeCode)).toUpperCase() || "CICS";
+          const collegeCode =
+            extractCellValue(
+              row.getCell(colIndexes.collegeCode),
+            ).toUpperCase() || "CICS";
 
-          const rawFunding = extractCellValue(row.getCell(colIndexes.fundingGrantMillions));
+          const rawFunding = extractCellValue(
+            row.getCell(colIndexes.fundingGrantMillions),
+          );
           const fundingGrantMillions = parseFloat(rawFunding) || 0.0;
 
           // Extract lifecycle & IP fields
-          const proposalStatus = colIndexes.proposalStatus ? extractCellValue(row.getCell(colIndexes.proposalStatus)) || "N/A" : "N/A";
-          const completionStatus = colIndexes.completionStatus ? extractCellValue(row.getCell(colIndexes.completionStatus)) || "N/A" : "N/A";
-          const presentationStage = colIndexes.presentationStage ? extractCellValue(row.getCell(colIndexes.presentationStage)) || "N/A" : "N/A";
-          const presentationForumVenue = colIndexes.presentationForumVenue ? extractCellValue(row.getCell(colIndexes.presentationForumVenue)) || "N/A" : "N/A";
-          const publicationStatus = colIndexes.publicationStatus ? extractCellValue(row.getCell(colIndexes.publicationStatus)) || "N/A" : "N/A";
-          const intellectualPropertyTypeAcquired = colIndexes.intellectualPropertyTypeAcquired ? extractCellValue(row.getCell(colIndexes.intellectualPropertyTypeAcquired)) || "None" : "None";
+          const proposalStatus = colIndexes.proposalStatus
+            ? extractCellValue(row.getCell(colIndexes.proposalStatus)) || "N/A"
+            : "N/A";
+          const completionStatus = colIndexes.completionStatus
+            ? extractCellValue(row.getCell(colIndexes.completionStatus)) ||
+              "N/A"
+            : "N/A";
+          const presentationStage = colIndexes.presentationStage
+            ? extractCellValue(row.getCell(colIndexes.presentationStage)) ||
+              "N/A"
+            : "N/A";
+          const presentationForumVenue = colIndexes.presentationForumVenue
+            ? extractCellValue(
+                row.getCell(colIndexes.presentationForumVenue),
+              ) || "N/A"
+            : "N/A";
+          const publicationStatus = colIndexes.publicationStatus
+            ? extractCellValue(row.getCell(colIndexes.publicationStatus)) ||
+              "N/A"
+            : "N/A";
+          const intellectualPropertyTypeAcquired =
+            colIndexes.intellectualPropertyTypeAcquired
+              ? extractCellValue(
+                  row.getCell(colIndexes.intellectualPropertyTypeAcquired),
+                ) || "None"
+              : "None";
 
           // Calculate metric flags dynamically
-          const isCompleted = completionStatus.toLowerCase() === "completed" || status === "COMPLETED";
-          const isPresenting = (presentationStage && presentationStage !== "N/A") || (presentationForumVenue && presentationForumVenue !== "N/A");
-          const isPublished = publicationStatus.toLowerCase() === "published" || status === "PUBLISHED";
+          const isCompleted =
+            completionStatus.toLowerCase() === "completed" ||
+            status === "COMPLETED";
+          const isPresenting =
+            (presentationStage && presentationStage !== "N/A") ||
+            (presentationForumVenue && presentationForumVenue !== "N/A");
+          const isPublished =
+            publicationStatus.toLowerCase() === "published" ||
+            status === "PUBLISHED";
           const hasIntellectualProperty = Boolean(
             intellectualPropertyTypeAcquired &&
-            !["none", "n/a", ""].includes(intellectualPropertyTypeAcquired.toLowerCase())
+              !["none", "n/a", ""].includes(
+                intellectualPropertyTypeAcquired.toLowerCase(),
+              ),
           );
 
           parsedPapers.push({
@@ -235,7 +329,10 @@ exports.uploadResearchExcel = async (req, res) => {
             hasIntellectualProperty,
           });
         } catch (rowErr) {
-          console.warn(`Skipping row ${rowNumber} in sheet '${worksheet.name}':`, rowErr.message);
+          console.warn(
+            `Skipping row ${rowNumber} in sheet '${worksheet.name}':`,
+            rowErr.message,
+          );
         }
       });
     });
@@ -246,7 +343,8 @@ exports.uploadResearchExcel = async (req, res) => {
         fileSize,
         uploadedBy,
         status: "FAILED",
-        errorMessage: "No valid research paper records found in the spreadsheet.",
+        errorMessage:
+          "No valid research paper records found in the spreadsheet.",
       });
 
       return res.status(422).json({
@@ -257,7 +355,9 @@ exports.uploadResearchExcel = async (req, res) => {
 
     // 4. SCAN DATABASE FOR DUPLICATE PAPER TITLES
     const titlesToIngest = parsedPapers.map((p) => p.title);
-    const existingPapers = await ResearchPaper.find({ title: { $in: titlesToIngest } });
+    const existingPapers = await ResearchPaper.find({
+      title: { $in: titlesToIngest },
+    });
 
     // ⚠️ IF DUPLICATES FOUND AND ADMIN HAS NOT CONFIRMED OVERWRITE -> RETURN 409
     if (existingPapers.length > 0 && !forceOverwrite) {
@@ -274,7 +374,7 @@ exports.uploadResearchExcel = async (req, res) => {
         return ResearchPaper.findOneAndUpdate(
           { title: paperData.title },
           paperData,
-          { upsert: true, new: true }
+          { upsert: true, new: true },
         );
       } else {
         return ResearchPaper.create(paperData);
@@ -311,7 +411,13 @@ exports.uploadResearchExcel = async (req, res) => {
       errorMessage: error.message,
     }).catch((logErr) => console.error("Failed to write failure log:", logErr));
 
-    return res.status(500).json({ success: false, error: error.message });
+    const isWorkbookError = /zip|workbook|excel|xlsx/i.test(error.message);
+    return res.status(isWorkbookError ? 400 : 500).json({
+      success: false,
+      error: isWorkbookError
+        ? "The uploaded file is not a valid Excel workbook."
+        : "Research upload processing failed.",
+    });
   }
 };
 
@@ -321,7 +427,9 @@ exports.uploadResearchExcel = async (req, res) => {
  */
 exports.getResearchUploadLogs = async (req, res) => {
   try {
-    const logs = await ResearchUploadLog.find().sort({ uploadedAt: -1 }).limit(100);
+    const logs = await ResearchUploadLog.find()
+      .sort({ uploadedAt: -1 })
+      .limit(100);
 
     return res.status(200).json({
       success: true,

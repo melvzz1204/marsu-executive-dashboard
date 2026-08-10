@@ -1,13 +1,33 @@
 const EnrollmentAnalytics = require("../../models/enrollment/enrollmentAnalyticsModel");
 
+const VALID_SEMESTERS = new Set(["1st Semester", "2nd Semester", "Summer"]);
+
+const parseAcademicYear = (value, fallback) => {
+  if (value === undefined || value === null || value === "") return fallback;
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed >= 2000 && parsed <= 2100
+    ? parsed
+    : null;
+};
+
+const normalizeText = (value, fallback = "") =>
+  typeof value === "string" && value.trim() ? value.trim() : fallback;
+
 // GET /api/v1/enrollment
 exports.getEnrollmentSnapshot = async (req, res) => {
   try {
     const { year, campus, semester } = req.query;
 
-    const numericYear = year ? parseInt(year, 10) : 2023;
-    const campusName = campus || "Boac";
-    const semesterName = semester || "1st Semester";
+    const numericYear = parseAcademicYear(year, 2023);
+    const campusName = normalizeText(campus, "Boac");
+    const semesterName = normalizeText(semester, "1st Semester");
+
+    if (numericYear === null || !VALID_SEMESTERS.has(semesterName)) {
+      return res.status(400).json({
+        success: false,
+        error: "Academic year or semester is invalid.",
+      });
+    }
 
     // 1. Fetch Snapshot for Requested Academic Year
     const snapshot = await EnrollmentAnalytics.findOne({
@@ -191,9 +211,11 @@ exports.getEnrollmentTrend = async (req, res) => {
 exports.upsertEnrollmentAnalytics = async (req, res) => {
   try {
     const { academicYear, campus, semester, programs } = req.body;
-    const semesterName = semester || "1st Semester";
+    const numericYear = parseAcademicYear(academicYear, null);
+    const campusName = normalizeText(campus);
+    const semesterName = normalizeText(semester, "1st Semester");
 
-    if (!academicYear || !campus) {
+    if (numericYear === null || !campusName) {
       return res.status(400).json({
         success: false,
         error:
@@ -201,19 +223,25 @@ exports.upsertEnrollmentAnalytics = async (req, res) => {
       });
     }
 
-    // Include semester in query to allow separate 1st Sem & 2nd Sem entries
+    if (!VALID_SEMESTERS.has(semesterName) || !Array.isArray(programs)) {
+      return res.status(400).json({
+        success: false,
+        error: "A valid semester and programs array are required.",
+      });
+    }
+
     let record = await EnrollmentAnalytics.findOne({
-      academicYear,
-      campus,
+      academicYear: numericYear,
+      campus: campusName,
       semester: semesterName,
     });
 
     if (record) {
-      if (programs) record.programs = programs;
+      record.programs = programs;
     } else {
       record = new EnrollmentAnalytics({
-        academicYear,
-        campus,
+        academicYear: numericYear,
+        campus: campusName,
         semester: semesterName,
         programs,
       });
@@ -224,7 +252,7 @@ exports.upsertEnrollmentAnalytics = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: `Enrollment metadata metrics ledger for ${campus} (${semesterName}, AY ${academicYear}) synced successfully.`,
+      message: `Enrollment metadata metrics ledger for ${campusName} (${semesterName}, AY ${numericYear}) synced successfully.`,
       data: record,
     });
   } catch (error) {
@@ -258,19 +286,24 @@ exports.getProgramTrend = async (req, res) => {
       .sort({ academicYear: 1 })
       .select("academicYear campus programs");
 
-    // Map through the years and find the specific program's enrollment count
-    const formattedTrendData = rawTrends.map((record) => {
-      // Find the specific program inside this year's dataset
-      const programMatch = record.programs.find(
-        (p) => p.programName === programName,
+    const trendMap = new Map();
+    rawTrends.forEach((record) => {
+      const enrolledStudents = record.programs
+        .filter((program) => program.programName === programName)
+        .reduce((sum, program) => sum + (program.studentCount || 0), 0);
+      trendMap.set(
+        record.academicYear,
+        (trendMap.get(record.academicYear) || 0) + enrolledStudents,
       );
-
-      return {
-        academicYear: record.academicYear,
-        label: `AY ${record.academicYear}`,
-        enrolledStudents: programMatch ? programMatch.studentCount || 0 : 0,
-      };
     });
+
+    const formattedTrendData = Array.from(trendMap.entries()).map(
+      ([academicYear, enrolledStudents]) => ({
+        academicYear,
+        label: `AY ${academicYear}`,
+        enrolledStudents,
+      }),
+    );
 
     return res.status(200).json({
       success: true,

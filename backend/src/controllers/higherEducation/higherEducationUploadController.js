@@ -88,13 +88,7 @@ function computeStatusFields(accreditationStatus, endDate) {
 exports.uploadHigherEducationExcel = async (req, res) => {
   const fileName = req.file?.originalname || "Unknown_File.xlsx";
   const fileSize = formatFileSize(req.file?.size);
-  const uploadedBy =
-    req.body.uploadedBy ||
-    (req.user
-      ? `${req.user.firstName || ""} ${req.user.lastName || ""}`.trim()
-      : null) ||
-    req.user?.name ||
-    "System Admin";
+  const uploadedBy = req.user?.name || req.user?.id || "Authenticated Admin";
   const forceOverwrite =
     req.body.overwrite === "true" || req.body.overwrite === true;
 
@@ -308,7 +302,13 @@ exports.uploadHigherEducationExcel = async (req, res) => {
       isOverwrite: forceOverwrite,
     }).catch(() => {});
 
-    return res.status(500).json({ success: false, error: error.message });
+    const isWorkbookError = /zip|workbook|excel|xlsx/i.test(error.message);
+    return res.status(isWorkbookError ? 400 : 500).json({
+      success: false,
+      error: isWorkbookError
+        ? "The uploaded file is not a valid Excel workbook."
+        : "Higher education upload processing failed.",
+    });
   }
 };
 

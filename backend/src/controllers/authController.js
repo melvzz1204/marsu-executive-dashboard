@@ -5,9 +5,13 @@ const jwt = require("jsonwebtoken");
 // @route   POST /api/v1/auth/login
 exports.login = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const email =
+      typeof req.body.email === "string"
+        ? req.body.email.trim().toLowerCase()
+        : "";
+    const password =
+      typeof req.body.password === "string" ? req.body.password : "";
 
-    // 1. Validate input fields
     if (!email || !password) {
       return res.status(400).json({
         success: false,
@@ -31,11 +35,14 @@ exports.login = async (req, res) => {
         .json({ success: false, message: "Invalid credentials" });
     }
 
-    // 4. Create JSON Web Token (JWT)
+    if (!process.env.JWT_SECRET) {
+      throw new Error("JWT_SECRET is not configured.");
+    }
+
     const token = jwt.sign(
-      { id: user._id, role: user.role, collegeId: user.collegeId }, // Explicitly naming the key "collegeId"
-        process.env.JWT_SECRET || "fallback_secret_key",
-      { expiresIn: "30d" },
+      { id: user._id, role: user.role, collegeId: user.collegeId },
+      process.env.JWT_SECRET,
+      { expiresIn: process.env.JWT_EXPIRES_IN || "8h", algorithm: "HS256" },
     );
 
     // 5. Send successful response to React frontend
@@ -50,7 +57,11 @@ exports.login = async (req, res) => {
       },
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    console.error("Login failed:", error.message);
+    return res.status(500).json({
+      success: false,
+      message: "Unable to authenticate at this time.",
+    });
   }
 };
 
@@ -58,10 +69,37 @@ exports.login = async (req, res) => {
 // @route   POST /api/v1/auth/register
 exports.register = async (req, res) => {
   try {
-    const { name, email, password, role } = req.body;
+    const { name, email, password, role, collegeId } = req.body;
+    const normalizedName = typeof name === "string" ? name.trim() : "";
+    const normalizedEmail =
+      typeof email === "string" ? email.trim().toLowerCase() : "";
 
-    // 1. Create the user in MongoDB Atlas
-    const user = await User.create({ name, email, password, role, collegeId });
+    if (!normalizedName || !normalizedEmail || typeof password !== "string") {
+      return res.status(400).json({
+        success: false,
+        message: "Name, email, and password are required.",
+      });
+    }
+
+    if (password.length < 10) {
+      return res.status(400).json({
+        success: false,
+        message: "Password must contain at least 10 characters.",
+      });
+    }
+
+    const requestedRole = role || "executive";
+    if (!["executive", "dean", "admin"].includes(requestedRole)) {
+      return res.status(400).json({ success: false, message: "Invalid role." });
+    }
+
+    const user = await User.create({
+      name: normalizedName,
+      email: normalizedEmail,
+      password,
+      role: requestedRole,
+      collegeId: collegeId || null,
+    });
 
     // 2. Remove password from the response object for security
     const userResponse = user.toObject();
@@ -84,11 +122,16 @@ exports.register = async (req, res) => {
       });
     }
 
-    // Handle general validation or server errors
+    if (error.name === "ValidationError" || error.name === "CastError") {
+      return res.status(400).json({
+        success: false,
+        message: "The submitted registration data is invalid.",
+      });
+    }
+
     return res.status(500).json({
       success: false,
       message: "Server error during registration. Please try again.",
-      error: error.message,
     });
   }
 };
@@ -102,8 +145,7 @@ exports.getUserName = async (req, res) => {
       });
     }
 
-    // 💡 CRITICAL FIX: Make sure "role" is added here inside the select string!
-    const user = await User.findById(req.user.id).select("name role");
+    const user = await User.findById(req.user.id).select("name role collegeId");
 
     if (!user) {
       return res.status(404).json({

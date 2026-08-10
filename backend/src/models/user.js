@@ -20,12 +20,12 @@ const UserSchema = new mongoose.Schema({
   password: {
     type: String,
     required: [true, "Please add a password"],
-    minlength: 6,
-    select: false, // Automatically excludes password from standard database queries for safety
+    minlength: 10,
+    select: false,
   },
   role: {
     type: String,
-    enum: ["executive", "dean", "admin"], 
+    enum: ["executive", "dean", "admin"],
     default: "executive",
   },
   collegeId: {

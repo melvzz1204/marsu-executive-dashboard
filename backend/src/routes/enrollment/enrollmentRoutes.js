@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const multer = require("multer");
+const { excelUpload } = require("../../middleware/uploadMiddleware");
 
 // 1. ADD getProgramTrend HERE
 const {
@@ -19,22 +19,19 @@ const {
 // Security middleware
 const { protect, authorize } = require("../../middleware/authMiddleware");
 
-// Configure memory storage for multer stream handling
-const upload = multer({ storage: multer.memoryStorage() });
-
 // Secure all endpoints within this enrollment tracking stack
 router.use(protect);
 
 // Bulk Spreadsheet Ingestion Route
 router.post(
   "/upload",
-  authorize("admin", "superadmin"),
-  upload.single("file"),
+  authorize("admin"),
+  excelUpload.single("file"),
   uploadEnrollmentExcel,
 );
 
 // Fetch Spreadsheet Upload Audit Logs Route
-router.get("/logs", authorize("admin", "superadmin"), getUploadLogs);
+router.get("/logs", authorize("admin"), getUploadLogs);
 
 // Dynamic Filter Options Path (Returns distinct years and campuses)
 router.get("/filters", getEnrollmentFilters);
@@ -49,6 +46,6 @@ router.get("/program-trend", getProgramTrend);
 router
   .route("/")
   .get(getEnrollmentSnapshot)
-  .post(authorize("admin", "superadmin"), upsertEnrollmentAnalytics);
+  .post(authorize("admin"), upsertEnrollmentAnalytics);
 
 module.exports = router;

@@ -1,8 +1,14 @@
 import axios from "axios";
 
-// 🌍 Vite environment variables are mapped through the import.meta interface
-const API_BASE_URL =
-  import.meta.env.VITE_API_URL || "http://localhost:5000/api/v1";
+const configuredApiUrl = import.meta.env.VITE_API_URL?.trim();
+
+if (import.meta.env.PROD && !configuredApiUrl) {
+  throw new Error("VITE_API_URL must be configured for production builds.");
+}
+
+export const API_BASE_URL = (
+  configuredApiUrl || "http://localhost:5000/api/v1"
+).replace(/\/$/, "");
 
 const api = axios.create({
   baseURL: API_BASE_URL,

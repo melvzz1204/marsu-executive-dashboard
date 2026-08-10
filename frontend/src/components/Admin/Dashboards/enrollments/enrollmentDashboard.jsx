@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -12,6 +12,7 @@ import {
   Filler,
 } from "chart.js";
 import { Chart, Doughnut } from "react-chartjs-2";
+import { API_BASE_URL } from "../../../../api/axios";
 
 ChartJS.register(
   CategoryScale,
@@ -84,7 +85,7 @@ export default function EnrollmentDashboard({ isPublicView = false }) {
   const [programTrendData, setProgramTrendData] = useState([]);
   const [isProgramTrendLoading, setIsProgramTrendLoading] = useState(false);
 
-  const API_BASE = "http://127.0.0.1:5000/api/v1/enrollment";
+  const API_BASE = `${API_BASE_URL}/enrollment`;
 
   // NEW FETCH LOGIC FOR PROGRAM TRAJECTORY
   useEffect(() => {

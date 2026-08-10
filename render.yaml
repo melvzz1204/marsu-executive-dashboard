@@ -1,0 +1,26 @@
+# Render Blueprint for the MarSU dashboard API.
+# Set secret values in Render's dashboard or environment groups; do not commit them.
+services:
+  - type: web
+    name: marsu-dashboard-api
+    runtime: node
+    rootDir: backend
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: TRUST_PROXY
+        value: "true"
+      - key: MONGO_URI
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: JWT_EXPIRES_IN
+        value: 8h
+      - key: RATE_LIMIT_MAX
+        value: "300"

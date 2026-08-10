@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import UploadHistory from "./uploadHistoryEnrollment";
+import { API_BASE_URL } from "../../../../api/axios";
 
 export default function EnrollmentsUpload() {
   const [file, setFile] = useState(null);
@@ -16,7 +17,7 @@ export default function EnrollmentsUpload() {
   const [showOverwriteModal, setShowOverwriteModal] = useState(false);
   const [duplicateDetails, setDuplicateDetails] = useState("");
 
-  const API_BASE = "http://127.0.0.1:5000/api/v1/enrollment";
+  const API_BASE = `${API_BASE_URL}/enrollment`;
 
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files[0]) {

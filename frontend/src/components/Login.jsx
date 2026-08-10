@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import api from "../api/axios";
 import marsuLogo from "../assets/marsu-logo.png";
 
 function LoginTransition({ onComplete }) {
@@ -104,15 +105,8 @@ const Login = () => {
     setIsLoading(true);
 
     try {
-      const response = await fetch("http://localhost:5000/api/v1/auth/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(formData),
-      });
-
-      const data = await response.json();
+      const response = await api.post("/auth/login", formData);
+      const data = response.data;
 
       if (data.success) {
         // 1. Store authentication token
@@ -139,7 +133,10 @@ const Login = () => {
         setError(data.message || "Invalid email or password.");
       }
     } catch (err) {
-      setError("Unable to establish a connection with the backend server.");
+      setError(
+        err.response?.data?.message ||
+          "Unable to establish a connection with the backend server.",
+      );
     } finally {
       setIsLoading(false);
     }

@@ -1,4 +1,5 @@
 const ExcelJS = require("exceljs");
+const mongoose = require("mongoose");
 const EnrollmentAnalytics = require("../../models/enrollment/enrollmentAnalyticsModel");
 const UploadLog = require("../../models/uploadLogModel");
 
@@ -82,7 +83,7 @@ function formatFileSize(bytes) {
 exports.uploadEnrollmentExcel = async (req, res) => {
   const fileName = req.file?.originalname || "Unknown_File.xlsx";
   const fileSize = formatFileSize(req.file?.size);
-  const uploadedBy = req.body.uploadedBy || req.user?.name || "System Admin";
+  const uploadedBy = req.user?.name || req.user?.id || "Authenticated Admin";
   const forceOverwrite =
     req.body.overwrite === "true" || req.body.overwrite === true;
 
@@ -209,9 +210,13 @@ exports.uploadEnrollmentExcel = async (req, res) => {
             row.getCell(colIndexes.enrolledCount),
           );
 
-          if (!programName && !campus) return;
+          if (!programName || !campus) return;
 
-          const studentCount = parseInt(rawCount, 10) || 0;
+          const parsedStudentCount = Number(rawCount);
+          if (!Number.isFinite(parsedStudentCount) || parsedStudentCount < 0) {
+            return;
+          }
+          const studentCount = Math.trunc(parsedStudentCount);
           const isPriorityProgram =
             classification.toUpperCase().includes("CHED") ||
             classification.toUpperCase().includes("PRIORITY");
@@ -370,28 +375,33 @@ exports.uploadEnrollmentExcel = async (req, res) => {
       });
     }
 
-    // 6. SAVE OR OVERWRITE RECORDS IN MONGODB
-    const savePromises = groupsToSave.map(async (group) => {
-      let record = await EnrollmentAnalytics.findOne({
-        academicYear: group.academicYear,
-        campus: group.campus,
-        semester: group.semester,
+    // 6. Atomically save or overwrite all groups.
+    const session = await mongoose.startSession();
+    try {
+      await session.withTransaction(async () => {
+        for (const group of groupsToSave) {
+          let record = await EnrollmentAnalytics.findOne({
+            academicYear: group.academicYear,
+            campus: group.campus,
+            semester: group.semester,
+          }).session(session);
+
+          if (record) {
+            record.programs = group.programs;
+          } else {
+            record = new EnrollmentAnalytics({
+              academicYear: group.academicYear,
+              campus: group.campus,
+              semester: group.semester,
+              programs: group.programs,
+            });
+          }
+          await record.save({ session });
+        }
       });
-
-      if (record) {
-        record.programs = group.programs;
-      } else {
-        record = new EnrollmentAnalytics({
-          academicYear: group.academicYear,
-          campus: group.campus,
-          semester: group.semester,
-          programs: group.programs,
-        });
-      }
-      return record.save();
-    });
-
-    await Promise.all(savePromises);
+    } finally {
+      await session.endSession();
+    }
 
     // 7. RECORD SUCCESSFUL UPLOAD OR OVERWRITE LOG
     await UploadLog.create({
@@ -429,7 +439,13 @@ exports.uploadEnrollmentExcel = async (req, res) => {
       console.error("Failed to persist failure log to MongoDB:", logErr),
     );
 
-    return res.status(500).json({ success: false, error: error.message });
+    const isWorkbookError = /zip|workbook|excel|xlsx/i.test(error.message);
+    return res.status(isWorkbookError ? 400 : 500).json({
+      success: false,
+      error: isWorkbookError
+        ? "The uploaded file is not a valid Excel workbook."
+        : "Enrollment upload processing failed.",
+    });
   }
 };
 
