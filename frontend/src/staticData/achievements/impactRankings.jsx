@@ -93,7 +93,7 @@ export default function impactRankings() {
             )}
           </div>
 
-          {/* Verification Live Strip Footer */}
+          {/* Verification Live Strip Footer  dsddfds*/}
           <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between text-[10px] tracking-wider text-slate-400 uppercase font-bold">
             <span>
               Source Ref:{" "}
