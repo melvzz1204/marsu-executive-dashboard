@@ -51,6 +51,24 @@ test("CORS accepts local frontend origins on any development port", async () => 
   assert.equal(response.headers["access-control-allow-origin"], origin);
 });
 
+test("CORS accepts the deployed Vercel frontend preflight", async () => {
+  const origin = "https://marsu-executive-dashbaord.vercel.app";
+  const response = await request(app)
+    .options("/api/v1/auth/login")
+    .set("Origin", origin)
+    .set("Access-Control-Request-Method", "POST")
+    .set("Access-Control-Request-Headers", "content-type");
+
+  assert.equal(response.status, 204);
+  assert.equal(response.headers["access-control-allow-origin"], origin);
+  assert.match(response.headers["access-control-allow-methods"], /POST/);
+  assert.match(
+    response.headers["access-control-allow-headers"],
+    /Content-Type/i,
+  );
+  assert.equal(response.headers["access-control-allow-credentials"], "true");
+});
+
 test("CORS rejects origins outside the configured or local allowlist", async () => {
   const response = await request(app)
     .options("/api/v1/auth/login")

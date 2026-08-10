@@ -20,7 +20,7 @@ services:
       - key: JWT_SECRET
         sync: false
       - key: CORS_ORIGINS
-        sync: false
+        value: https://marsu-executive-dashbaord.vercel.app
       - key: JWT_EXPIRES_IN
         value: 8h
       - key: RATE_LIMIT_MAX

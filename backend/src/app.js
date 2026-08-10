@@ -18,8 +18,13 @@ const higherEducationRoutes = require("./routes/higherEducation/higherEducationR
 const publicViewingRoutes = require("./routes/enrollment/publicViewingRoutes");
 
 const app = express();
-const configuredOrigins = (process.env.CORS_ORIGINS || "")
-  .split(",")
+const productionFrontendOrigins = [
+  "https://marsu-executive-dashbaord.vercel.app",
+];
+const configuredOrigins = [
+  ...productionFrontendOrigins,
+  ...(process.env.CORS_ORIGINS || "").split(","),
+]
   .map((origin) => origin.trim().replace(/\/$/, ""))
   .filter(Boolean);
 const isProduction = process.env.NODE_ENV === "production";
@@ -51,10 +56,6 @@ const corsOptions = {
   allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true,
 };
-
-if (isProduction && configuredOrigins.length === 0) {
-  throw new Error("CORS_ORIGINS must be configured in production.");
-}
 
 app.disable("x-powered-by");
 app.set("trust proxy", process.env.TRUST_PROXY === "true" ? 1 : false);
