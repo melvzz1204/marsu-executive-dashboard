@@ -401,27 +401,27 @@ export default function EnrollmentDashboard({ isPublicView = false }) {
   const kpis = currentData?.summaryKpis || {};
 
   return (
-    <div className="min-h-screen bg-white text-slate-800 antialiased rounded-2xl font-sans">
-      <div className="max-w-7xl mx-auto space-y-6 p-10">
+    <div className="min-h-screen min-w-0 bg-white text-slate-800 antialiased rounded-xl sm:rounded-2xl font-sans">
+      <div className="mx-auto max-w-7xl space-y-4 p-3 sm:space-y-6 sm:p-6 lg:p-10">
         {/* HEADER CONTROL LAYER (Global Controls) */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+        <div className="flex flex-col items-start justify-between gap-4 rounded-xl border border-slate-100 bg-white p-4 shadow-sm sm:rounded-2xl sm:p-6 lg:flex-row lg:items-center lg:gap-6">
           <div>
             <span className="text-[10px] uppercase tracking-widest font-bold text-[#660033]">
               Institutional Registrar Dashboard
             </span>
-            <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight mt-0.5">
+            <h1 className="text-xl font-extrabold text-slate-900 tracking-tight mt-0.5 sm:text-2xl">
               Campus Enrollment Trends
             </h1>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
+          <div className="flex w-full flex-col items-stretch gap-3 sm:flex-row sm:flex-wrap sm:items-center lg:w-auto">
             {availableYears.length > 0 && (
-              <div className="relative">
+              <div className="relative w-full sm:w-auto">
                 <select
                   aria-label="Select Academic Year"
                   value={selectedYear}
                   onChange={(e) => setSelectedYear(e.target.value)}
-                  className="bg-slate-100 hover:bg-slate-200/80 text-slate-800 text-xs font-bold px-3.5 py-2 pr-8 rounded-xl border-none focus:outline-none appearance-none cursor-pointer transition-all"
+                  className="w-full appearance-none rounded-xl border-none bg-slate-100 px-3.5 py-2 pr-8 text-xs font-bold text-slate-800 transition-all hover:bg-slate-200/80 focus:outline-none sm:w-auto"
                 >
                   {availableYears.map((year) => (
                     <option key={year} value={year}>
@@ -436,7 +436,7 @@ export default function EnrollmentDashboard({ isPublicView = false }) {
             )}
 
             <div
-              className="bg-slate-100 p-1 rounded-xl flex gap-1 overflow-x-auto max-w-xs scrollbar-none"
+              className="flex w-full max-w-full gap-1 overflow-x-auto rounded-xl bg-slate-100 p-1 sm:w-auto sm:max-w-xs"
               role="group"
               aria-label="Campus Selection"
             >
@@ -457,12 +457,12 @@ export default function EnrollmentDashboard({ isPublicView = false }) {
             </div>
 
             {availableSemesters.length > 0 && (
-              <div className="relative">
+              <div className="relative w-full sm:w-auto">
                 <select
                   aria-label="Select Global Semester"
                   value={selectedSemester}
                   onChange={(e) => setSelectedSemester(e.target.value)}
-                  className="bg-slate-100 hover:bg-slate-200/80 text-slate-800 text-xs font-bold px-3.5 py-2 pr-8 rounded-xl border-none focus:outline-none appearance-none cursor-pointer transition-all"
+                  className="w-full appearance-none rounded-xl border-none bg-slate-100 px-3.5 py-2 pr-8 text-xs font-bold text-slate-800 transition-all hover:bg-slate-200/80 focus:outline-none sm:w-auto"
                 >
                   {availableSemesters.map((s) => (
                     <option key={s} value={s}>
@@ -495,7 +495,7 @@ export default function EnrollmentDashboard({ isPublicView = false }) {
 
         {/* KPI SUMMARY CARDS */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
-          <div className="relative bg-[#660033] text-white p-6 rounded-2xl shadow-[0_4px_0_0_#D4AF37] flex flex-col justify-between min-h-[140px]">
+          <div className="relative bg-[#660033] text-white p-5 sm:p-6 rounded-2xl shadow-[0_4px_0_0_#D4AF37] flex flex-col justify-between min-h-[140px]">
             <div>
               <span className="text-[10px] font-extrabold tracking-wider text-slate-300 block uppercase font-sans mb-1">
                 Campus Enrollment
@@ -559,7 +559,7 @@ export default function EnrollmentDashboard({ isPublicView = false }) {
 
         {/* VISUALIZATION ROW: MACRO TREND & COMPOSITION */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col">
+          <div className="lg:col-span-2 bg-white p-4 sm:p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col min-w-0">
             <div className="mb-4">
               <h4 className="text-base font-bold text-slate-900">
                 Multi-Year Total Enrollment Growth
@@ -569,7 +569,7 @@ export default function EnrollmentDashboard({ isPublicView = false }) {
                 Campus ({selectedSemester})
               </p>
             </div>
-            <div className="h-[240px] relative w-full flex-1">
+            <div className="relative h-[220px] w-full flex-1 sm:h-[240px]">
               {loading ? (
                 <div className="absolute inset-0 flex items-end justify-between px-4 pb-4 gap-4">
                   {[...Array(5)].map((_, i) => (
@@ -614,7 +614,7 @@ export default function EnrollmentDashboard({ isPublicView = false }) {
             </div>
           </div>
 
-          <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col">
+          <div className="flex min-w-0 flex-col rounded-2xl border border-slate-100 bg-white p-4 shadow-sm sm:p-6">
             <div className="mb-4">
               <h4 className="text-base font-bold text-slate-900">
                 College Distribution
@@ -657,7 +657,7 @@ export default function EnrollmentDashboard({ isPublicView = false }) {
         </div>
 
         {/* MICRO / DRILL-DOWN TRAJECTORY CHART */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
+        <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm sm:p-6">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
             <div>
               <h4 className="text-base font-bold text-slate-900 flex items-center gap-2">
@@ -669,14 +669,14 @@ export default function EnrollmentDashboard({ isPublicView = false }) {
               </p>
             </div>
 
-            <div className="flex items-center gap-3">
-              <div className="relative">
+            <div className="flex w-full items-center gap-3 md:w-auto">
+              <div className="relative w-full md:w-auto">
                 {/* Dynamically populated Program Dropdown based on Global Campus */}
                 <select
                   aria-label="Select Specific Program"
                   value={selectedDetailEntity}
                   onChange={(e) => setSelectedDetailEntity(e.target.value)}
-                  className="bg-white border border-slate-200 text-slate-800 text-xs font-bold px-3 py-1.5 pr-8 rounded-lg focus:outline-none focus:border-[#660033] appearance-none cursor-pointer w-72 truncate"
+                  className="w-full appearance-none truncate rounded-lg border border-slate-200 bg-white px-3 py-2 pr-8 text-xs font-bold text-slate-800 focus:border-[#660033] focus:outline-none md:w-72"
                 >
                   {availableProgramsForCampus.length > 0 ? (
                     availableProgramsForCampus.map((p) => (
@@ -697,7 +697,7 @@ export default function EnrollmentDashboard({ isPublicView = false }) {
             </div>
           </div>
 
-          <div className="h-[200px] relative">
+          <div className="relative h-[220px] sm:h-[200px]">
             {isProgramTrendLoading ? (
               <div className="absolute inset-0 flex items-end justify-between px-4 pb-4 gap-4">
                 {[...Array(5)].map((_, i) => (
@@ -774,8 +774,8 @@ export default function EnrollmentDashboard({ isPublicView = false }) {
               </div>
             </div>
 
-            <div className="max-h-[400px] overflow-y-auto relative">
-              <table className="w-full text-left border-collapse text-sm">
+            <div className="relative max-h-[400px] overflow-auto">
+              <table className="min-w-[760px] w-full text-left border-collapse text-sm">
                 <thead className="bg-slate-50 sticky top-0 text-slate-400 font-semibold text-[11px] uppercase tracking-wider z-10 shadow-sm">
                   <tr>
                     <th
@@ -902,7 +902,7 @@ export default function EnrollmentDashboard({ isPublicView = false }) {
         )}
 
         {/* FOOTER */}
-        <div className="flex justify-between items-center text-[10px] text-slate-400 font-semibold tracking-wider uppercase">
+        <div className="flex flex-col gap-2 text-[10px] font-semibold uppercase tracking-wider text-slate-400 sm:flex-row sm:items-center sm:justify-between">
           <span>Office of the University Registrar</span>
           <span className="text-[#D4AF37] flex items-center gap-1.5">
             <span className="w-1.5 h-1.5 rounded-full bg-[#D4AF37] animate-pulse" />

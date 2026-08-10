@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import marsuLogo from "../assets/marsu-logo.png";
 
@@ -250,7 +250,7 @@ const Sidebar = ({
       {isActivatingPower && (
         <div className="fixed inset-0 z-50 pointer-events-none flex items-center justify-center overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-[#800020]/90 via-[#600018]/95 to-[#30000c]/90 backdrop-blur-lg animate-fade-in" />
-          <div className="absolute w-[600px] h-[600px] bg-[#D4AF37]/25 rounded-full blur-3xl animate-ping" />
+          <div className="absolute h-[min(600px,90vw)] w-[min(600px,90vw)] rounded-full bg-[#D4AF37]/25 blur-3xl animate-ping" />
 
           <div className="relative z-10 flex flex-col items-center gap-5">
             <div className="relative w-32 h-32 flex items-center justify-center">
@@ -267,7 +267,7 @@ const Sidebar = ({
               </div>
             </div>
 
-            <span className="font-oswald text-xl uppercase tracking-widest text-[#D4AF37] font-extrabold drop-shadow-[0_2px_10px_rgba(0,0,0,0.8)] animate-pulse">
+            <span className="px-4 text-center font-oswald text-base sm:text-xl uppercase tracking-widest text-[#D4AF37] font-extrabold drop-shadow-[0_2px_10px_rgba(0,0,0,0.8)] animate-pulse">
               Initiating Empower Portal...
             </span>
           </div>
@@ -276,14 +276,14 @@ const Sidebar = ({
 
       {/* SIDEBAR MAIN CONTAINER */}
       <aside
-        className={`bg-[#600018] text-white flex flex-col sticky top-0 h-screen shadow-xl border-r border-[#D4AF37]/20 z-40 transition-all duration-300 overflow-hidden ${
-          isOpen ? "w-80" : "w-20"
+        className={`fixed inset-y-0 left-0 z-40 flex h-dvh w-[min(20rem,calc(100vw-3rem))] flex-col overflow-hidden border-r border-[#D4AF37]/20 bg-[#600018] text-white shadow-xl transition-transform duration-300 lg:sticky lg:top-0 lg:h-screen lg:translate-x-0 lg:transition-[width] ${
+          isOpen ? "translate-x-0 lg:w-80" : "-translate-x-full lg:w-20"
         }`}
       >
         {/* Sidebar Toggle Floating Button */}
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="absolute top-1/2 -right-4 -translate-y-1/2 z-50 w-8 h-8 rounded-xl bg-[#600018] border border-[#D4AF37]/40 text-[#D4AF37] hover:text-white hover:border-[#D4AF37] flex items-center justify-center shadow-[0_4px_12px_rgba(0,0,0,0.15)] backdrop-blur-md transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer"
+          className="absolute top-1/2 -right-4 z-50 hidden h-8 w-8 -translate-y-1/2 cursor-pointer items-center justify-center rounded-xl border border-[#D4AF37]/40 bg-[#600018] text-[#D4AF37] shadow-[0_4px_12px_rgba(0,0,0,0.15)] backdrop-blur-md transition-all duration-300 hover:scale-105 hover:border-[#D4AF37] hover:text-white active:scale-95 lg:flex"
           aria-label="Toggle Sidebar Dimensions"
         >
           <svg
@@ -395,7 +395,10 @@ const Sidebar = ({
               return (
                 <button
                   key={item.id}
-                  onClick={() => setCurrentTab(item.id)}
+                  onClick={() => {
+                    setCurrentTab(item.id);
+                    if (window.innerWidth < 1024) setIsOpen(false);
+                  }}
                   className={`cursor-pointer flex items-center rounded-xl font-semibold tracking-wide transition-all group relative ${
                     isOpen
                       ? "px-4 py-3 gap-5 w-full"

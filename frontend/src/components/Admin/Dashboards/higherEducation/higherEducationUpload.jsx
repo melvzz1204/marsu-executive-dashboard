@@ -1,5 +1,5 @@
 // components/higherEducation/HigherEducationUpload.jsx
-import React, { useState } from "react";
+import { useState } from "react";
 import api from "../../../../api/axios";
 import UploadHistory from "./uploadHistoryHigherEducation";
 
@@ -123,7 +123,7 @@ export default function HigherEducationUpload() {
   return (
     <div className="space-y-8">
       {/* UPLOAD CARD CONTAINER */}
-      <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm p-10">
+      <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm sm:p-6 md:rounded-3xl md:p-10">
         <div className="border-b border-slate-100 pb-5 mb-6">
           <h2 className="text-lg font-black font-oswald uppercase tracking-tight text-slate-900">
             Upload Higher Education Records
@@ -179,7 +179,7 @@ export default function HigherEducationUpload() {
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
-          className={`border-2 transition-all duration-200 rounded-2xl p-8 text-center ${
+          className={`rounded-xl border-2 p-5 text-center transition-all duration-200 sm:rounded-2xl sm:p-8 ${
             isDragging
               ? "border-[#580017] border-dashed bg-[#580017]/10 scale-[1.01]"
               : file
@@ -208,7 +208,7 @@ export default function HigherEducationUpload() {
             </div>
             <div>
               <p
-                className={`text-sm font-bold transition-colors ${
+                className={`break-all text-sm font-bold transition-colors ${
                   file ? "text-emerald-900" : "text-slate-800"
                 }`}
               >
@@ -232,12 +232,12 @@ export default function HigherEducationUpload() {
         </div>
 
         {/* Action Buttons */}
-        <div className="mt-6 flex items-center justify-end gap-3">
+        <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-end">
           {file && (
             <button
               onClick={handleClearFile}
               disabled={uploading}
-              className="px-5 py-2.5 rounded-xl font-oswald uppercase tracking-wider text-xs font-bold border border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-slate-800 transition-all cursor-pointer disabled:opacity-50"
+              className="w-full px-5 py-2.5 rounded-xl font-oswald uppercase tracking-wider text-xs font-bold border border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-slate-800 transition-all cursor-pointer disabled:opacity-50 sm:w-auto"
             >
               Clear File
             </button>
@@ -246,7 +246,7 @@ export default function HigherEducationUpload() {
           <button
             onClick={() => handleUpload(false)}
             disabled={!file || uploading}
-            className={`px-6 py-2.5 rounded-xl font-oswald uppercase tracking-wider text-xs font-bold transition-all ${
+            className={`w-full px-6 py-2.5 rounded-xl font-oswald uppercase tracking-wider text-xs font-bold transition-all sm:w-auto ${
               !file || uploading
                 ? "bg-slate-200 text-slate-400 cursor-not-allowed"
                 : "bg-[#580017] text-white hover:bg-[#420011] shadow-md cursor-pointer"
@@ -285,7 +285,7 @@ export default function HigherEducationUpload() {
               these records
             </div>
 
-            <div className="flex items-center justify-end gap-2.5 pt-2">
+            <div className="flex flex-col-reverse gap-2.5 pt-2 sm:flex-row sm:items-center sm:justify-end">
               <button
                 onClick={() => setShowOverwriteModal(false)}
                 className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"

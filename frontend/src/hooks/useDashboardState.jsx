@@ -11,7 +11,7 @@ export function useDashboardState() {
   const [userRole, setUserRole] = useState("staff");
   const [userInitials, setUserInitials] = useState("..");
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   // Helper parser engine for administrative initials computation
   const generateInitials = (fullName) => {

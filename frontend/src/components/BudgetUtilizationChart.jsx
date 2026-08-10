@@ -106,7 +106,7 @@ function BudgetUtilization() {
   };
 
   return (
-    <div className="bg-white p-8 rounded-2xl shadow-[0_20px_50px_-12px_rgba(0,0,0,0.04)] border border-slate-100">
+    <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.04)] sm:p-6 lg:p-8">
       {/* Header Info Banner */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <div>
@@ -123,8 +123,8 @@ function BudgetUtilization() {
         </div>
 
         {/* Quick Total KPI Badges */}
-        <div className="flex gap-4 bg-white p-3 rounded-2xl border border-slate-200/60 shadow-sm">
-          <div className="px-2">
+        <div className="flex w-full gap-2 rounded-xl border border-slate-200/60 bg-white p-3 shadow-sm sm:w-auto sm:gap-4 sm:rounded-2xl">
+          <div className="min-w-0 flex-1 px-1 sm:px-2">
             <span className="text-[10px] uppercase text-slate-400 block font-medium tracking-wide">
               Total Allotment
             </span>
@@ -133,7 +133,7 @@ function BudgetUtilization() {
             </span>
           </div>
           <div className="w-[1px] bg-slate-200"></div>
-          <div className="px-2">
+          <div className="min-w-0 flex-1 px-1 sm:px-2">
             <span className="text-[10px] uppercase text-slate-400 block font-medium tracking-wide">
               Total Obligated
             </span>
@@ -147,12 +147,12 @@ function BudgetUtilization() {
       {/* Charts Grid Setup */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-center">
         {/* Left Side: Major Bar Component (Takes up 2/3 space) */}
-        <div className="lg:col-span-2 h-[280px] w-full">
+        <div className="h-[240px] w-full min-w-0 sm:h-[280px] lg:col-span-2">
           <Bar data={barData} options={barOptions} />
         </div>
 
         {/* Right Side: Total Efficiency Gauges */}
-        <div className="flex flex-col items-center justify-center p-6 bg-white rounded-2xl border border-slate-200/60 shadow-sm relative h-[280px]">
+        <div className="relative flex h-[260px] flex-col items-center justify-center rounded-2xl border border-slate-200/60 bg-white p-4 shadow-sm sm:h-[280px] sm:p-6">
           <div className="h-[170px] w-[170px] relative flex items-center justify-center">
             <Doughnut data={doughnutData} options={doughnutOptions} />
 

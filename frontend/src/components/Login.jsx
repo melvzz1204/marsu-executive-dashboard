@@ -153,13 +153,13 @@ const Login = () => {
         <LoginTransition onComplete={handleTransitionComplete} />
       )}
 
-      <div className="max-w-5xl w-full mx-auto grid grid-cols-1 md:grid-cols-12 overflow-hidden rounded-3xl border border-slate-200/70 bg-white shadow-2xl min-h-[620px]">
-        <div className="md:col-span-5 bg-[#600018] relative p-10 flex flex-col justify-between text-white overflow-hidden border-r border-[#D4AF37]/20">
+      <div className="mx-auto grid w-full max-w-5xl grid-cols-1 overflow-hidden rounded-2xl border border-slate-200/70 bg-white shadow-2xl md:min-h-[620px] md:grid-cols-12 md:rounded-3xl">
+        <div className="relative flex flex-col justify-between overflow-hidden border-b border-[#D4AF37]/20 bg-[#600018] p-5 text-white sm:p-8 md:col-span-5 md:border-b-0 md:border-r md:p-10">
           <div className="absolute inset-0 opacity-[0.03] pointer-events-none bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:16px_16px]"></div>
           <div className="absolute -bottom-20 -left-20 w-64 h-64 bg-[#D4AF37]/10 rounded-full blur-3xl"></div>
 
-          <div className="flex justify-center w-full z-10">
-            <div className="h-38 w-38 flex items-center justify-center">
+          <div className="flex justify-center w-full z-10 md:justify-start">
+            <div className="flex h-20 w-20 items-center justify-center sm:h-28 sm:w-28 md:h-38 md:w-38">
               <img
                 src={marsuLogo}
                 alt="MarSU Logo"
@@ -168,17 +168,17 @@ const Login = () => {
             </div>
           </div>
 
-          <div className="my-auto pt-12 pb-8 relative z-10">
-            <h3 className="text-2xl font-black font-oswald tracking-tight uppercase leading-tight max-w-sm">
+          <div className="relative z-10 my-auto pt-4 sm:pt-8 md:pt-12 md:pb-8">
+            <h3 className="max-w-sm text-xl font-black font-oswald tracking-tight uppercase leading-tight sm:text-2xl">
               Presidential Dashboard for Organizational Data and Insights
             </h3>
-            <p className="text-xs text-slate-300 mt-3 leading-relaxed max-w-xs font-light">
+            <p className="hidden text-xs text-slate-300 mt-3 leading-relaxed max-w-xs font-light sm:block">
               Secure processing terminal engineered to evaluate state academic
               operations, tracking publication trends and systemic resource
               performance.
             </p>
 
-            <div className="mt-8 space-y-4 border-t border-white/10 pt-6">
+            <div className="mt-6 hidden space-y-4 border-t border-white/10 pt-6 md:block">
               <div className="flex items-start gap-3">
                 <span className="text-[#D4AF37] font-bold text-sm mt-0.5">
                   ✓
@@ -210,17 +210,17 @@ const Login = () => {
             </div>
           </div>
 
-          <div className="text-[10px] text-slate-400 font-mono tracking-tighter relative z-10 pt-4 border-t border-white/5 flex justify-between">
+          <div className="relative z-10 mt-5 hidden justify-between border-t border-white/5 pt-4 font-mono text-[10px] tracking-tighter text-slate-400 sm:flex md:mt-0">
             <span>SECURED CLOUD SERVER v2.6</span>
             <span className="text-[#D4AF37]/50">● ONLINE</span>
           </div>
         </div>
 
-        <div className="md:col-span-7 p-10 md:p-14 flex flex-col justify-center relative bg-white">
+        <div className="relative flex flex-col justify-center bg-white p-5 sm:p-8 md:col-span-7 md:p-14">
           <div className="absolute top-0 left-1/4 right-1/4 h-[1px] bg-gradient-to-r from-transparent via-[#D4AF37] to-transparent"></div>
 
           <div className="text-center md:text-left">
-            <h2 className="text-3xl font-extrabold tracking-tight text-slate-900 font-oswald uppercase">
+            <h2 className="text-2xl font-extrabold tracking-tight text-slate-900 font-oswald uppercase sm:text-3xl">
               Welcome Back
             </h2>
             <p className="mt-2 text-xs text-slate-500 tracking-wide font-medium">
@@ -248,7 +248,7 @@ const Login = () => {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="mt-8 space-y-5">
+          <form onSubmit={handleSubmit} className="mt-6 space-y-5 sm:mt-8">
             <div className="space-y-2">
               <label
                 htmlFor="email"
@@ -287,7 +287,7 @@ const Login = () => {
             </div>
 
             <div className="space-y-2">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <label
                   htmlFor="password"
                   className="block text-[10px] font-bold uppercase tracking-widest text-slate-600 font-oswald"
@@ -399,7 +399,7 @@ const Login = () => {
             </button>
           </form>
 
-          <div className="relative my-7 flex items-center justify-center">
+          <div className="relative my-5 flex items-center justify-center sm:my-7">
             <div className="absolute inset-0 flex items-center">
               <div className="w-full border-t border-slate-200/80"></div>
             </div>

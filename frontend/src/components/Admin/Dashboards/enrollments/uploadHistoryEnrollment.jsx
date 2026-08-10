@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import api from "../../../../api/axios";
 
 export default function UploadHistory({ refreshTrigger }) {
@@ -132,11 +132,11 @@ export default function UploadHistory({ refreshTrigger }) {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:gap-3">
           <button
             onClick={handleClearLogs}
             disabled={cleanLogs.length === 0 || clearing || loading}
-            className="px-3.5 py-1.5 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 text-xs font-bold text-rose-700 transition-all flex items-center gap-1.5 disabled:opacity-40 disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed cursor-pointer"
+            className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-1.5 text-xs font-bold text-rose-700 transition-all hover:bg-rose-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400 disabled:opacity-40 sm:flex-none"
           >
             {clearing ? "Clearing..." : "🗑️ Clear History"}
           </button>
@@ -144,7 +144,7 @@ export default function UploadHistory({ refreshTrigger }) {
           <button
             onClick={fetchLogs}
             disabled={loading || clearing}
-            className="px-3.5 py-1.5 rounded-xl border border-[#580017]/20 bg-[#580017]/10 hover:bg-[#580017]/20 text-xs font-bold text-[#580017] transition-all flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+            className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-[#580017]/20 bg-[#580017]/10 px-3.5 py-1.5 text-xs font-bold text-[#580017] transition-all hover:bg-[#580017]/20 disabled:opacity-50 sm:flex-none"
           >
             {loading ? "Refreshing..." : "↻ Refresh"}
           </button>
@@ -162,7 +162,7 @@ export default function UploadHistory({ refreshTrigger }) {
 
       {/* Table Data */}
       <div className="overflow-x-auto">
-        <table className="w-full text-left border-collapse">
+        <table className="w-full min-w-[820px] border-collapse text-left">
           <thead>
             <tr className="bg-slate-50/80 border-b border-slate-100 text-[10px] font-black uppercase tracking-wider text-slate-500 font-oswald">
               <th className="px-5 py-3.5">File Name</th>

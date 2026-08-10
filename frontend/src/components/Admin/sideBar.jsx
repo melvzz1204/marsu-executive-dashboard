@@ -1,9 +1,6 @@
-import React, { useState } from "react";
+import { useState } from "react";
 
-export default function Sidebar({ activeTab, onNavClick }) {
-  // Sidebar expand/collapse state
-  const [isOpen, setIsOpen] = useState(true);
-
+export default function Sidebar({ activeTab, onNavClick, isOpen, onClose }) {
   // Track accordion state for sub-navigation dropdowns
   const [openSubmenus, setOpenSubmenus] = useState({
     "support-op": false,
@@ -203,7 +200,11 @@ export default function Sidebar({ activeTab, onNavClick }) {
   ];
 
   return (
-    <aside className="w-80 bg-[#580017] text-white flex flex-col justify-between border-r border-[#D4AF37]/20 shadow-2xl flex-shrink-0">
+    <aside
+      className={`fixed inset-y-0 left-0 z-40 flex h-dvh w-[min(20rem,calc(100vw-3rem))] flex-shrink-0 flex-col justify-between border-r border-[#D4AF37]/20 bg-[#580017] text-white shadow-2xl transition-transform duration-300 lg:static lg:h-screen lg:w-80 lg:translate-x-0 ${
+        isOpen ? "translate-x-0" : "-translate-x-full"
+      }`}
+    >
       <div className="flex flex-col h-full overflow-y-auto">
         {/* Sidebar Top Title */}
         <div className="p-6 border-b border-white/10 flex items-center justify-between">
@@ -215,7 +216,30 @@ export default function Sidebar({ activeTab, onNavClick }) {
               MarSU Data Portal
             </span>
           </div>
-          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <div className="flex items-center gap-3">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/15 text-white/80 hover:bg-white/10 lg:hidden"
+              aria-label="Close admin navigation"
+            >
+              <svg
+                className="h-5 w-5"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M6 18 18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+          </div>
         </div>
 
         {/* Sidebar Navigation Items */}
@@ -238,6 +262,7 @@ export default function Sidebar({ activeTab, onNavClick }) {
                       toggleSubmenu(item.id);
                     } else {
                       onNavClick(item.id);
+                      onClose();
                     }
                   }}
                   className={`w-full flex items-center justify-between px-4 py-3.5 rounded-xl transition-all duration-200 text-left cursor-pointer ${
@@ -280,7 +305,10 @@ export default function Sidebar({ activeTab, onNavClick }) {
                       return (
                         <button
                           key={child.id}
-                          onClick={() => onNavClick(child.id)}
+                          onClick={() => {
+                            onNavClick(child.id);
+                            onClose();
+                          }}
                           className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-xs font-medium text-left transition-all cursor-pointer ${
                             isSelected
                               ? "bg-[#ffffff] text-[#580017] font-black shadow-sm"
@@ -304,10 +332,7 @@ export default function Sidebar({ activeTab, onNavClick }) {
       <div className="px-3 pt-4 pb-4 mt-auto border-t border-white/10 bg-[#4a0013]">
         <button
           onClick={handleLogout}
-          className={`flex items-center rounded-xl text-xs tracking-wide text-rose-200 hover:text-white bg-rose-500/10 hover:bg-rose-600/30 border border-rose-500/20 hover:border-rose-500/40 transition-all duration-200 group cursor-pointer ${
-            isOpen ? "px-4 py-3.5 gap-4 w-full" : "p-3.5 justify-center mx-auto"
-          }`}
-          title={!isOpen ? "Logout" : ""}
+          className="group flex w-full cursor-pointer items-center gap-4 rounded-xl border border-rose-500/20 bg-rose-500/10 px-4 py-3.5 text-xs tracking-wide text-rose-200 transition-all duration-200 hover:border-rose-500/40 hover:bg-rose-600/30 hover:text-white"
         >
           <span className="text-rose-400 group-hover:text-rose-200 transition-colors">
             <svg
@@ -324,11 +349,9 @@ export default function Sidebar({ activeTab, onNavClick }) {
               />
             </svg>
           </span>
-          {isOpen && (
-            <span className="font-oswald tracking-wide text-sm uppercase whitespace-nowrap animate-fade-in">
-              Logout
-            </span>
-          )}
+          <span className="font-oswald tracking-wide text-sm uppercase whitespace-nowrap">
+            Logout
+          </span>
         </button>
       </div>
     </aside>

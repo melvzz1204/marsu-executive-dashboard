@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import EnrollmentDashboard from "../components/Admin/Dashboards/enrollments/enrollmentDashboard";
 import FloatingChatBot from "../components/Empower/FloatingChatbot";
 import EmpowerLogo from "../../public/empower.png";
@@ -108,9 +108,9 @@ const Empower = () => {
         </header>
 
         {/* 🏛️ Main Layout Container */}
-        <div className="relative z-10 w-full max-w-[1600px] mx-auto px-6 py-8 flex flex-col items-center flex-1">
+        <div className="relative z-10 mx-auto flex w-full max-w-[1600px] flex-1 flex-col items-center px-3 py-5 sm:px-6 sm:py-8">
           {/* Refined Hero Section */}
-          <div className="text-center mb-10 animate-fade-in mt-4">
+          <div className="mb-6 mt-2 text-center animate-fade-in sm:mb-10 sm:mt-4">
             {/* Empower Logo centered as the main title */}
             <img
               src={EmpowerLogo}
@@ -121,12 +121,12 @@ const Empower = () => {
           </div>
 
           {/* 🔘 Minimalist Tab Navigation */}
-          <div className="flex justify-center gap-8 md:gap-12 mb-8 animate-fade-in">
+          <div className="mb-6 flex w-full justify-start gap-7 overflow-x-auto px-1 animate-fade-in sm:mb-8 sm:justify-center md:gap-12">
             {portalTabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`relative pb-2 text-xs md:text-sm uppercase tracking-[0.15em] transition-all duration-500 ${
+                className={`relative shrink-0 pb-2 text-xs uppercase tracking-[0.15em] transition-all duration-500 md:text-sm ${
                   activeTab === tab.id
                     ? "text-[#D4AF37] font-semibold"
                     : "text-white/40 font-light hover:text-white/80"
@@ -146,7 +146,7 @@ const Empower = () => {
           </div>
 
           {/* 📊 Premium Dashboard Wrapper */}
-          <div className="w-full bg-[#FAFAFA] text-slate-800 rounded-xl shadow-[0_20px_60px_rgba(0,0,0,0.5)] flex-1 flex flex-col animate-fade-in border border-white/10 mb-10 p-4 md:p-8">
+          <div className="mb-6 flex w-full min-w-0 flex-1 flex-col rounded-lg border border-white/10 bg-[#FAFAFA] p-1 text-slate-800 shadow-[0_20px_60px_rgba(0,0,0,0.5)] animate-fade-in sm:mb-10 sm:rounded-xl sm:p-4 md:p-8">
             {renderActiveDashboard()}
           </div>
         </div>

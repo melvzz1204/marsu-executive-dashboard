@@ -32,7 +32,7 @@ function MainDashboard() {
 
   return (
     <div
-      className={`flex min-h-screen font-sans antialiased transition-colors duration-300 ${
+      className={`relative flex h-dvh overflow-hidden font-sans antialiased transition-colors duration-300 ${
         isDarkMode
           ? "bg-slate-900 text-slate-100"
           : "bg-[#f8f4f4ac] text-slate-800"
@@ -46,9 +46,56 @@ function MainDashboard() {
         isOpen={isSidebarOpen}
         setIsOpen={setIsSidebarOpen}
       />
+
+      {isSidebarOpen && (
+        <button
+          type="button"
+          className="fixed inset-0 z-30 bg-slate-950/45 backdrop-blur-[1px] lg:hidden"
+          onClick={() => setIsSidebarOpen(false)}
+          aria-label="Close navigation menu"
+        />
+      )}
+
       {/* Main Panel Content Area */}
       <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
-        <main className="p-8 lg:p-12 space-y-10 max-w-screen-2xl w-full mx-auto">
+        <div
+          className={`sticky top-0 z-20 flex items-center justify-between border-b px-4 py-3 lg:hidden ${
+            isDarkMode
+              ? "border-slate-800 bg-slate-900/95"
+              : "border-slate-200 bg-white/95"
+          } backdrop-blur-md`}
+        >
+          <button
+            type="button"
+            onClick={() => setIsSidebarOpen(true)}
+            className={`flex h-10 w-10 items-center justify-center rounded-lg border ${
+              isDarkMode
+                ? "border-slate-700 text-slate-100"
+                : "border-slate-200 text-[#600018]"
+            }`}
+            aria-label="Open navigation menu"
+          >
+            <svg
+              className="h-5 w-5"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M4 6h16M4 12h16M4 18h16"
+              />
+            </svg>
+          </button>
+          <span className="max-w-[70vw] truncate text-xs font-bold uppercase tracking-wider text-[#600018]">
+            {currentTab}
+          </span>
+        </div>
+
+        <main className="w-full max-w-screen-2xl mx-auto space-y-6 p-4 sm:p-6 lg:space-y-10 lg:p-12">
           {/* HEADER STRIP ROW */}
           <div
             className={`flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pb-6 border-b transition-colors duration-300 ${
@@ -68,7 +115,7 @@ function MainDashboard() {
                 </span>
               </div>
               <h2
-                className={`text-2xl font-extrabold tracking-tight font-oswald uppercase ${
+                className={`text-xl sm:text-2xl font-extrabold tracking-tight font-oswald uppercase leading-tight ${
                   isDarkMode ? "text-white" : "text-[#600018]"
                 }`}
               >
@@ -77,7 +124,7 @@ function MainDashboard() {
             </div>
             {/* Profile User Toolbar Actions Wrapper */}
             <div
-              className={`flex items-center gap-4 self-end md:self-auto px-5 py-2.5 rounded-2xl border shadow-sm transition-all duration-300 ${
+              className={`flex w-full sm:w-auto items-center justify-between sm:justify-start gap-3 self-stretch md:self-auto px-3 sm:px-5 py-2.5 rounded-xl sm:rounded-2xl border shadow-sm transition-all duration-300 ${
                 isDarkMode
                   ? "bg-slate-800 border-slate-700/80 text-white"
                   : "bg-white border-slate-200/60"
@@ -104,10 +151,11 @@ function MainDashboard() {
                 className={`h-6 w-[1px] ${isDarkMode ? "bg-slate-700" : "bg-slate-200"}`}
               />
 
-              <div className="flex items-center gap-3">
-                <div className="flex flex-col text-right">
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="flex min-w-0 flex-col text-right">
                   <span
-                    className={`text-xs font-bold font-oswald tracking-wide ${isDarkMode ? "text-slate-200" : "text-slate-900"}`}
+                    className={`max-w-40 truncate text-xs font-bold font-oswald tracking-wide ${isDarkMode ? "text-slate-200" : "text-slate-900"}`}
+                    title={presidentName}
                   >
                     {presidentName}
                   </span>
@@ -124,7 +172,7 @@ function MainDashboard() {
             </div>
           </div>
           {currentTab === "dashboard" && (
-            <div className="space-y-10 animate-fade-in">
+            <div className="space-y-6 lg:space-y-10 animate-fade-in">
               <ExecutiveKPIs isDarkMode={isDarkMode} />
               <EnrollmentChart isDarkMode={isDarkMode} />
               <ResearchMetrics isDarkMode={isDarkMode} />
@@ -177,7 +225,7 @@ function MainDashboard() {
           )}
         </main>
 
-        <Footer />
+        <Footer isDarkMode={isDarkMode} />
       </div>
 
       {/* Logout Overlay Panel */}
