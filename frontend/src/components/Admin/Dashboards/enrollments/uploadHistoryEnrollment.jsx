@@ -89,18 +89,16 @@ export default function UploadHistory({ refreshTrigger }) {
 
     try {
       const response = await api.delete("/enrollment/logs");
-      if (response.data?.success || response.status === 200) {
+      if (response.data?.success) {
         setLogs([]);
       }
     } catch (err) {
       console.error("Failed to clear enrollment logs:", err);
-      if (err.response?.status === 404) {
-        setLogs([]);
-      } else {
-        setError(
-          err.response?.data?.message || "Failed to clear upload history.",
-        );
-      }
+      setError(
+        err.response?.data?.error ||
+          err.response?.data?.message ||
+          "Failed to clear upload history.",
+      );
     } finally {
       setClearing(false);
     }

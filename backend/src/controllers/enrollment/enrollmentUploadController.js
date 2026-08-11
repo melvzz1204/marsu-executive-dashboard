@@ -471,3 +471,25 @@ exports.getUploadLogs = async (req, res) => {
     });
   }
 };
+
+/**
+ * DELETE /api/v1/enrollment/logs
+ * Permanently clears enrollment upload history logs.
+ */
+exports.clearUploadLogs = async (req, res) => {
+  try {
+    const result = await UploadLog.deleteMany({ module: "ENROLLMENT" });
+
+    return res.status(200).json({
+      success: true,
+      message: "Enrollment upload history cleared.",
+      deletedCount: result.deletedCount,
+    });
+  } catch (error) {
+    console.error("Failed to clear enrollment upload logs:", error);
+    return res.status(500).json({
+      success: false,
+      error: "Failed to clear upload history logs.",
+    });
+  }
+};

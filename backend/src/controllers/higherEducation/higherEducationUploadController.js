@@ -333,3 +333,25 @@ exports.getUploadLogs = async (req, res) => {
     });
   }
 };
+
+/**
+ * DELETE /api/v1/higher-education/logs
+ * Permanently clears higher education upload history logs.
+ */
+exports.clearUploadLogs = async (req, res) => {
+  try {
+    const result = await UploadLog.deleteMany({ module: "HIGHER_EDUCATION" });
+
+    return res.status(200).json({
+      success: true,
+      message: "Higher education upload history cleared.",
+      deletedCount: result.deletedCount,
+    });
+  } catch (error) {
+    console.error("Failed to clear higher education upload logs:", error);
+    return res.status(500).json({
+      success: false,
+      error: "Failed to clear upload history logs.",
+    });
+  }
+};

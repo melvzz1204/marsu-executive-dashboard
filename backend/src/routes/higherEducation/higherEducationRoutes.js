@@ -6,6 +6,7 @@ const { excelUpload } = require("../../middleware/uploadMiddleware");
 const {
   uploadHigherEducationExcel,
   getUploadLogs,
+  clearUploadLogs,
 } = require("../../controllers/higherEducation/higherEducationUploadController");
 
 const {
@@ -21,7 +22,10 @@ router.post(
   excelUpload.single("file"),
   uploadHigherEducationExcel,
 );
-router.get("/logs", authorize("admin"), getUploadLogs);
+router
+  .route("/logs")
+  .get(authorize("admin"), getUploadLogs)
+  .delete(authorize("admin"), clearUploadLogs);
 router.get("/stats", getHigherEducationStats);
 router.get("/programs", getHigherEducationPrograms);
 

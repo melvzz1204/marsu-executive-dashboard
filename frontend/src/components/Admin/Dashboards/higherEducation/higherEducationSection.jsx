@@ -1,5 +1,5 @@
 // components/AccreditationDashboard.jsx
-import React, { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect } from "react";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -24,6 +24,18 @@ ChartJS.register(
   Legend,
 );
 
+const ChevronDownIcon = () => (
+  <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="h-4 w-4">
+    <path
+      d="m6 8 4 4 4-4"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
 export default function AccreditationDashboard() {
   const [stats, setStats] = useState(null);
   const [accreditationData, setAccreditationData] = useState([]);
@@ -32,7 +44,6 @@ export default function AccreditationDashboard() {
 
   const [selectedBranchIdx, setSelectedBranchIdx] = useState(0);
   const [selectedStatusFilter, setSelectedStatusFilter] = useState("ALL");
-  const currentYear = useMemo(() => new Date().getFullYear(), []);
 
   // Fetch Stats and Programs from Backend
   useEffect(() => {
@@ -143,17 +154,17 @@ export default function AccreditationDashboard() {
     };
   }, [stats]);
 
-  const activeBranchPrograms =
-    accreditationData[selectedBranchIdx]?.programs || [];
-
   // Filter programs by selected Accreditation Level
   const filteredBranchPrograms = useMemo(() => {
+    const activeBranchPrograms =
+      accreditationData[selectedBranchIdx]?.programs || [];
+
     if (selectedStatusFilter === "ALL") return activeBranchPrograms;
 
     return activeBranchPrograms.filter(
       (prog) => prog.accreditationStatus === selectedStatusFilter,
     );
-  }, [activeBranchPrograms, selectedStatusFilter]);
+  }, [accreditationData, selectedBranchIdx, selectedStatusFilter]);
 
   // Loading State UI
   if (loading) {
@@ -189,8 +200,8 @@ export default function AccreditationDashboard() {
   const kpis = stats?.kpis || {};
 
   return (
-    <div className="bg-slate-50 min-h-screen p-8 text-slate-800 rounded-2xl font-sans">
-      <div className="max-w-6xl mx-auto space-y-6">
+    <div className="min-h-screen rounded-2xl bg-slate-50 p-4 font-sans text-slate-800 sm:p-6 lg:p-8">
+      <div className="mx-auto max-w-6xl space-y-6">
         {/* Header Grid */}
         <div>
           <h1 className="text-2xl font-black tracking-tight text-slate-900">
@@ -307,59 +318,83 @@ export default function AccreditationDashboard() {
 
         {/* PROGRAM ACCREDITATION REGISTRY DETAIL ROWS */}
         <div className="bg-white rounded-2xl border border-slate-200/70 shadow-[0_4px_20px_rgba(0,0,0,0.01)] overflow-hidden flex flex-col">
-          <div className="p-6 pb-4 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div>
-              <span className="text-[10px] font-bold uppercase tracking-wider font-mono text-slate-400 block">
-                Program Registry
-              </span>
-              <h2 className="text-base font-black text-slate-900 font-sans tracking-tight mt-0.5">
-                Detailed Status List
-              </h2>
-            </div>
-
-            {/* Controls Layer */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-              <div className="relative">
-                <select
-                  value={selectedStatusFilter}
-                  onChange={(e) => setSelectedStatusFilter(e.target.value)}
-                  aria-label="Filter by accreditation level"
-                  className="w-full sm:w-auto appearance-none bg-slate-100/80 hover:bg-slate-200/60 text-slate-700 text-xs font-bold py-1.5 pl-3 pr-8 rounded-xl border border-slate-200/80 focus:outline-none focus:ring-2 focus:ring-[#660033]/20 cursor-pointer transition-all"
-                >
-                  <option value="ALL">All Accreditation Levels</option>
-                  {availableStatuses.map((status) => (
-                    <option key={status} value={status}>
-                      {status}
-                    </option>
-                  ))}
-                </select>
-                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2.5 text-slate-500 text-[10px]">
-                  ▼
-                </div>
+          <div className="border-b border-slate-100 p-5 sm:p-6">
+            <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
+              <div>
+                <span className="block text-[11px] font-bold uppercase tracking-[0.14em] text-[#660033]">
+                  Program Registry
+                </span>
+                <h2 className="mt-1 text-lg font-black tracking-tight text-slate-900">
+                  Detailed accreditation status
+                </h2>
+                <p className="mt-1 text-xs font-medium text-slate-500">
+                  Choose a campus and narrow the list by accreditation level.
+                </p>
               </div>
 
-              {accreditationData.length > 0 && (
-                <div className="flex flex-wrap gap-1 bg-slate-100 p-1 rounded-xl">
+              <label className="block w-full lg:w-60">
+                <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">
+                  Accreditation level
+                </span>
+                <span className="relative block">
+                  <select
+                    value={selectedStatusFilter}
+                    onChange={(e) => setSelectedStatusFilter(e.target.value)}
+                    className="h-9 w-full appearance-none rounded-lg border border-slate-200 bg-white pl-3 pr-9 text-xs font-semibold text-slate-700 shadow-sm outline-none transition hover:border-slate-300 focus:border-[#660033] focus:ring-2 focus:ring-[#660033]/10"
+                  >
+                    <option value="ALL">All accreditation levels</option>
+                    {availableStatuses.map((status) => (
+                      <option key={status} value={status}>
+                        {status}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-slate-400">
+                    <ChevronDownIcon />
+                  </span>
+                </span>
+              </label>
+            </div>
+
+            {accreditationData.length > 0 && (
+              <div className="mt-5">
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">
+                    Campus
+                  </span>
+                  <span className="text-[11px] font-medium text-slate-400">
+                    {accreditationData[selectedBranchIdx]?.programs.length || 0}{" "}
+                    programs
+                  </span>
+                </div>
+                <div
+                  className="no-scrollbar flex max-w-full gap-1.5 overflow-x-auto rounded-xl border border-slate-200 bg-slate-50 p-1.5"
+                  role="tablist"
+                  aria-label="Select campus"
+                >
                   {accreditationData.map((branch, idx) => (
                     <button
-                      key={idx}
+                      key={branch.branchName}
+                      type="button"
+                      role="tab"
+                      aria-selected={selectedBranchIdx === idx}
                       onClick={() => setSelectedBranchIdx(idx)}
-                      className={`px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                      className={`h-8 shrink-0 cursor-pointer whitespace-nowrap rounded-lg px-3 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#660033]/25 ${
                         selectedBranchIdx === idx
-                          ? "bg-white text-[#660033] shadow-sm"
-                          : "text-slate-500 hover:text-slate-800"
+                          ? "bg-[#660033] text-white shadow-sm"
+                          : "text-slate-600 hover:bg-white hover:text-slate-900"
                       }`}
                     >
                       {branch.branchName}
                     </button>
                   ))}
                 </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
 
           {/* Dynamic Scrollable Grid Items */}
-          <div className="p-6 max-h-[360px] overflow-y-auto no-scrollbar">
+          <div className="no-scrollbar max-h-[360px] overflow-y-auto p-4 sm:p-6">
             {filteredBranchPrograms.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {filteredBranchPrograms.map((prog, idx) => {
@@ -369,10 +404,10 @@ export default function AccreditationDashboard() {
                   return (
                     <div
                       key={prog.programId || idx}
-                      className="bg-slate-50/60 border border-slate-100 p-4 rounded-xl flex items-start justify-between gap-4 min-w-0"
+                      className="flex min-w-0 items-start justify-between gap-4 rounded-xl border border-slate-200/70 bg-slate-50/60 p-3.5 transition-colors hover:border-slate-300 hover:bg-white"
                     >
                       <div className="min-w-0 flex flex-col">
-                        <span className="font-bold text-slate-800 tracking-wide text-xs break-words leading-normal block">
+                        <span className="block break-words text-[13px] font-semibold leading-snug text-slate-800">
                           {prog.programName}
                         </span>
                         <span className="text-[10px] font-mono text-slate-400 mt-1 block">

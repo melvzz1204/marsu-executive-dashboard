@@ -1,11 +1,22 @@
-@import url("https://fonts.googleapis.com/css2?family=Oswald:wght@300;400;500;600;700&display=swap");
+/* Google Fonts Import: Oswald (Display), Inter (Body), Merriweather (Editorial) */
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Merriweather:ital,wght@0,400;0,700;1,400&family=Oswald:wght@400;500;600;700;900&display=swap");
 
 @import "tailwindcss";
 
-@layer base {
-  :root {
-    --font-sans: "Oswald", sans-serif;
-  }
+/* Tailwind CSS v4 Theme Definitions */
+@theme {
+  /* Default body font (Inter) */
+  --font-sans: "Inter", system-ui, -apple-system, sans-serif;
+
+  /* Primary display font (Oswald) */
+  --font-oswald: "Oswald", sans-serif;
+
+  /* Serif font for quotes/editorial blocks (Merriweather) */
+  --font-serif: "Merriweather", Georgia, serif;
+
+  /* MarSU Brand Colors */
+  --color-marsu-burgundy: #580017;
+  --color-marsu-gold: #c5a059;
 }
 
 html {
@@ -18,6 +29,7 @@ body {
   min-width: 320px;
   min-height: 100vh;
   overflow-x: hidden;
+  font-family: var(--font-sans);
 }
 
 button,

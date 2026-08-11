@@ -232,12 +232,12 @@ export default function HigherEducationUpload() {
         </div>
 
         {/* Action Buttons */}
-        <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-end">
+        <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end">
           {file && (
             <button
               onClick={handleClearFile}
               disabled={uploading}
-              className="w-full px-5 py-2.5 rounded-xl font-oswald uppercase tracking-wider text-xs font-bold border border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-slate-800 transition-all cursor-pointer disabled:opacity-50 sm:w-auto"
+              className="h-9 w-full rounded-lg border border-slate-200 px-3.5 font-oswald text-[11px] font-bold uppercase tracking-wider text-slate-600 transition-all hover:bg-slate-100 hover:text-slate-800 sm:w-auto disabled:cursor-not-allowed disabled:opacity-50"
             >
               Clear File
             </button>
@@ -246,7 +246,7 @@ export default function HigherEducationUpload() {
           <button
             onClick={() => handleUpload(false)}
             disabled={!file || uploading}
-            className={`w-full px-6 py-2.5 rounded-xl font-oswald uppercase tracking-wider text-xs font-bold transition-all sm:w-auto ${
+            className={`h-9 w-full rounded-lg px-4 font-oswald text-[11px] font-bold uppercase tracking-wider transition-all sm:w-auto ${
               !file || uploading
                 ? "bg-slate-200 text-slate-400 cursor-not-allowed"
                 : "bg-[#580017] text-white hover:bg-[#420011] shadow-md cursor-pointer"
@@ -288,13 +288,13 @@ export default function HigherEducationUpload() {
             <div className="flex flex-col-reverse gap-2.5 pt-2 sm:flex-row sm:items-center sm:justify-end">
               <button
                 onClick={() => setShowOverwriteModal(false)}
-                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+                className="h-9 rounded-lg px-3.5 text-[11px] font-bold text-slate-600 transition-colors hover:bg-slate-100 cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 onClick={() => handleUpload(true)}
-                className="px-5 py-2 rounded-xl text-xs font-bold font-oswald uppercase tracking-wider bg-rose-600 text-white hover:bg-rose-700 shadow-sm transition-all cursor-pointer"
+                className="h-9 rounded-lg bg-rose-600 px-4 font-oswald text-[11px] font-bold uppercase tracking-wider text-white shadow-sm transition-all hover:bg-rose-700 cursor-pointer"
               >
                 Yes, Overwrite Data
               </button>

@@ -402,6 +402,36 @@ const Sidebar = ({
           )}
 
           <nav className="flex flex-col space-y-2">
+            <button
+              type="button"
+              onClick={() => {
+                navigate(empowerItem.path);
+                setIsOpen(false);
+              }}
+              className="group relative flex w-full cursor-pointer items-center gap-5 rounded-xl px-4 py-3.5 font-semibold tracking-wide text-slate-200 transition-all hover:bg-white/10 hover:text-white lg:hidden"
+            >
+              <span className="text-[#D4AF37]/80 transition-colors group-hover:text-[#D4AF37]">
+                <svg
+                  className="h-5 w-5"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"
+                  />
+                </svg>
+              </span>
+              <span className="flex-1 text-left text-xs leading-tight tracking-wide">
+                Empower to Achieve
+              </span>
+              <span className="absolute right-4 h-1.5 w-1.5 scale-50 rounded-full bg-[#D4AF37] opacity-0 transition-all duration-300 group-hover:scale-100 group-hover:opacity-100" />
+            </button>
+
             {navigationItems.map((item) => {
               const isActive = currentTab === item.id;
               return (
