@@ -94,7 +94,7 @@ export default function BoardExam() {
         grid: { color: "#f8fafc" },
         ticks: {
           color: "#94a3b8",
-          font: { family: "monospace", size: 10, weight: "bold" },
+          font: { family: "Oswald, sans-serif", size: 10, weight: "bold" },
           callback: (value) => `${value}%`,
           stepSize: 25,
         },
@@ -165,7 +165,7 @@ export default function BoardExam() {
         grid: { color: "#f1f5f9" },
         ticks: {
           color: "#94a3b8",
-          font: { family: "monospace", size: 10, weight: "bold" },
+          font: { family: "Oswald, sans-serif", size: 10, weight: "bold" },
           stepSize: 100,
         },
       },
@@ -226,14 +226,14 @@ export default function BoardExam() {
             </span>
           </div>
         </div>
-        <span className="text-slate-400 font-mono text-[11px]">
+        <span className="text-slate-400 text-[11px]">
           Synchronized Panel Matrix
         </span>
       </div>
 
-      {/* VIEWPORT CONTROLLER (STACKED SYNCHRONIZED LAYOUT) */}
-      <div className="overflow-x-auto no-scrollbar pt-2">
-        <div className="min-w-[700px] flex flex-col gap-4">
+      {/* STACKED SYNCHRONIZED LAYOUT — responsive without horizontal scrolling */}
+      <div className="w-full pt-2">
+        <div className="flex w-full flex-col gap-4">
           {/* Top Panel: Efficiency Spark-Area */}
           <div className="relative h-[130px]">
             <div className="absolute top-0 left-12 text-[10px] font-bold text-[#D4AF37] uppercase tracking-wider bg-white pr-2 z-10">
@@ -253,7 +253,7 @@ export default function BoardExam() {
       </div>
 
       {/* DATA FOOTER STATUS TRACK */}
-      <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-400 tracking-wider uppercase font-bold">
+      <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3 text-[10px] text-slate-400 tracking-wider uppercase font-bold">
         <span>
           Information Stream: Office of Vice President for Academic Affairs
         </span>

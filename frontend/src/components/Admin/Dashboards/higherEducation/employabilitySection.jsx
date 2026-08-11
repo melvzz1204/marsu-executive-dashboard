@@ -205,7 +205,7 @@ export default function EmployabilityMetrics() {
           boxHeight: 8,
           usePointStyle: true,
           pointStyle: "circle",
-          font: { size: 11, family: "Inter, sans-serif", weight: "600" },
+          font: { size: 11, family: "Oswald, sans-serif", weight: "600" },
         },
       },
       tooltip: {

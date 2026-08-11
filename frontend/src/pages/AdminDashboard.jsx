@@ -29,7 +29,7 @@ export default function AdminDashboard() {
   };
 
   return (
-    <div className="relative flex h-dvh overflow-hidden bg-slate-100 font-sans text-slate-800">
+    <div className="oswald-brand relative flex h-dvh overflow-hidden bg-slate-100 text-slate-800">
       {/* 1. SIDEBAR COMPONENT */}
       <Sidebar
         activeTab={activeTab}

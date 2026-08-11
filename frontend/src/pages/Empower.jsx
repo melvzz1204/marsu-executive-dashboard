@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import EmpowerAgendaSection from "../components/Empower/EmpowerAgendaSection";
 
 const EMPOWER_PILLARS = [
@@ -285,12 +286,56 @@ const EMPOWER_PILLARS = [
   },
 ];
 
+// Framer Motion Animation Variants
+const gridContainerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+      delayChildren: 0.1,
+    },
+  },
+};
+
+const pillarCardVariants = {
+  hidden: { opacity: 0, y: 30, scale: 0.95 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    transition: { type: "spring", stiffness: 260, damping: 20 },
+  },
+};
+
+const backdropVariants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { duration: 0.25 } },
+  exit: { opacity: 0, transition: { duration: 0.2 } },
+};
+
+const modalVariants = {
+  hidden: { opacity: 0, scale: 0.9, y: 30 },
+  visible: {
+    opacity: 1,
+    scale: 1,
+    y: 0,
+    transition: { type: "spring", stiffness: 300, damping: 25 },
+  },
+  exit: {
+    opacity: 0,
+    scale: 0.92,
+    y: 15,
+    transition: { duration: 0.18, ease: "easeIn" },
+  },
+};
+
 export default function EmpowerLandingPage() {
   const [selectedPillar, setSelectedPillar] = useState(null);
 
   return (
-    <div className="bg-slate-50 text-slate-900 min-h-screen flex flex-col justify-between antialiased selection:bg-marsu-burgundy selection:text-white font-sans">
-      {/* 1. Ultra-Sleek Mini Contact Bar */}
+    <div className="bg-slate-50 text-slate-900 min-h-screen flex flex-col justify-between antialiased selection:bg-marsu-burgundy selection:text-white font-sans overflow-x-hidden">
+      {/* 1. Mini Top Contact Bar */}
       <div className="bg-[#2c000b] text-slate-300 border-b border-marsu-gold/30 text-[11px] font-sans py-1.5 px-6">
         <div className="max-w-7xl mx-auto flex flex-wrap justify-between items-center gap-2">
           <div className="flex items-center gap-3 flex-wrap">
@@ -321,8 +366,13 @@ export default function EmpowerLandingPage() {
         </div>
       </div>
 
-      {/* 2. Slim Compact Header Banner */}
-      <header className="relative bg-gradient-to-r from-[#3b000f] via-marsu-burgundy to-[#3b000f] text-white py-4 px-6 border-b-2 border-marsu-gold shadow-md overflow-hidden">
+      {/* 2. Header Banner with Smooth Entrance Animation */}
+      <motion.header
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="relative bg-gradient-to-r from-[#3b000f] via-marsu-burgundy to-[#3b000f] text-white py-4 px-6 border-b-2 border-marsu-gold shadow-md overflow-hidden"
+      >
         <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#c5a059_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none" />
 
         <div className="max-w-7xl mx-auto relative z-10 flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -360,19 +410,26 @@ export default function EmpowerLandingPage() {
             />
           </div>
         </div>
-      </header>
+      </motion.header>
 
-      {/* 3. Main Grid Matrix Container */}
+      {/* 3. Main Grid Matrix with Staggered Framer Motion Entrance */}
       <main className="max-w-[1850px] w-full mx-auto px-4 sm:px-6 py-10">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-0 border border-slate-300 shadow-2xl bg-white">
+        <motion.div
+          variants={gridContainerVariants}
+          initial="hidden"
+          animate="visible"
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-0 border border-slate-300 shadow-2xl bg-white"
+        >
           {EMPOWER_PILLARS.map((pillar, idx) => (
-            <div
+            <motion.div
               key={idx}
+              variants={pillarCardVariants}
+              whileTap={{ scale: 0.98 }}
               onClick={() => setSelectedPillar(pillar)}
               className="group [perspective:1000px] h-[430px] w-full cursor-pointer"
             >
               <div className="relative h-full w-full rounded-none transition-transform duration-700 [transform-style:preserve-3d] group-hover:[transform:rotateY(180deg)]">
-                {/* Front Side */}
+                {/* Card Front */}
                 <div
                   className={`absolute inset-0 h-full w-full rounded-none overflow-hidden p-6 flex flex-col justify-between border-r border-b border-slate-200 [backface-visibility:hidden] [transform:rotateY(0deg)] ${pillar.bgFrontColor}`}
                 >
@@ -406,7 +463,7 @@ export default function EmpowerLandingPage() {
                   </div>
                 </div>
 
-                {/* Back Side */}
+                {/* Card Back */}
                 <div className="absolute inset-0 h-full w-full rounded-none p-6 flex flex-col justify-between border-r border-b border-marsu-gold/30 bg-marsu-burgundy text-white [backface-visibility:hidden] [transform:rotateY(180deg)]">
                   <div className="space-y-4">
                     <div className="flex justify-between items-center border-b border-white/15 pb-2.5">
@@ -434,119 +491,135 @@ export default function EmpowerLandingPage() {
                   </div>
                 </div>
               </div>
-            </div>
+            </motion.div>
           ))}
-        </div>
+        </motion.div>
       </main>
 
-      {/* Interactive Pillar Framework Modal (Styled in MarSU Burgundy & Gold) */}
-      {selectedPillar && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm transition-opacity duration-300"
-          onClick={() => setSelectedPillar(null)}
-        >
-          <div
-            className="bg-white rounded-lg shadow-2xl max-w-5xl w-full max-h-[90vh] flex flex-col overflow-hidden border-2 border-marsu-gold animate-in fade-in zoom-in duration-200"
-            onClick={(e) => e.stopPropagation()}
+      {/* 4. Animated Modal using AnimatePresence */}
+      <AnimatePresence>
+        {selectedPillar && (
+          <motion.div
+            variants={backdropVariants}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+            onClick={() => setSelectedPillar(null)}
           >
-            {/* Modal Header */}
-            <div className="bg-gradient-to-r from-[#2c000b] via-marsu-burgundy to-[#2c000b] text-white p-6 border-b-2 border-marsu-gold relative flex justify-between items-start shrink-0">
-              <div className="pr-8">
-                <div className="flex items-center gap-3 mb-1">
-                  <span className="font-oswald text-3xl font-black bg-marsu-gold text-marsu-burgundy px-3 py-0.5 rounded">
-                    {selectedPillar.letter}
-                  </span>
-                  <span className="font-sans text-xs font-bold uppercase tracking-widest text-marsu-gold border border-marsu-gold/50 bg-black/30 px-2.5 py-1 rounded">
-                    {selectedPillar.pillarNum}
-                  </span>
+            <motion.div
+              variants={modalVariants}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+              className="bg-white rounded-lg shadow-2xl max-w-5xl w-full max-h-[90vh] flex flex-col overflow-hidden border-2 border-marsu-gold"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Modal Header */}
+              <div className="bg-gradient-to-r from-[#2c000b] via-marsu-burgundy to-[#2c000b] text-white p-6 border-b-2 border-marsu-gold relative flex justify-between items-start shrink-0">
+                <div className="pr-8">
+                  <div className="flex items-center gap-3 mb-1">
+                    <span className="font-oswald text-3xl font-black bg-marsu-gold text-marsu-burgundy px-3 py-0.5 rounded">
+                      {selectedPillar.letter}
+                    </span>
+                    <span className="font-sans text-xs font-bold uppercase tracking-widest text-marsu-gold border border-marsu-gold/50 bg-black/30 px-2.5 py-1 rounded">
+                      {selectedPillar.pillarNum}
+                    </span>
+                  </div>
+                  <h2 className="font-oswald text-xl sm:text-2xl font-bold uppercase tracking-wide text-white mt-2">
+                    {selectedPillar.frontTitle}
+                  </h2>
                 </div>
-                <h2 className="font-oswald text-xl sm:text-2xl font-bold uppercase tracking-wide text-white mt-2">
-                  {selectedPillar.frontTitle}
-                </h2>
-              </div>
-              <button
-                onClick={() => setSelectedPillar(null)}
-                className="text-marsu-gold hover:text-white bg-black/30 hover:bg-black/60 rounded-full w-9 h-9 flex items-center justify-center font-bold text-lg transition-colors border border-marsu-gold/40"
-                aria-label="Close modal"
-              >
-                ✕
-              </button>
-            </div>
-
-            {/* Modal Content */}
-            <div className="p-6 overflow-y-auto space-y-6">
-              {/* Strategic Focus Scope */}
-              <div className="bg-[#2c000b]/5 border-l-4 border-marsu-gold rounded-r-md p-4">
-                <h4 className="font-sans text-xs font-extrabold uppercase tracking-widest text-marsu-burgundy mb-1">
-                  Strategic Scope & Focus
-                </h4>
-                <p className="text-sm text-slate-700 leading-relaxed font-normal">
-                  {selectedPillar.backDesc}
-                </p>
+                <motion.button
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
+                  onClick={() => setSelectedPillar(null)}
+                  className="text-marsu-gold hover:text-white bg-black/30 hover:bg-black/60 rounded-full w-9 h-9 flex items-center justify-center font-bold text-lg transition-colors border border-marsu-gold/40"
+                  aria-label="Close modal"
+                >
+                  ✕
+                </motion.button>
               </div>
 
-              <div>
-                <h3 className="font-oswald text-lg font-bold uppercase text-marsu-burgundy mb-3 border-b-2 border-marsu-gold/40 pb-1 flex items-center gap-2">
-                  <span className="text-marsu-gold">📊</span> Outcome,
-                  Strategies / Programs & KPIs
-                </h3>
+              {/* Modal Body */}
+              <div className="p-6 overflow-y-auto space-y-6">
+                <div className="bg-[#2c000b]/5 border-l-4 border-marsu-gold rounded-r-md p-4">
+                  <h4 className="font-sans text-xs font-extrabold uppercase tracking-widest text-marsu-burgundy mb-1">
+                    Strategic Scope & Focus
+                  </h4>
+                  <p className="text-sm text-slate-700 leading-relaxed font-normal">
+                    {selectedPillar.backDesc}
+                  </p>
+                </div>
 
-                <div className="overflow-x-auto border border-slate-200 rounded-lg shadow-sm">
-                  <table className="w-full text-left border-collapse text-xs">
-                    <thead>
-                      <tr className="bg-[#2c000b] text-marsu-gold font-oswald tracking-wider uppercase text-[11px] border-b-2 border-marsu-gold">
-                        <th className="p-3.5 w-1/3 border-r border-marsu-gold/20">
-                          Outcome
-                        </th>
-                        <th className="p-3.5 w-5/12 border-r border-marsu-gold/20">
-                          Strategies / Programs
-                        </th>
-                        <th className="p-3.5 w-1/4">KPIs</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-200 bg-white">
-                      {selectedPillar.details.map((item, i) => (
-                        <tr
-                          key={i}
-                          className="hover:bg-amber-50/30 transition-colors"
-                        >
-                          <td className="p-3.5 align-top font-semibold text-slate-800 border-r border-slate-100">
-                            {item.outcome}
-                          </td>
-                          <td className="p-3.5 align-top text-slate-600 leading-relaxed whitespace-pre-line border-r border-slate-100">
-                            {item.strategies}
-                          </td>
-                          <td className="p-3.5 align-top font-semibold text-marsu-burgundy leading-relaxed whitespace-pre-line bg-amber-50/50">
-                            {item.kpis}
-                          </td>
+                <div>
+                  <h3 className="font-oswald text-lg font-bold uppercase text-marsu-burgundy mb-3 border-b-2 border-marsu-gold/40 pb-1 flex items-center gap-2">
+                    <span className="text-marsu-gold">📊</span> Outcome,
+                    Strategies / Programs & KPIs
+                  </h3>
+
+                  <div className="overflow-x-auto border border-slate-200 rounded-lg shadow-sm">
+                    <table className="w-full text-left border-collapse text-xs">
+                      <thead>
+                        <tr className="bg-[#2c000b] text-marsu-gold font-oswald tracking-wider uppercase text-[11px] border-b-2 border-marsu-gold">
+                          <th className="p-3.5 w-1/3 border-r border-marsu-gold/20">
+                            Outcome
+                          </th>
+                          <th className="p-3.5 w-5/12 border-r border-marsu-gold/20">
+                            Strategies / Programs
+                          </th>
+                          <th className="p-3.5 w-1/4">KPIs</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200 bg-white">
+                        {selectedPillar.details.map((item, i) => (
+                          <motion.tr
+                            key={i}
+                            initial={{ opacity: 0, x: -10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: i * 0.05 + 0.1 }}
+                            className="hover:bg-amber-50/30 transition-colors"
+                          >
+                            <td className="p-3.5 align-top font-semibold text-slate-800 border-r border-slate-100">
+                              {item.outcome}
+                            </td>
+                            <td className="p-3.5 align-top text-slate-600 leading-relaxed whitespace-pre-line border-r border-slate-100">
+                              {item.strategies}
+                            </td>
+                            <td className="p-3.5 align-top font-semibold text-marsu-burgundy leading-relaxed whitespace-pre-line bg-amber-50/50">
+                              {item.kpis}
+                            </td>
+                          </motion.tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Modal Footer */}
-            <div className="bg-[#2c000b] border-t-2 border-marsu-gold px-6 py-3 flex justify-between items-center shrink-0">
-              <span className="text-[11px] text-marsu-gold/80 font-medium tracking-wide">
-                MarSU EMPOWER Agenda 2030 Strategic Framework
-              </span>
-              <button
-                onClick={() => setSelectedPillar(null)}
-                className="bg-marsu-gold hover:bg-yellow-500 text-marsu-burgundy font-sans text-xs font-bold uppercase tracking-wider px-5 py-2 rounded transition-colors shadow"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+              {/* Modal Footer */}
+              <div className="bg-[#2c000b] border-t-2 border-marsu-gold px-6 py-3 flex justify-between items-center shrink-0">
+                <span className="text-[11px] text-marsu-gold/80 font-medium tracking-wide">
+                  MarSU EMPOWER Agenda 2030 Strategic Framework
+                </span>
+                <motion.button
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
+                  onClick={() => setSelectedPillar(null)}
+                  className="bg-marsu-gold hover:bg-yellow-500 text-marsu-burgundy font-sans text-xs font-bold uppercase tracking-wider px-5 py-2 rounded transition-colors shadow"
+                >
+                  Close
+                </motion.button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {/* 4. Mounted Agenda Section */}
+      {/* 5. Mounted Agenda Section */}
       <EmpowerAgendaSection />
 
-      {/* 5. Institutional Footer */}
+      {/* 6. Institutional Footer */}
       <footer className="bg-[#2c000b] text-slate-300 border-t-4 border-marsu-gold font-sans pt-10 pb-6 px-6">
         <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8 pb-8 border-b border-slate-800">
           <div className="space-y-3">

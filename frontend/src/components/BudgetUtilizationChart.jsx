@@ -49,7 +49,7 @@ function BudgetUtilization() {
         position: "top",
         labels: {
           color: "#334155", // Slate 700 text color
-          font: { family: "Inter, sans-serif", size: 12, weight: "500" },
+          font: { family: "Oswald, sans-serif", size: 12, weight: "500" },
           boxWidth: 12,
         },
       },

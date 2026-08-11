@@ -39,6 +39,12 @@ textarea {
   font: inherit;
 }
 
+/* Brand typography scope for application pages. Empower remains intentionally isolated. */
+.oswald-brand,
+.oswald-brand * {
+  font-family: var(--font-oswald) !important;
+}
+
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }

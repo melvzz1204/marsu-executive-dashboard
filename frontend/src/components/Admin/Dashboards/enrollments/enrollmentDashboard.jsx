@@ -436,7 +436,7 @@ export default function EnrollmentDashboard({ isPublicView = false }) {
             )}
 
             <div
-              className="flex w-full max-w-full gap-1 overflow-x-auto rounded-xl bg-slate-100 p-1 sm:w-auto sm:max-w-xs"
+              className="no-scrollbar flex w-full max-w-full gap-1 overflow-x-auto rounded-xl bg-slate-100 p-1 sm:w-auto sm:max-w-xs"
               role="group"
               aria-label="Campus Selection"
             >

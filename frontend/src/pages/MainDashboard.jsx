@@ -32,7 +32,7 @@ function MainDashboard() {
 
   return (
     <div
-      className={`relative flex h-dvh overflow-hidden font-sans antialiased transition-colors duration-300 ${
+      className={`oswald-brand relative flex h-dvh overflow-hidden antialiased transition-colors duration-300 ${
         isDarkMode
           ? "bg-slate-900 text-slate-100"
           : "bg-[#f8f4f4ac] text-slate-800"
