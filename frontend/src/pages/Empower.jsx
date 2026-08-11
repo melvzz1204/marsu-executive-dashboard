@@ -335,37 +335,6 @@ export default function EmpowerLandingPage() {
 
   return (
     <div className="bg-slate-50 text-slate-900 min-h-screen flex flex-col justify-between antialiased selection:bg-marsu-burgundy selection:text-white font-sans overflow-x-hidden">
-      {/* 1. Mini Top Contact Bar */}
-      <div className="bg-[#2c000b] text-slate-300 border-b border-marsu-gold/30 text-[11px] font-sans py-1.5 px-6">
-        <div className="max-w-7xl mx-auto flex flex-wrap justify-between items-center gap-2">
-          <div className="flex items-center gap-3 flex-wrap">
-            <span className="flex items-center gap-1">
-              📍 <strong className="text-marsu-gold">Address:</strong> Panfilo
-              M. Manguera Sr. Rd., Tanza, Boac, Marinduque
-            </span>
-            <span className="hidden sm:inline text-white/20">|</span>
-            <span className="flex items-center gap-1">
-              📞 <strong className="text-marsu-gold">Tel:</strong> 042 332 2728
-            </span>
-          </div>
-          <div className="flex items-center gap-3 flex-wrap">
-            <span className="flex items-center gap-1">
-              ✉️ <strong className="text-marsu-gold">Email:</strong>{" "}
-              president@marsu.edu.ph
-            </span>
-            <span className="hidden sm:inline text-white/20">|</span>
-            <a
-              href="https://www.marsu.edu.ph"
-              target="_blank"
-              rel="noreferrer"
-              className="text-marsu-gold hover:underline font-medium"
-            >
-              🌐 www.marsu.edu.ph
-            </a>
-          </div>
-        </div>
-      </div>
-
       {/* 2. Header Banner with Smooth Entrance Animation */}
       <motion.header
         initial={{ opacity: 0, y: -20 }}
