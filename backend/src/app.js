@@ -13,6 +13,8 @@ const reportRoutes = require("./routes/reports/reportRoutes");
 const researchAnalyticsRouter = require("./routes/research/researchRoutes");
 const enrollmentRoutes = require("./routes/enrollment/enrollmentRoutes");
 const higherEducationRoutes = require("./routes/higherEducation/higherEducationRoutes");
+const financeRoutes = require("./routes/finance/budgetRoutes");
+const licensureExamRoutes = require("./routes/higherEducation/licensureExamRoutes");
 
 // for public viewing
 const publicViewingRoutes = require("./routes/enrollment/publicViewingRoutes");
@@ -86,6 +88,8 @@ app.use("/api/v1/reports", reportRoutes);
 app.use("/api/v1/research", researchAnalyticsRouter);
 app.use("/api/v1/enrollment", enrollmentRoutes);
 app.use("/api/v1/higher-education", higherEducationRoutes);
+app.use("/api/v1/higher-education/licensure", licensureExamRoutes);
+app.use("/api/v1/budget", financeRoutes);
 
 // Public viewing
 app.use("/api/v1/public-viewing", publicViewingRoutes);
