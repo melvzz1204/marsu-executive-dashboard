@@ -1,3 +1,4 @@
+import { useCallback, useEffect, useRef } from "react";
 import Sidebar from "../components/Sidebar";
 import ExecutiveKPIs from "../components/ExecutiveKPIs";
 import EnrollmentChart from "../components/EnrollmentChart";
@@ -12,6 +13,7 @@ import GeneralAdministration from "../components/GeneralAdministraion";
 import SupportToOperation from "../components/SupportToOperation";
 import { useDashboardState } from "../hooks/useDashboardState";
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from "chart.js";
+
 ChartJS.register(ArcElement, Tooltip, Legend);
 
 function MainDashboard() {
@@ -29,6 +31,29 @@ function MainDashboard() {
     formattedDate,
     handleLogout,
   } = useDashboardState();
+
+  const pendingBlockIdRef = useRef(null);
+
+  const handleKpiNavigation = useCallback(
+    (tabId, blockId) => {
+      pendingBlockIdRef.current = blockId;
+      window.history.replaceState(null, "", `#${blockId}`);
+      setCurrentTab(tabId);
+      setIsSidebarOpen(false);
+    },
+    [setCurrentTab, setIsSidebarOpen],
+  );
+
+  useEffect(() => {
+    const blockId = pendingBlockIdRef.current;
+    if (!blockId) return;
+
+    const target = document.getElementById(blockId);
+    if (!target) return;
+
+    target.scrollIntoView({ behavior: "smooth", block: "start" });
+    pendingBlockIdRef.current = null;
+  }, [currentTab]);
 
   return (
     <div
@@ -132,6 +157,7 @@ function MainDashboard() {
                 Presidential Dashboard for Organizational Data and Insights
               </h2>
             </div>
+
             {/* Profile User Toolbar Actions Wrapper */}
             <div
               className={`flex w-full sm:w-auto items-center justify-between sm:justify-start gap-3 self-stretch md:self-auto px-3 sm:px-5 py-2.5 rounded-xl sm:rounded-2xl border shadow-sm transition-all duration-300 ${
@@ -158,13 +184,17 @@ function MainDashboard() {
               </button>
 
               <div
-                className={`h-6 w-[1px] ${isDarkMode ? "bg-slate-700" : "bg-slate-200"}`}
+                className={`h-6 w-[1px] ${
+                  isDarkMode ? "bg-slate-700" : "bg-slate-200"
+                }`}
               />
 
               <div className="flex min-w-0 items-center gap-3">
                 <div className="flex min-w-0 flex-col text-right">
                   <span
-                    className={`max-w-40 truncate text-xs font-bold font-oswald tracking-wide ${isDarkMode ? "text-slate-200" : "text-slate-900"}`}
+                    className={`max-w-40 truncate text-xs font-bold font-oswald tracking-wide ${
+                      isDarkMode ? "text-slate-200" : "text-slate-900"
+                    }`}
                     title={presidentName}
                   >
                     {presidentName}
@@ -181,60 +211,66 @@ function MainDashboard() {
               </div>
             </div>
           </div>
+
           {currentTab === "dashboard" && (
-            <div className="animate-fade-in space-y-6 lg:space-y-10">
-              <ExecutiveKPIs isDarkMode={isDarkMode} />
-              <div className="hidden sm:block">
+            <div className="space-y-6 lg:space-y-10">
+              <ExecutiveKPIs
+                isDarkMode={isDarkMode}
+                onNavigate={handleKpiNavigation}
+              />
+
+              <div className="hidden space-y-6 sm:block lg:space-y-10">
                 <EnrollmentChart isDarkMode={isDarkMode} />
                 <ResearchMetrics isDarkMode={isDarkMode} />
               </div>
             </div>
           )}
+
           {currentTab === "Higher Education" && (
-            <div className="space-y-10 animate-fade-in">
-              <HigherEducation isDarkMode={isDarkMode} />
-            </div>
+            <HigherEducation isDarkMode={isDarkMode} />
           )}
+
           {currentTab === "Advance Education" && (
-            <div className="space-y-10 animate-fade-in">
-              <AdvanceEducation isDarkMode={isDarkMode} />
-            </div>
+            <AdvanceEducation isDarkMode={isDarkMode} />
           )}
+
           {currentTab === "research" && (
-            <div className="space-y-10 animate-fade-in">
+            <div id="block-research-metrics" className="scroll-mt-24">
               <ResearchMetrics isDarkMode={isDarkMode} />
             </div>
           )}
+
           {currentTab === "general administration" && (
-            <div className="space-y-10 animate-fade-in">
+            <div id="block-general-administration" className="scroll-mt-24">
               <GeneralAdministration isDarkMode={isDarkMode} />
             </div>
           )}
+
           {currentTab === "support to operation" && (
-            <div className="space-y-10 animate-fade-in">
+            <div id="block-support-operation" className="scroll-mt-24">
               <SupportToOperation isDarkMode={isDarkMode} />
             </div>
           )}
+
           {currentTab === "achievements" && (
-            <div className="space-y-10 animate-fade-in">
+            <div id="block-board-passing" className="scroll-mt-24">
               <Achievements isDarkMode={isDarkMode} />
             </div>
           )}
+
           {currentTab === "enrollment" && (
-            <div className="space-y-10 animate-fade-in">
+            <div id="block-enrollment" className="scroll-mt-24">
               <EnrollmentChart isDarkMode={isDarkMode} />
             </div>
           )}
+
           {currentTab === "budget" && (
-            <div className="animate-fade-in">
+            <div id="block-budget-utilization" className="scroll-mt-24">
               <BudgetUtilization isDarkMode={isDarkMode} />
             </div>
           )}
-          {currentTab === "reports" && (
-            <div className="animate-fade-in">
-              <Report isDarkMode={isDarkMode} />
-            </div>
-          )}
+
+          {currentTab === "reports" && <Report isDarkMode={isDarkMode} />}
         </main>
 
         <Footer isDarkMode={isDarkMode} />

@@ -1,5 +1,5 @@
 // components/EmployabilityMetrics.jsx
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -42,6 +42,14 @@ const Skeleton = ({ className }) => (
   <div className={`animate-pulse bg-slate-200/60 rounded ${className}`}></div>
 );
 
+const CHART_SKELETON_HEIGHTS = [
+  "h-[35%]",
+  "h-[60%]",
+  "h-[45%]",
+  "h-[75%]",
+  "h-[55%]",
+];
+
 export default function EmployabilityMetrics() {
   const [statsData, setStatsData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -74,7 +82,8 @@ export default function EmployabilityMetrics() {
   }, []);
 
   useEffect(() => {
-    fetchTracerStats();
+    const initialFetch = window.setTimeout(fetchTracerStats, 0);
+    return () => window.clearTimeout(initialFetch);
   }, [fetchTracerStats]);
 
   // Map Backend Payload
@@ -261,7 +270,10 @@ export default function EmployabilityMetrics() {
     <div className="min-h-screen bg-white text-slate-800 antialiased rounded-2xl font-sans">
       <div className="max-w-7xl mx-auto space-y-6 p-10">
         {/* HEADER CONTROL LAYER */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+        <div
+          id="block-employability-tracer"
+          className="scroll-mt-24 bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6"
+        >
           <div>
             <span className="text-[10px] uppercase tracking-widest font-bold text-[#660033]">
               Institutional Career Services & Alumni Affairs
@@ -373,11 +385,10 @@ export default function EmployabilityMetrics() {
           <div className="h-[300px] min-h-[200px] relative w-full">
             {loading ? (
               <div className="absolute inset-0 flex items-end justify-between px-4 pb-4 gap-4">
-                {[...Array(5)].map((_, i) => (
+                {CHART_SKELETON_HEIGHTS.map((heightClass) => (
                   <Skeleton
-                    key={i}
-                    className="w-full"
-                    style={{ height: `${Math.random() * 60 + 20}%` }}
+                    key={heightClass}
+                    className={`w-full ${heightClass}`}
                   />
                 ))}
               </div>
