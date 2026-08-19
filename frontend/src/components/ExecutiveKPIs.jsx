@@ -346,6 +346,7 @@ export function ExecutiveKPIs({ onNavigate }) {
   const [sources, setSources] = useState({
     enrollment: null,
     higherEducation: null,
+    licensure: null,
   });
   const [sourceErrors, setSourceErrors] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -356,19 +357,26 @@ export function ExecutiveKPIs({ onNavigate }) {
 
     const fetchKpis = async () => {
       setIsLoading(true);
-      const [enrollmentResult, higherEducationResult] =
+      const [enrollmentResult, higherEducationResult, licensureResult] =
         await Promise.allSettled([
           api.get("/public-viewing/trend", {
             params: { semester: "1st Semester" },
             signal: controller.signal,
           }),
           api.get("/higher-education/stats", { signal: controller.signal }),
+          api.get("/higher-education/licensure/stats", {
+            signal: controller.signal,
+          }),
         ]);
 
       if (controller.signal.aborted) return;
 
       const errors = [];
-      const nextSources = { enrollment: null, higherEducation: null };
+      const nextSources = {
+        enrollment: null,
+        higherEducation: null,
+        licensure: null,
+      };
 
       if (enrollmentResult.status === "fulfilled") {
         nextSources.enrollment = enrollmentResult.value.data?.data ?? [];
@@ -381,6 +389,12 @@ export function ExecutiveKPIs({ onNavigate }) {
           higherEducationResult.value.data?.data ?? null;
       } else {
         errors.push("higher education");
+      }
+
+      if (licensureResult.status === "fulfilled") {
+        nextSources.licensure = licensureResult.value.data?.data?.records ?? [];
+      } else {
+        errors.push("licensure");
       }
 
       setSources(nextSources);
@@ -432,8 +446,35 @@ export function ExecutiveKPIs({ onNavigate }) {
           Number(previousTracer.employabilityPercentage)
         : null;
 
+    const licensureRecords = Array.isArray(sources.licensure)
+      ? sources.licensure.filter((item) => !item.isNda)
+      : [];
+    const licensureByYear = Object.values(
+      licensureRecords.reduce((yearly, item) => {
+        const year = Number(item.year);
+        if (!Number.isFinite(year)) return yearly;
+
+        if (!yearly[year]) yearly[year] = { year, takers: 0, passed: 0 };
+        yearly[year].takers += Number(item.takers) || 0;
+        yearly[year].passed += Number(item.passed) || 0;
+        return yearly;
+      }, {}),
+    )
+      .sort((a, b) => a.year - b.year)
+      .map((item) => ({
+        ...item,
+        rate: item.takers > 0 ? (item.passed / item.takers) * 100 : 0,
+      }));
+    const currentLicensure = licensureByYear.at(-1);
+    const previousLicensure = licensureByYear.at(-2);
+    const licensureChange =
+      currentLicensure && previousLicensure
+        ? currentLicensure.rate - previousLicensure.rate
+        : null;
+
     const hasEnrollment = Boolean(currentEnrollment);
     const hasEmployability = Boolean(currentTracer);
+    const hasLicensure = Boolean(currentLicensure);
 
     const comingSoonKpi = (title, tabId, blockId, icon, iconBg) => ({
       tabId,
@@ -501,13 +542,25 @@ export function ExecutiveKPIs({ onNavigate }) {
         BudgetIcon,
         "bg-blue-50 border-blue-100",
       ),
-      comingSoonKpi(
-        "Board Passing Velocity",
-        "achievements",
-        "block-board-passing",
-        BoardPassingIcon,
-        "bg-purple-50 border-purple-100",
-      ),
+      {
+        tabId: "Higher Education",
+        blockId: "block-licensure-examination",
+        title: "Licensure Passing Rate",
+        value: hasLicensure
+          ? `${currentLicensure.rate.toFixed(1)}%`
+          : "Coming soon",
+        metricContext: hasLicensure ? `exam year ${currentLicensure.year}` : "",
+        change: formatChange(licensureChange, " pp"),
+        trend: getTrend(licensureChange),
+        comparisonLabel:
+          licensureChange === null
+            ? "previous year unavailable"
+            : "from previous exam year",
+        comingSoon: !hasLicensure,
+        trendData: licensureByYear.map((item) => item.rate),
+        iconBg: "bg-purple-50 border-purple-100",
+        icon: BoardPassingIcon,
+      },
       comingSoonKpi(
         "Research Funding Secured",
         "research",

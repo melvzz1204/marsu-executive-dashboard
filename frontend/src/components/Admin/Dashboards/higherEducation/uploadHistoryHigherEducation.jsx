@@ -48,7 +48,8 @@ export default function UploadHistory({ refreshTrigger }) {
   }, []);
 
   useEffect(() => {
-    fetchLogs();
+    const initialFetch = window.setTimeout(fetchLogs, 0);
+    return () => window.clearTimeout(initialFetch);
   }, [fetchLogs, refreshTrigger]);
 
   const handleClearLogs = async () => {
@@ -115,23 +116,25 @@ export default function UploadHistory({ refreshTrigger }) {
   }, [logs]);
 
   return (
-    <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm overflow-hidden mt-8 transition-all">
-      {/* Header */}
-      <div className="px-6 py-5 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-50/50">
+    <div className="overflow-hidden border border-slate-200 bg-white shadow-sm">
+      <div className="flex flex-col justify-between gap-4 border-b border-slate-200 px-5 py-5 sm:flex-row sm:items-center sm:px-7">
         <div>
-          <h3 className="text-sm font-black font-oswald uppercase tracking-tight text-slate-900">
-            Upload History
-          </h3>
-          <p className="text-[11px] text-slate-500 font-medium mt-0.5">
-            Recent spreadsheet ingestions for Higher Education
+          <div className="flex items-center gap-2">
+            <span className="h-1.5 w-1.5 rounded-full bg-[#c5a059]" />
+            <h3 className="text-sm font-black uppercase tracking-tight text-slate-950">
+              Upload history
+            </h3>
+          </div>
+          <p className="mt-1 text-xs text-slate-500">
+            Successful program, tracer, and licensure imports.
           </p>
         </div>
 
-        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:gap-3">
+        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
           <button
             onClick={handleClearLogs}
             disabled={cleanLogs.length === 0 || clearingLogs || loadingLogs}
-            className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-1.5 text-xs font-bold text-rose-700 transition-all hover:bg-rose-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400 disabled:opacity-40 sm:flex-none"
+            className="flex h-8 flex-1 items-center justify-center gap-1 rounded-md border border-rose-200 bg-rose-50 px-3 text-[11px] font-bold text-rose-700 transition-all hover:bg-rose-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400 disabled:opacity-40 sm:flex-none"
           >
             {clearingLogs ? "Clearing..." : "🗑️ Clear History"}
           </button>
@@ -139,7 +142,7 @@ export default function UploadHistory({ refreshTrigger }) {
           <button
             onClick={fetchLogs}
             disabled={loadingLogs || clearingLogs}
-            className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-[#580017]/20 bg-[#580017]/10 px-3.5 py-1.5 text-xs font-bold text-[#580017] transition-all hover:bg-[#580017]/20 disabled:opacity-50 sm:flex-none"
+            className="flex h-8 flex-1 items-center justify-center gap-1 rounded-md border border-[#580017]/20 bg-[#580017]/10 px-3 text-[11px] font-bold text-[#580017] transition-all hover:bg-[#580017]/20 disabled:opacity-50 sm:flex-none"
           >
             {loadingLogs ? "Refreshing..." : "↻ Refresh"}
           </button>
@@ -159,8 +162,9 @@ export default function UploadHistory({ refreshTrigger }) {
       <div className="no-scrollbar overflow-x-auto">
         <table className="w-full min-w-[680px] border-collapse text-left">
           <thead>
-            <tr className="bg-slate-50/80 border-b border-slate-100 text-[10px] font-black uppercase tracking-wider text-slate-500 font-oswald">
+            <tr className="border-b border-slate-200 bg-slate-50 text-[10px] font-black uppercase tracking-wider text-slate-500">
               <th className="px-5 py-3.5">Date & Time</th>
+              <th className="px-5 py-3.5">Dataset</th>
               <th className="px-5 py-3.5">File Name</th>
               <th className="px-5 py-3.5">Uploaded By</th>
               <th className="px-5 py-3.5">Total Records Ingested</th>
@@ -173,6 +177,9 @@ export default function UploadHistory({ refreshTrigger }) {
                 <tr key={i} className="animate-pulse">
                   <td className="px-5 py-3.5">
                     <div className="h-3.5 bg-slate-200 rounded w-28"></div>
+                  </td>
+                  <td className="px-5 py-3.5">
+                    <div className="h-3.5 bg-slate-200 rounded w-24"></div>
                   </td>
                   <td className="px-5 py-3.5">
                     <div className="h-3.5 bg-slate-200 rounded w-36 mb-1"></div>
@@ -192,7 +199,7 @@ export default function UploadHistory({ refreshTrigger }) {
             ) : cleanLogs.length === 0 ? (
               <tr>
                 <td
-                  colSpan="5"
+                  colSpan="6"
                   className="px-5 py-10 text-center text-slate-400 font-medium"
                 >
                   No successful or overwritten upload records found.
@@ -207,12 +214,19 @@ export default function UploadHistory({ refreshTrigger }) {
                 return (
                   <tr
                     key={log._id || index}
-                    className="hover:bg-slate-50/80 transition-colors"
+                    className="transition-colors hover:bg-[#580017]/[0.025]"
                   >
-                    <td className="px-5 py-3.5 whitespace-nowrap text-slate-500 font-medium">
+                    <td className="px-5 py-4 whitespace-nowrap text-slate-500 font-medium">
                       {formatDate(rawTimestamp)}
                     </td>
-                    <td className="px-5 py-3.5 font-bold text-slate-800 whitespace-nowrap">
+                    <td className="px-5 py-3.5 whitespace-nowrap">
+                      <span className="rounded-md bg-slate-100 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-600">
+                        {log.module === "HIGHER_EDUCATION_LICENSURE"
+                          ? "Licensure"
+                          : "Programs & tracer"}
+                      </span>
+                    </td>
+                    <td className="px-5 py-4 font-bold text-slate-800 whitespace-nowrap">
                       <div className="flex flex-col">
                         <span className="truncate max-w-[200px]">
                           {log.fileName || "Spreadsheet.xlsx"}
@@ -228,7 +242,7 @@ export default function UploadHistory({ refreshTrigger }) {
                     <td className="px-5 py-3.5 font-mono font-bold text-slate-900 whitespace-nowrap">
                       {log.recordsProcessed ?? 0}
                     </td>
-                    <td className="px-5 py-3.5 text-right whitespace-nowrap">
+                    <td className="px-5 py-4 text-right whitespace-nowrap">
                       <span
                         className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ${statusBadge.className}`}
                       >

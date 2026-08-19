@@ -1,5 +1,4 @@
 import ImpactRankings from "../staticData/achievements/impactRankings.jsx";
-import LicensureExam from "../staticData/achievements/licensureData.jsx";
 import LetPerformanceExam from "../staticData/achievements/letPerformance.jsx";
 import BoardExam from "../staticData/boardExam/boardExam.jsx";
 
@@ -10,7 +9,6 @@ export default function AchievementsCharts() {
       <ImpactRankings />
       {/* Program Registry Breakdown Audit */}
       <BoardExam />
-      <LicensureExam />
       {/* PRC National LET Top 10 Benchmark Chart */}
       <LetPerformanceExam />
     </div>

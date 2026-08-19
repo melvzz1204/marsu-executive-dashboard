@@ -201,49 +201,60 @@ export default function Sidebar({ activeTab, onNavClick, isOpen, onClose }) {
 
   return (
     <aside
-      className={`fixed inset-y-0 left-0 z-40 flex h-dvh w-[min(20rem,calc(100vw-3rem))] flex-shrink-0 flex-col justify-between border-r border-[#D4AF37]/20 bg-[#580017] text-white shadow-2xl transition-transform duration-300 lg:static lg:h-screen lg:w-80 lg:translate-x-0 ${
+      className={`fixed inset-y-0 left-0 z-40 flex h-dvh w-[min(20rem,calc(100vw-3rem))] flex-shrink-0 flex-col border-r border-[#c5a059]/25 bg-[#580017] text-white shadow-2xl transition-transform duration-300 lg:static lg:h-screen lg:w-72 lg:translate-x-0 ${
         isOpen ? "translate-x-0" : "-translate-x-full"
       }`}
     >
-      <div className="flex flex-col h-full overflow-y-auto">
-        {/* Sidebar Top Title */}
-        <div className="p-6 border-b border-white/10 flex items-center justify-between">
-          <div>
-            <h2 className="text-base font-black font-oswald uppercase tracking-wider text-white">
-              Admin Control
-            </h2>
-            <span className="text-[10px] text-[#D4AF37] font-mono tracking-widest block uppercase">
-              MarSU Data Portal
-            </span>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/15 text-white/80 hover:bg-white/10 lg:hidden"
-              aria-label="Close admin navigation"
-            >
-              <svg
-                className="h-5 w-5"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                viewBox="0 0 24 24"
-                aria-hidden="true"
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+        <div className="border-b border-white/10 px-5 py-5 sm:px-6">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="mb-3 flex items-center gap-2">
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#D4AF37] text-sm font-black text-[#580017]">
+                  M
+                </span>
+                <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/55">
+                  MarSU Portal
+                </span>
+              </div>
+              <h2 className="text-lg font-black uppercase tracking-wide text-white">
+                Admin Control
+              </h2>
+              <p className="mt-1 text-[10px] font-medium uppercase tracking-[0.16em] text-[#D4AF37]">
+                Data operations workspace
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_0_4px_rgba(52,211,153,0.12)]" />
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/15 text-white/80 transition hover:bg-white/10 lg:hidden"
+                aria-label="Close admin navigation"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M6 18 18 6M6 6l12 12"
-                />
-              </svg>
-            </button>
+                <svg
+                  className="h-5 w-5"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M6 18 18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* Sidebar Navigation Items */}
-        <nav className="p-3 space-y-1 my-2">
+        <nav className="px-3 py-5">
+          <p className="mb-3 px-3 text-[10px] font-bold uppercase tracking-[0.2em] text-white/40">
+            Workspace modules
+          </p>
           {navItems.map((item) => {
             const hasChildren = Boolean(
               item.children && item.children.length > 0,
@@ -265,24 +276,28 @@ export default function Sidebar({ activeTab, onNavClick, isOpen, onClose }) {
                       onClose();
                     }
                   }}
-                  className={`w-full flex items-center justify-between px-4 py-3.5 rounded-xl transition-all duration-200 text-left cursor-pointer ${
+                  className={`group w-full flex items-center justify-between rounded-xl px-3 py-3 text-left transition-all duration-200 cursor-pointer ${
                     isParentActive
-                      ? "bg-white/10 text-white font-black shadow-lg border-l-4 border-[#D4AF37]"
-                      : "text-slate-200 hover:bg-white/5 hover:text-white"
+                      ? "bg-white text-[#580017] font-black shadow-[0_8px_20px_rgba(0,0,0,0.14)]"
+                      : "text-white/70 hover:bg-white/10 hover:text-white"
                   }`}
                 >
-                  <div className="flex items-center gap-3.5 pr-2">
-                    <div className="flex-shrink-0">{item.icon}</div>
-                    <span className="text-xs font-bold font-oswald uppercase tracking-wide leading-tight">
+                  <div className="flex items-center gap-3 pr-2">
+                    <div
+                      className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg ${isParentActive ? "bg-[#580017]/10" : "bg-white/5 group-hover:bg-white/10"}`}
+                    >
+                      {item.icon}
+                    </div>
+                    <span className="text-xs font-bold uppercase tracking-wide leading-tight">
                       {item.label}
                     </span>
                   </div>
 
                   {hasChildren && (
                     <svg
-                      className={`w-4 h-4 text-[#D4AF37] transition-transform duration-200 flex-shrink-0 ${
-                        isSubOpen ? "rotate-180" : "rotate-0"
-                      }`}
+                      className={`h-4 w-4 transition-transform duration-200 flex-shrink-0 ${
+                        isParentActive ? "text-[#580017]" : "text-[#D4AF37]"
+                      } ${isSubOpen ? "rotate-180" : "rotate-0"}`}
                       fill="none"
                       viewBox="0 0 24 24"
                       stroke="currentColor"
@@ -299,7 +314,7 @@ export default function Sidebar({ activeTab, onNavClick, isOpen, onClose }) {
 
                 {/* Sub-navigation Items */}
                 {hasChildren && isSubOpen && (
-                  <div className="pl-9 pr-1 py-1 space-y-1 border-l-2 border-[#D4AF37]/20 ml-5">
+                  <div className="ml-7 space-y-1 border-l border-[#D4AF37]/30 py-2 pl-4">
                     {item.children.map((child) => {
                       const isSelected = activeTab === child.id;
                       return (
@@ -309,10 +324,10 @@ export default function Sidebar({ activeTab, onNavClick, isOpen, onClose }) {
                             onNavClick(child.id);
                             onClose();
                           }}
-                          className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-xs font-medium text-left transition-all cursor-pointer ${
+                          className={`w-full flex items-center gap-2 rounded-lg px-3 py-2.5 text-left text-xs font-medium transition-all cursor-pointer ${
                             isSelected
-                              ? "bg-[#ffffff] text-[#580017] font-black shadow-sm"
-                              : "text-slate-300 hover:bg-white/10 hover:text-white"
+                              ? "bg-white text-[#580017] font-black shadow-sm"
+                              : "text-white/60 hover:bg-white/10 hover:text-white"
                           }`}
                         >
                           <span className="w-1.5 h-1.5 rounded-full bg-current opacity-60"></span>
@@ -328,11 +343,10 @@ export default function Sidebar({ activeTab, onNavClick, isOpen, onClose }) {
         </nav>
       </div>
 
-      {/* Sidebar Footer - Custom Logout Button */}
-      <div className="px-3 pt-4 pb-4 mt-auto border-t border-white/10 bg-[#4a0013]">
+      <div className="mt-auto border-t border-white/10 bg-[#4a0013] px-3 py-4">
         <button
           onClick={handleLogout}
-          className="group flex w-full cursor-pointer items-center gap-4 rounded-xl border border-rose-500/20 bg-rose-500/10 px-4 py-3.5 text-xs tracking-wide text-rose-200 transition-all duration-200 hover:border-rose-500/40 hover:bg-rose-600/30 hover:text-white"
+          className="group flex w-full cursor-pointer items-center gap-3 rounded-xl border border-rose-300/15 bg-rose-300/10 px-3 py-3 text-xs tracking-wide text-rose-100 transition-all duration-200 hover:border-rose-300/30 hover:bg-rose-600/30 hover:text-white"
         >
           <span className="text-rose-400 group-hover:text-rose-200 transition-colors">
             <svg
@@ -349,7 +363,7 @@ export default function Sidebar({ activeTab, onNavClick, isOpen, onClose }) {
               />
             </svg>
           </span>
-          <span className="font-oswald tracking-wide text-sm uppercase whitespace-nowrap">
+          <span className="font-oswald text-xs font-bold uppercase tracking-[0.14em] whitespace-nowrap">
             Logout
           </span>
         </button>

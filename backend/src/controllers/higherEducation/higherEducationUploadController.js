@@ -317,7 +317,9 @@ exports.uploadHigherEducationExcel = async (req, res) => {
  */
 exports.getUploadLogs = async (req, res) => {
   try {
-    const logs = await UploadLog.find({ module: "HIGHER_EDUCATION" })
+    const logs = await UploadLog.find({
+      module: { $in: ["HIGHER_EDUCATION", "HIGHER_EDUCATION_LICENSURE"] },
+    })
       .sort({ uploadedAt: -1 })
       .limit(100);
 
@@ -340,7 +342,9 @@ exports.getUploadLogs = async (req, res) => {
  */
 exports.clearUploadLogs = async (req, res) => {
   try {
-    const result = await UploadLog.deleteMany({ module: "HIGHER_EDUCATION" });
+    const result = await UploadLog.deleteMany({
+      module: { $in: ["HIGHER_EDUCATION", "HIGHER_EDUCATION_LICENSURE"] },
+    });
 
     return res.status(200).json({
       success: true,

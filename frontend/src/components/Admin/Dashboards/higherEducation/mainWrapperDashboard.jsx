@@ -29,8 +29,8 @@ export default function MainWrapperDashboard({ isDarkMode = false }) {
   }, []);
 
   return (
-    <div className="min-h-screen py-10 px-4 sm:px-6 lg:px-8 transition-colors duration-500">
-      <div className="max-w-7xl mx-auto flex flex-col gap-4">
+    <div className="min-h-screen transition-colors duration-500">
+      <div className=" mx-auto flex flex-col gap-10">
         <div ref={precedingContentRef}>
           <HigherEducationSection isDarkMode={isDarkMode} />
         </div>

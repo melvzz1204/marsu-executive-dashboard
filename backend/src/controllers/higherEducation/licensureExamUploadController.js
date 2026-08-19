@@ -75,7 +75,11 @@ exports.uploadLicensureExcel = async (req, res) => {
         const rawPassed = extractCellValue(row.getCell(4));
         const rawPassingRate = extractCellValue(row.getCell(5));
 
-        if (rawCat && !rawCat.startsWith("*") && rawCat.toUpperCase() !== "TOTAL") {
+        if (
+          rawCat &&
+          !rawCat.startsWith("*") &&
+          rawCat.toUpperCase() !== "TOTAL"
+        ) {
           currentCategory = rawCat;
         }
 
@@ -97,16 +101,19 @@ exports.uploadLicensureExcel = async (req, res) => {
         let passingRate = 0;
         if (!isNda) {
           if (typeof rawPassingRate === "number") {
-            passingRate = rawPassingRate > 1 ? rawPassingRate / 100 : rawPassingRate;
+            passingRate =
+              rawPassingRate > 1 ? rawPassingRate / 100 : rawPassingRate;
           } else {
-            const cleanedRate = parseFloat(String(rawPassingRate).replace("%", "").trim());
+            const cleanedRate = parseFloat(
+              String(rawPassingRate).replace("%", "").trim(),
+            );
             passingRate = isNaN(cleanedRate)
               ? takers > 0
                 ? passed / takers
                 : 0
               : cleanedRate > 1
-              ? cleanedRate / 100
-              : cleanedRate;
+                ? cleanedRate / 100
+                : cleanedRate;
           }
         }
 
@@ -141,7 +148,7 @@ exports.uploadLicensureExcel = async (req, res) => {
 
     if (existingRecords.length > 0 && !forceOverwrite) {
       await UploadLog.create({
-        module: "HIGHER_EDUCATION",
+        module: "HIGHER_EDUCATION_LICENSURE",
         fileName,
         fileSize,
         uploadedBy,
@@ -162,15 +169,15 @@ exports.uploadLicensureExcel = async (req, res) => {
       LicensureExam.findOneAndUpdate(
         { year: item.year, programName: item.programName },
         { $set: item },
-        { upsert: true, new: true, runValidators: true }
-      )
+        { upsert: true, new: true, runValidators: true },
+      ),
     );
 
     await Promise.all(savePromises);
 
     // Write Log
     await UploadLog.create({
-      module: "HIGHER_EDUCATION",
+      module: "HIGHER_EDUCATION_LICENSURE",
       fileName,
       fileSize,
       uploadedBy,
@@ -185,12 +192,15 @@ exports.uploadLicensureExcel = async (req, res) => {
         ? `Successfully overwritten ${parsedRecords.length} licensure performance records!`
         : `Successfully ingested ${parsedRecords.length} licensure performance records!`,
       count: parsedRecords.length,
+      stats: {
+        recordsProcessed: parsedRecords.length,
+      },
     });
   } catch (error) {
     console.error("Critical Licensure Processing Exception:", error);
 
     await UploadLog.create({
-      module: "HIGHER_EDUCATION",
+      module: "HIGHER_EDUCATION_LICENSURE",
       fileName,
       fileSize,
       uploadedBy,
@@ -199,6 +209,12 @@ exports.uploadLicensureExcel = async (req, res) => {
       isOverwrite: forceOverwrite,
     }).catch(() => {});
 
-    return res.status(500).json({ success: false, error: error.message });
+    const isWorkbookError = /zip|workbook|excel|xlsx/i.test(error.message);
+    return res.status(isWorkbookError ? 400 : 500).json({
+      success: false,
+      error: isWorkbookError
+        ? "The uploaded file is not a valid .xlsx workbook."
+        : "Licensure upload processing failed.",
+    });
   }
 };
