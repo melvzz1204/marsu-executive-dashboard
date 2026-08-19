@@ -130,7 +130,7 @@ function MainDashboard() {
           </p>
         </div>
 
-        <main className="mx-auto w-full max-w-screen-2xl space-y-6 p-4 sm:p-6 lg:space-y-10 lg:p-12">
+        <main className="w-full space-y-6 p-4 sm:p-6 lg:space-y-10 lg:px-8 lg:py-10 2xl:px-10">
           {/* HEADER STRIP ROW */}
           <div
             className={`flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pb-6 border-b transition-colors duration-300 ${

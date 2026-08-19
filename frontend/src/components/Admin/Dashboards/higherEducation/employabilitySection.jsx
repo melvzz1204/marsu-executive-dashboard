@@ -268,7 +268,7 @@ export default function EmployabilityMetrics() {
 
   return (
     <div className="min-h-screen bg-white text-slate-800 antialiased rounded-2xl font-sans">
-      <div className="max-w-7xl mx-auto space-y-6 p-10">
+      <div className="w-full space-y-6 p-4 sm:p-6 lg:px-8 lg:py-10 2xl:px-10">
         {/* HEADER CONTROL LAYER */}
         <div
           id="block-employability-tracer"

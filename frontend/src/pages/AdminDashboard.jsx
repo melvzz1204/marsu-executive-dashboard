@@ -51,7 +51,7 @@ export default function AdminDashboard() {
 
       <main className="flex min-w-0 flex-1 flex-col overflow-y-auto">
         <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 px-4 py-4 backdrop-blur sm:px-6 lg:px-10 lg:py-5">
-          <div className="mx-auto flex max-w-[1440px] items-center justify-between gap-4">
+          <div className="flex w-full items-center justify-between gap-4">
             <div className="flex min-w-0 items-center gap-3">
               <button
                 type="button"
@@ -100,7 +100,7 @@ export default function AdminDashboard() {
           </div>
         </header>
 
-        <div className="mx-auto w-full max-w-[1440px] flex-1 space-y-6 p-4 sm:p-6 lg:p-10">
+        <div className="w-full flex-1 space-y-6 p-4 sm:p-6 lg:px-8 lg:py-10 2xl:px-10">
           {isActiveWorkspace && (
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-5">
               <div>

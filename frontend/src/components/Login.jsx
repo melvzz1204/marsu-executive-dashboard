@@ -158,7 +158,7 @@ const Login = () => {
           <div className="absolute inset-0 opacity-[0.03] pointer-events-none bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:16px_16px]"></div>
           <div className="absolute -bottom-20 -left-20 w-64 h-64 bg-[#D4AF37]/10 rounded-full blur-3xl"></div>
 
-          <div className="flex justify-center w-full z-10 md:justify-start">
+          <div className="z-10 flex w-full justify-center">
             <div className="flex h-20 w-20 items-center justify-center sm:h-28 sm:w-28 md:h-38 md:w-38">
               <img
                 src={marsuLogo}
@@ -332,7 +332,7 @@ const Login = () => {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 flex items-center pr-4 text-slate-400 hover:text-slate-600 transition-colors"
+                  className="absolute inset-y-0 right-0 flex cursor-pointer items-center pr-4 text-slate-400 transition-colors hover:text-slate-600"
                 >
                   {showPassword ? (
                     <svg
@@ -391,7 +391,7 @@ const Login = () => {
             <button
               type="submit"
               disabled={isLoading}
-              className="relative mt-2 flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl bg-[#660033] px-4 py-3.5 text-xs font-bold uppercase tracking-wider text-white shadow-sm transition-all duration-200 hover:bg-[#7a001e] border border-[#D4AF37]/20 active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed font-oswald"
+              className="relative mt-2 flex w-full cursor-pointer items-center justify-center gap-2 overflow-hidden rounded-xl border border-[#D4AF37]/20 bg-[#660033] px-4 py-3.5 font-oswald text-xs font-bold uppercase tracking-wider text-white shadow-sm transition-all duration-200 hover:bg-[#7a001e] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
             >
               <span>
                 {isLoading ? "Validating Credentials..." : "Authorize Sign In"}

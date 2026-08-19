@@ -402,7 +402,7 @@ export default function EnrollmentDashboard({ isPublicView = false }) {
 
   return (
     <div className="min-h-screen min-w-0 bg-white text-slate-800 antialiased rounded-xl sm:rounded-2xl font-sans">
-      <div className="mx-auto max-w-7xl space-y-4 p-3 sm:space-y-6 sm:p-6 lg:p-10">
+      <div className="w-full space-y-4 p-3 sm:space-y-6 sm:p-6 lg:px-8 lg:py-10 2xl:px-10">
         {/* HEADER CONTROL LAYER (Global Controls) */}
         <div className="flex flex-col items-start justify-between gap-4 rounded-xl border border-slate-100 bg-white p-4 shadow-sm sm:rounded-2xl sm:p-6 lg:flex-row lg:items-center lg:gap-6">
           <div>
