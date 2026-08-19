@@ -200,7 +200,7 @@ export default function AccreditationDashboard() {
   const kpis = stats?.kpis || {};
 
   return (
-    <div className="min-h-screen rounded-2xl bg-slate-50 p-4 font-sans text-slate-800 sm:p-6 lg:p-8">
+    <div className="min-h-screen rounded-2xl bg-white p-4 font-sans text-slate-800 sm:p-6 lg:p-8">
       <div className="space-y-6">
         {/* Header Grid */}
         <div>
