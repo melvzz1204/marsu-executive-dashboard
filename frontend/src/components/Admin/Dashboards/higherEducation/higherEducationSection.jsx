@@ -201,7 +201,7 @@ export default function AccreditationDashboard() {
 
   return (
     <div className="min-h-screen rounded-2xl bg-slate-50 p-4 font-sans text-slate-800 sm:p-6 lg:p-8">
-      <div className="mx-auto max-w-6xl space-y-6">
+      <div className="space-y-6">
         {/* Header Grid */}
         <div>
           <h1 className="text-2xl font-black tracking-tight text-slate-900">
