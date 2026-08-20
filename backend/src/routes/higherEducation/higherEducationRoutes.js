@@ -22,10 +22,12 @@ router.post(
   excelUpload.single("file"),
   uploadHigherEducationExcel,
 );
+
 router
   .route("/logs")
   .get(authorize("admin"), getUploadLogs)
   .delete(authorize("admin"), clearUploadLogs);
+
 router.get("/stats", getHigherEducationStats);
 router.get("/programs", getHigherEducationPrograms);
 

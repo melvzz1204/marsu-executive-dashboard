@@ -74,17 +74,28 @@ exports.getHigherEducationStats = async (req, res) => {
           ? item.employedCount
           : Math.round((item.graduateCount || 0) * (item.employabilityRate || 0));
 
+      // Map program-level breakdown items if available
+      const programBreakdown = (item.programBreakdown || []).map((prog) => ({
+        _id: prog._id,
+        college: prog.college || "General",
+        programName: prog.programName,
+        totalGraduates: prog.totalGraduates || 0,
+        totalEmployed: prog.totalEmployed || 0,
+        employmentRatePercentage: Math.round((prog.employmentRate || 0) * 10000) / 100,
+      }));
+
       return {
         year: item.year,
         totalGraduates: item.graduateCount,
-        employedCount: count, // 💡 NEW FIELD PASSED TO FRONTEND
+        employedCount: count,
         employabilityPercentage: Math.round((item.employabilityRate || 0) * 10000) / 100,
+        programBreakdown, // 💡 EXPOSES PER-PROGRAM EMPLOYABILITY BREAKDOWN
       };
     });
 
     // Calculate Overall Totals and Average Employability
     const totalGraduatesSum = tracerData.reduce((acc, curr) => acc + (curr.graduateCount || 0), 0);
-    
+
     const totalEmployedSum = tracerData.reduce((acc, curr) => {
       const employed =
         curr.employedCount !== undefined && curr.employedCount !== null
@@ -107,8 +118,8 @@ exports.getHigherEducationStats = async (req, res) => {
           totalPrograms,
           activeAccreditations,
           expiredOrPending,
-          totalGraduates: totalGraduatesSum, // 💡 Optional KPI
-          totalEmployed: totalEmployedSum,   // 💡 Optional KPI
+          totalGraduates: totalGraduatesSum,
+          totalEmployed: totalEmployedSum,
           cumulativeEmployabilityPercentage: cumulativeEmployability,
         },
         accreditationBreakdown,
