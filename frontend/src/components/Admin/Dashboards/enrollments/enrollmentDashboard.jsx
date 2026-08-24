@@ -57,6 +57,47 @@ const Skeleton = ({ className }) => (
   <div className={`animate-pulse bg-slate-200/60 rounded ${className}`}></div>
 );
 
+const ProgramSparkline = ({ values, isDeclining }) => {
+  const width = 84;
+  const height = 28;
+  const safeValues = values?.length > 0 ? values : [0];
+  const min = Math.min(...safeValues);
+  const max = Math.max(...safeValues);
+  const range = max - min || 1;
+  const denominator = Math.max(safeValues.length - 1, 1);
+  const points = safeValues
+    .map((value, index) => {
+      const x = (index / denominator) * width;
+      const y = height - 3 - ((value - min) / range) * (height - 6);
+      return `${x},${y}`;
+    })
+    .join(" ");
+
+  return (
+    <svg
+      viewBox={`0 0 ${width} ${height}`}
+      className="h-7 w-20 shrink-0 overflow-visible"
+      role="img"
+      aria-label={`Enrollment trend: ${safeValues.join(", ")}`}
+    >
+      <polyline
+        points={points}
+        fill="none"
+        stroke={isDeclining ? "#e11d48" : "#660033"}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <circle
+        cx={width}
+        cy={points.split(" ").at(-1)?.split(",")[1] || height / 2}
+        r="2.5"
+        fill={isDeclining ? "#e11d48" : "#660033"}
+      />
+    </svg>
+  );
+};
+
 export default function EnrollmentDashboard({ isPublicView = false }) {
   // GLOBAL FILTERS (These control the entire dashboard)
   const [availableYears, setAvailableYears] = useState([]);
@@ -84,6 +125,12 @@ export default function EnrollmentDashboard({ isPublicView = false }) {
 
   const [programTrendData, setProgramTrendData] = useState([]);
   const [isProgramTrendLoading, setIsProgramTrendLoading] = useState(false);
+  const [programRisk, setProgramRisk] = useState({
+    latestYear: null,
+    previousYear: null,
+    programs: [],
+  });
+  const [isProgramRiskLoading, setIsProgramRiskLoading] = useState(false);
 
   const API_BASE = `${API_BASE_URL}/enrollment`;
 
@@ -128,6 +175,40 @@ export default function EnrollmentDashboard({ isPublicView = false }) {
 
     fetchProgramTrend();
   }, [selectedDetailEntity, selectedCampus, selectedSemester]);
+
+  useEffect(() => {
+    if (!selectedCampus || !selectedSemester) return;
+
+    const fetchProgramRisk = async () => {
+      setIsProgramRiskLoading(true);
+      try {
+        const token = localStorage.getItem("token");
+        const queryParams = new URLSearchParams({
+          campus: selectedCampus,
+          semester: selectedSemester,
+        });
+        const response = await fetch(
+          `${API_BASE}/program-risk?${queryParams}`,
+          {
+            headers: { Authorization: `Bearer ${token || ""}` },
+          },
+        );
+        const json = await response.json();
+        setProgramRisk(
+          response.ok && json.success
+            ? json.data
+            : { latestYear: null, previousYear: null, programs: [] },
+        );
+      } catch (err) {
+        console.error("Failed to fetch program risk analysis:", err);
+        setProgramRisk({ latestYear: null, previousYear: null, programs: [] });
+      } finally {
+        setIsProgramRiskLoading(false);
+      }
+    };
+
+    fetchProgramRisk();
+  }, [selectedCampus, selectedSemester]);
 
   useEffect(() => {
     const fetchFilters = async () => {
@@ -556,6 +637,92 @@ export default function EnrollmentDashboard({ isPublicView = false }) {
             </span>
           </div>
         </div>
+
+        <section
+          className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4 shadow-sm sm:p-5"
+          aria-labelledby="program-review-heading"
+        >
+          <div className="flex flex-col gap-2 border-b border-slate-200 pb-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h2
+                id="program-review-heading"
+                className="mt-1 text-sm font-black text-slate-900 capitalize"
+              >
+                Lowest enrollment and declining trends
+              </h2>
+            </div>
+            <p className="text-[10px] font-medium text-slate-500 sm:text-right">
+              {programRisk.latestYear
+                ? `AY ${programRisk.latestYear}${programRisk.previousYear ? ` vs AY ${programRisk.previousYear}` : ""}`
+                : "Awaiting enrollment history"}
+              <br />
+              {selectedCampus || "Selected campus"} · {selectedSemester}
+            </p>
+          </div>
+
+          {isProgramRiskLoading ? (
+            <div className="grid grid-cols-1 gap-2 pt-3 sm:grid-cols-2 lg:grid-cols-3">
+              {[0, 1, 2].map((item) => (
+                <Skeleton key={item} className="h-14 w-full rounded-xl" />
+              ))}
+            </div>
+          ) : programRisk.programs.length > 0 ? (
+            <div className="grid grid-cols-1 gap-2 pt-3 sm:grid-cols-2 lg:grid-cols-3">
+              {programRisk.programs.map((program) => {
+                const hasChange = program.changePercentage !== null;
+                const changeLabel = hasChange
+                  ? `${program.changePercentage > 0 ? "+" : ""}${program.changePercentage}% YoY`
+                  : "No baseline";
+                const signalClass =
+                  program.signal === "Priority review"
+                    ? "bg-rose-50 text-rose-700 border-rose-100"
+                    : program.signal === "Declining trend"
+                      ? "bg-amber-50 text-amber-700 border-amber-100"
+                      : "bg-slate-100 text-slate-600 border-slate-200";
+
+                return (
+                  <div
+                    key={`${program.name}-${program.code}`}
+                    className="min-w-0 rounded-xl border border-slate-200 bg-white px-3 py-2.5"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <p
+                          className="truncate text-[11px] font-bold text-slate-800"
+                          title={program.name}
+                        >
+                          {program.name}
+                        </p>
+                        <div className="mt-1 flex items-end justify-between gap-2">
+                          <p className="min-w-0 text-[10px] text-slate-500">
+                            {program.current.toLocaleString()} students ·{" "}
+                            {changeLabel}
+                          </p>
+                          <ProgramSparkline
+                            values={program.history}
+                            isDeclining={
+                              program.changePercentage !== null &&
+                              program.changePercentage < 0
+                            }
+                          />
+                        </div>
+                      </div>
+                      <span
+                        className={`shrink-0 rounded-md border px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide ${signalClass}`}
+                      >
+                        {program.signal}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="pt-3 text-[11px] text-slate-500">
+              No program history is available for this campus and semester yet.
+            </p>
+          )}
+        </section>
 
         {/* VISUALIZATION ROW: MACRO TREND & COMPOSITION */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

@@ -260,6 +260,139 @@ exports.upsertEnrollmentAnalytics = async (req, res) => {
   }
 };
 
+// @route   GET /api/v1/enrollment/program-risk
+// @access  Public / Private
+// ==========================================
+exports.getProgramRisk = async (req, res) => {
+  try {
+    const { campus, semester } = req.query;
+    const semesterName = semester || "1st Semester";
+    const matchQuery = { semester: semesterName };
+
+    if (campus && campus.toLowerCase() !== "all") {
+      matchQuery.campus = campus;
+    }
+
+    const snapshots = await EnrollmentAnalytics.find(matchQuery)
+      .sort({ academicYear: -1 })
+      .select("academicYear campus programs")
+      .lean();
+
+    const allYears = [
+      ...new Set(snapshots.map((snapshot) => snapshot.academicYear)),
+    ].sort((a, b) => a - b);
+    const years = allYears.slice(-2).reverse();
+    const latestYear = years[0];
+    const previousYear = years[1];
+
+    if (latestYear === undefined) {
+      return res.status(200).json({
+        success: true,
+        data: { latestYear: null, previousYear: null, programs: [] },
+      });
+    }
+
+    const totalsByYear = new Map();
+    snapshots.forEach((snapshot) => {
+      const programs = totalsByYear.get(snapshot.academicYear) || new Map();
+      (snapshot.programs || []).forEach((program) => {
+        const name = program.programName || "Unnamed Program";
+        const existing = programs.get(name) || {
+          name,
+          code: program.programCode || "",
+          current: 0,
+          previous: 0,
+        };
+        existing[
+          snapshot.academicYear === latestYear ? "current" : "previous"
+        ] += program.studentCount || 0;
+        if (!existing.code && program.programCode)
+          existing.code = program.programCode;
+        programs.set(name, existing);
+      });
+      totalsByYear.set(snapshot.academicYear, programs);
+    });
+
+    const latestPrograms = totalsByYear.get(latestYear) || new Map();
+    const previousPrograms = totalsByYear.get(previousYear) || new Map();
+    const programNames = new Set([
+      ...latestPrograms.keys(),
+      ...previousPrograms.keys(),
+    ]);
+    const programs = [...programNames].map((name) => ({
+      name,
+      code:
+        latestPrograms.get(name)?.code ||
+        previousPrograms.get(name)?.code ||
+        "",
+      current: latestPrograms.get(name)?.current || 0,
+      previous: previousPrograms.get(name)?.previous || 0,
+      history: allYears.map((year) => {
+        const snapshot = snapshots.filter((item) => item.academicYear === year);
+        return snapshot.reduce(
+          (sum, item) =>
+            sum +
+            (item.programs || [])
+              .filter((program) => program.programName === name)
+              .reduce(
+                (programSum, program) =>
+                  programSum + (program.studentCount || 0),
+                0,
+              ),
+          0,
+        );
+      }),
+    }));
+
+    const rankedPrograms = programs
+      .map((program) => {
+        const hasBaseline = previousYear !== undefined && program.previous > 0;
+        const changePercentage = hasBaseline
+          ? Number(
+              (
+                ((program.current - program.previous) / program.previous) *
+                100
+              ).toFixed(1),
+            )
+          : null;
+        const isDeclining = hasBaseline && changePercentage < 0;
+        const isLowEnrollment = program.current <= 10;
+        return {
+          ...program,
+          changePercentage,
+          signal:
+            isDeclining && isLowEnrollment
+              ? "Priority review"
+              : isDeclining
+                ? "Declining trend"
+                : isLowEnrollment
+                  ? "Low enrollment"
+                  : "Monitor",
+          score: (isDeclining ? 2 : 0) + (isLowEnrollment ? 2 : 0),
+        };
+      })
+      .sort(
+        (a, b) =>
+          b.score - a.score ||
+          a.current - b.current ||
+          (a.changePercentage ?? 0) - (b.changePercentage ?? 0),
+      )
+      .slice(0, 6);
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        latestYear,
+        previousYear: previousYear ?? null,
+        programs: rankedPrograms,
+      },
+    });
+  } catch (error) {
+    console.error("Error in getProgramRisk:", error);
+    return res.status(500).json({ success: false, error: error.message });
+  }
+};
+
 // @route   GET /api/v1/enrollment/program-trend
 // @access  Public / Private
 // ==========================================

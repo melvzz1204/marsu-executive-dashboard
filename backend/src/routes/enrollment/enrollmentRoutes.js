@@ -9,6 +9,7 @@ const {
   getEnrollmentFilters,
   upsertEnrollmentAnalytics,
   getProgramTrend,
+  getProgramRisk,
 } = require("../../controllers/enrollment/enrollmentDashboardController");
 
 const {
@@ -43,8 +44,9 @@ router.get("/filters", getEnrollmentFilters);
 // Timeline trace tracking route for the multi-year trend line component
 router.get("/trend", getEnrollmentTrend);
 
-// 2. CALL IT DIRECTLY HERE
+// Program-level trend and review analysis
 router.get("/program-trend", getProgramTrend);
+router.get("/program-risk", getProgramRisk);
 
 // Main snapshot and manual entry path
 router
