@@ -1,290 +1,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import EmpowerAgendaSection from "../components/Empower/EmpowerAgendaSection";
-
-const EMPOWER_PILLARS = [
-  {
-    letter: "E",
-    pillarNum: "Pillar 01",
-    frontTitle: "Expand innovative, inclusive, & sustainable lifelong learning",
-    backSub: "Lifelong Learning Pathways",
-    backDesc:
-      "This agenda expands inclusive and flexible lifelong learning by broadening higher education access through modular pathways and industry-aligned curricula. It ultimately drives institutional excellence and equips diverse learners for high-employability career paths.",
-    backTag: "Institutional Growth",
-    bgFrontColor: "bg-[#E5243B]",
-    badgeBg: "bg-white/20 text-white backdrop-blur-md",
-    textFront: "text-white",
-    image:
-      "https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&w=800&q=80",
-    details: [
-      {
-        outcome:
-          "E1.1. Accessible quality higher education and lifelong learning opportunities",
-        strategies:
-          "Increase access to diverse learner population, including those from underserved communities, working adults, and returning students",
-        kpis: "Student enrollment / Attrition rate",
-      },
-      {
-        outcome:
-          "E1.2. Institutionalized flexible learning pathways, recognition mechanisms, and alternative delivery modalities",
-        strategies:
-          "Develop modular, stackable programs and adopt credit transfer practices to support learner mobility and lifelong skills accumulation (ETEEAP, ODEL, and micro-credentialing initiatives)",
-        kpis: "Student enrollment in flexible learning & micro-credentials",
-      },
-      {
-        outcome:
-          "E1.3. High quality program offerings aligned with emerging demands",
-        strategies:
-          "• Engage industry partners in curriculum co-design, mentorship, applied learning experiences, internships, faculty/student immersion, and program review\n• Upgrade accreditation for all academic programs and maintain 100% compliance with COPC requirements\n• Pursue COE/COD requirements for key disciplines",
-        kpis: "• Employability / Performance in Licensure Exams\n• Accreditation / COPC compliance\n• COE/COD programs established",
-      },
-    ],
-  },
-  {
-    letter: "M",
-    pillarNum: "Pillar 02",
-    frontTitle: "Mobilize SDG-based research, development, and innovation",
-    backSub: "Technology & Innovation",
-    backDesc:
-      "Upgrading academic technology, digital learning ecosystems, and research infrastructure to foster cutting-edge discovery. We aim to equip students, faculty, and researchers with future-ready skills in an interconnected global digital economy.",
-    backTag: "Digital Transformation",
-    bgFrontColor: "bg-[#DDA63A]",
-    badgeBg: "bg-black/20 text-white backdrop-blur-md",
-    textFront: "text-white",
-    image:
-      "https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=800&q=80",
-    details: [
-      {
-        outcome: "M1. SDG-based and nationally-aligned researches",
-        strategies:
-          "Review and realign MarSU research agenda to mandate that all institutional, faculty, and student research projects are explicitly referenced against the UN SDGs",
-        kpis: "SDG-based completed / presented research outputs",
-      },
-      {
-        outcome: "M2. Strengthened research capability",
-        strategies:
-          "Enhance faculty expertise, advanced degree attainment, research infrastructure, and institutional research management systems",
-        kpis: "Research publications",
-      },
-      {
-        outcome: "M3. Increased R&D budget",
-        strategies:
-          "Increase external and institutional support for research, development, and innovation",
-        kpis: "Approved research budget",
-      },
-      {
-        outcome: "M4. Sustainable research centers",
-        strategies:
-          "Establish / sustain research laboratories or centers for research undertakings",
-        kpis: "Research centers established",
-      },
-      {
-        outcome: "M5. Established research journal",
-        strategies:
-          "Establish a robust institutional review and publication for the university research journal",
-        kpis: "Journal issues published",
-      },
-    ],
-  },
-  {
-    letter: "P",
-    pillarNum: "Pillar 03",
-    frontTitle: "Partner for transformative community impact",
-    backSub: "Strategic Alliance",
-    backDesc:
-      "Building resilient alliances with local industries, global academic institutions, and civic organizations. These partnerships create real-world impact, drive shared economic development, and provide experiential learning opportunities.",
-    backTag: "Community Engagement",
-    bgFrontColor: "bg-[#4C9F38]",
-    badgeBg: "bg-white/20 text-white backdrop-blur-md",
-    textFront: "text-white",
-    image:
-      "https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=800&q=80",
-    details: [
-      {
-        outcome: "P1. Active multi-sector partnerships",
-        strategies:
-          "Forge more active partnerships with LGUs, industries, NGOs, NGAs, HEIs, and other stakeholders",
-        kpis: "Active partnerships",
-      },
-      {
-        outcome: "P2. Meaningful and impactful community engagement",
-        strategies:
-          "• Increase participation of personnel and students in research-based ESCE activities\n• Increase the number of trained beneficiaries and engaged stakeholders",
-        kpis: "ESCE activities organized",
-      },
-      {
-        outcome: "P3. Sustainable community adoption",
-        strategies:
-          "Deploy developed technologies and technical advisories to underserved communities, far-flung coastal areas, and barangays",
-        kpis: "Impact assessment / Communities adopted",
-      },
-    ],
-  },
-  {
-    letter: "O",
-    pillarNum: "Pillar 04",
-    frontTitle: "Open global pathways and opportunities",
-    backSub: "Global Partnerships",
-    backDesc:
-      "Embedding internationalization into the curriculum, expanding ASEAN and worldwide academic collaborations, scaling mobility, and pursuing global rankings to secure international prominence.",
-    backTag: "Global Impact",
-    bgFrontColor: "bg-[#FF3A21]",
-    badgeBg: "bg-white/20 text-white backdrop-blur-md",
-    textFront: "text-white",
-    image:
-      "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=800&q=80",
-    details: [
-      {
-        outcome: "O1. Institutionalized internationalization",
-        strategies:
-          "Embed internationalization and intercultural competencies into curricula, teaching methods, and campus activities, including TNE opportunities",
-        kpis: "Internationalized programs",
-      },
-      {
-        outcome: "O2. Expanded international partnerships and collaborations",
-        strategies:
-          "Participate in ASEAN and global academic networks and international joint academic collaborations and research initiatives",
-        kpis: "Active international partnerships",
-      },
-      {
-        outcome:
-          "O3. Increased international mobility and global learning opportunities",
-        strategies:
-          "Scale up virtual and physical academic mobility programs by forging agreements with international HEIs and organizations",
-        kpis: "Faculty and student mobility",
-      },
-      {
-        outcome: "O4. Sustainable global recognition",
-        strategies:
-          "Participate in world academic rankings such as QS, THE, WURI, among others",
-        kpis: "International recognition attained",
-      },
-    ],
-  },
-  {
-    letter: "W",
-    pillarNum: "Pillar 05",
-    frontTitle:
-      "Widen production, technology transfer, commercialization, and resource generation",
-    backSub: "Resource & Tech Transfer",
-    backDesc:
-      "Accelerating resource generation through technology incubators, IP protection, expanding campus income projects, and securing alumni and industry endowments.",
-    backTag: "Commercialization",
-    bgFrontColor: "bg-[#26BDE2]",
-    badgeBg: "bg-white/20 text-white backdrop-blur-md",
-    textFront: "text-white",
-    image:
-      "https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&w=800&q=80",
-    details: [
-      {
-        outcome:
-          "W1. Technologies and innovations adopted/utilized by stakeholders",
-        strategies:
-          "• Establish technology business incubators to provide structured pathways for production and commercialization\n• Strengthen intellectual property registration, management, and commercialization",
-        kpis: "• Incubated startups assisted\n• Tech/innovation adopted\n• IPs filed/registered/adopted",
-      },
-      {
-        outcome: "W2. Maximum revenue generation",
-        strategies:
-          "• Establish new income generating projects in all campuses\n• Enhance/expand operations of existing income generating projects",
-        kpis: "• Revenue generated\n• Net income generated",
-      },
-      {
-        outcome:
-          "W3. Sustained External Resource Generation and Academic Endowments",
-        strategies:
-          "Establish Professorial Chair Awards sponsored through industry partnerships, alumni endowments, and external funding agencies",
-        kpis: "Funded Professorial Chairs established",
-      },
-    ],
-  },
-  {
-    letter: "E",
-    pillarNum: "Pillar 06",
-    frontTitle: "Elevate institutional policies, systems, and governance",
-    backSub: "Governance & Quality",
-    backDesc:
-      "Elevating institutional quality assurance, workforce competence, responsible financial stewardship, and evidence-based decision-making through analytics and executive command center operations.",
-    backTag: "Institutional Governance",
-    bgFrontColor: "bg-[#103C68]",
-    badgeBg: "bg-white/20 text-white backdrop-blur-md",
-    textFront: "text-white",
-    image:
-      "https://images.unsplash.com/photo-1577896851231-70ef18881754?auto=format&fit=crop&w=800&q=80",
-    details: [
-      {
-        outcome: "E2.1. Strengthened quality assurance mechanisms",
-        strategies:
-          "• Subscribe to management system for educational organizations (EOMS 21001:2018)\n• Undergo the Philippine Quality Award (PQA) assessment\n• Undergo institutional accreditations (AACCUP Institutional IA)",
-        kpis: "• EOMS 21001:2018 certification\n• Philippine Quality Award\n• AACCUP Institutional Accreditation",
-      },
-      {
-        outcome: "E2.2. Highly competent, ethical, and engaged workforce",
-        strategies:
-          "• Institutionalize meritocracy and excellence in HRMD\n• Support workforce development through scholarships, training, and incentives",
-        kpis: "• CSC PRIME-HRM level\n• Improved workforce profile",
-      },
-      {
-        outcome: "E2.3. Responsible and accountable financial stewardship",
-        strategies:
-          "• Comply with rules and regulations prescribed by DBM and COA\n• Ensure proper utilization of entrusted funds",
-        kpis: "• COA opinion / audit findings\n• Budget Utilization Rate",
-      },
-      {
-        outcome: "E2.4. Evidence-based governance and decision-making",
-        strategies:
-          "• Establish integrated data collection and analytics to support evidence-based policies, transparent governance, performance monitoring, and decision-making\n• Establish the University Executive Command Center to enable high-level decision-making",
-        kpis: "• Executive Dashboard uptime\n• Data Privacy Compliance\n• Executive Command Center status",
-      },
-    ],
-  },
-  {
-    letter: "R",
-    pillarNum: "Pillar 07",
-    frontTitle: "Re-engineer student and stakeholder-centered service delivery",
-    backSub: "Service Delivery",
-    backDesc:
-      "Re-engineering services through modern, paperless campus operations, holistic student welfare, equitable financial aid, streamlined workflows, and elevated public information branding.",
-    backTag: "Student-Centric",
-    bgFrontColor: "bg-[#DD1367]",
-    badgeBg: "bg-white/20 text-white backdrop-blur-md",
-    textFront: "text-white",
-    image:
-      "https://images.unsplash.com/photo-1507679799987-c73779587ccf?auto=format&fit=crop&w=800&q=80",
-    details: [
-      {
-        outcome: "R1. Holistic student welfare and support",
-        strategies:
-          "Digitalize admission and guidance counseling platforms, expand student organization support, and establish active mental health response network",
-        kpis: "Student feedback and satisfaction rate",
-      },
-      {
-        outcome: "R2. Equitable financial aid and scholarships",
-        strategies:
-          "Optimize scholarship management and promote equal opportunity and access to student aids and scholarships",
-        kpis: "Scholarships granted",
-      },
-      {
-        outcome: "R3. Consistent and responsive service delivery",
-        strategies:
-          "• Institutionalize standards, citizen's charter, manual, and workflows\n• Re-engineer and simplify administrative and frontline service processes",
-        kpis: "Customer satisfaction rate",
-      },
-      {
-        outcome: "R4. Modern and digitally-enabled operations",
-        strategies:
-          "• Continue and expand implementation of the Smart and Green Campus Program\n• Construct and maintain quality physical facilities and learning resources\n• Adopt paperless operations, automated management systems, and digital tools",
-        kpis: "• New facilities and acquisitions\n• Amount saved on paper",
-      },
-      {
-        outcome: "R5. Improved transparency, institutional image, and branding",
-        strategies:
-          "• Improve strategic communication and public information delivery through social media, website, and other platforms\n• Strengthen the use of 'transparency seal' to provide accessible and validated information for public use",
-        kpis: "• Revamped MarSU website\n• Website traffic",
-      },
-    ],
-  },
-];
+import { EMPOWER_PILLARS } from "../staticData/empowerPillars";
 
 // Framer Motion Animation Variants
 const gridContainerVariants = {
@@ -332,6 +49,7 @@ const modalVariants = {
 
 export default function EmpowerLandingPage() {
   const [selectedPillar, setSelectedPillar] = useState(null);
+  const [selectedKpi, setSelectedKpi] = useState(null);
 
   return (
     <div className="bg-slate-50 text-slate-900 min-h-screen flex flex-col justify-between antialiased selection:bg-marsu-burgundy selection:text-white font-sans overflow-x-hidden">
@@ -528,7 +246,7 @@ export default function EmpowerLandingPage() {
                   </h3>
 
                   <div className="overflow-x-auto border border-slate-200 rounded-lg shadow-sm">
-                    <table className="w-full text-left border-collapse text-xs">
+                    <table className="w-full min-w-[760px] text-left border-collapse text-xs">
                       <thead>
                         <tr className="bg-[#2c000b] text-marsu-gold font-oswald tracking-wider uppercase text-[11px] border-b-2 border-marsu-gold">
                           <th className="p-3.5 w-1/3 border-r border-marsu-gold/20">
@@ -555,8 +273,32 @@ export default function EmpowerLandingPage() {
                             <td className="p-3.5 align-top text-slate-600 leading-relaxed whitespace-pre-line border-r border-slate-100">
                               {item.strategies}
                             </td>
-                            <td className="p-3.5 align-top font-semibold text-marsu-burgundy leading-relaxed whitespace-pre-line bg-amber-50/50">
-                              {item.kpis}
+                            <td className="p-3.5 align-top bg-amber-50/50">
+                              <div className="space-y-2">
+                                {item.kpis.map((kpi) => (
+                                  <div
+                                    key={kpi.name}
+                                    className="flex items-center justify-between gap-3 rounded border border-amber-200 bg-white p-2"
+                                  >
+                                    <span className="font-semibold leading-relaxed text-marsu-burgundy">
+                                      {kpi.name}
+                                    </span>
+                                    <motion.button
+                                      whileHover={{ scale: 1.04 }}
+                                      whileTap={{ scale: 0.97 }}
+                                      onClick={() =>
+                                        setSelectedKpi({
+                                          ...kpi,
+                                          pillar: selectedPillar,
+                                        })
+                                      }
+                                      className="shrink-0 rounded bg-marsu-burgundy px-2 py-1 text-[9px] font-bold uppercase tracking-wide text-marsu-gold shadow-sm hover:bg-[#3b000f]"
+                                    >
+                                      View Target
+                                    </motion.button>
+                                  </div>
+                                ))}
+                              </div>
                             </td>
                           </motion.tr>
                         ))}
@@ -580,6 +322,89 @@ export default function EmpowerLandingPage() {
                   Close
                 </motion.button>
               </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {selectedKpi && (
+          <motion.div
+            variants={backdropVariants}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+            className="fixed inset-0 z-[60] flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm"
+            onClick={() => setSelectedKpi(null)}
+          >
+            <motion.div
+              variants={modalVariants}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+              className="[perspective:1200px] w-full max-w-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <motion.div
+                initial={{ rotateY: -90, opacity: 0 }}
+                animate={{ rotateY: 0, opacity: 1 }}
+                transition={{ type: "spring", stiffness: 180, damping: 18 }}
+                className="[transform-style:preserve-3d] overflow-hidden rounded-xl border-2 border-marsu-gold bg-white shadow-2xl"
+              >
+                <div className="border-b-2 border-marsu-gold bg-gradient-to-r from-[#2c000b] via-marsu-burgundy to-[#2c000b] p-5 text-white">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-marsu-gold">
+                        {selectedKpi.pillar.pillarNum} · Annual Target
+                      </span>
+                      <h3 className="mt-1 font-oswald text-xl font-bold uppercase tracking-wide">
+                        {selectedKpi.name}
+                      </h3>
+                    </div>
+                    <button
+                      onClick={() => setSelectedKpi(null)}
+                      className="rounded-full border border-marsu-gold/50 px-2.5 py-1 text-marsu-gold hover:bg-white/10"
+                      aria-label="Close target modal"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3 bg-slate-50 p-5 sm:grid-cols-5">
+                  <div className="rounded-lg border border-slate-200 bg-white p-3 sm:col-span-1">
+                    <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                      Baseline
+                    </span>
+                    <strong className="mt-2 block text-sm text-slate-800">
+                      {selectedKpi.baseline}
+                    </strong>
+                  </div>
+                  {[2027, 2028, 2029, 2030].map((year) => (
+                    <div
+                      key={year}
+                      className="rounded-lg border-2 border-marsu-gold/50 bg-white p-3 shadow-sm"
+                    >
+                      <span className="block text-[10px] font-bold uppercase tracking-wider text-marsu-burgundy">
+                        {year}
+                      </span>
+                      <strong className="mt-2 block text-sm text-slate-800">
+                        {selectedKpi.targets[year]}
+                      </strong>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex items-center justify-between bg-[#2c000b] px-5 py-3">
+                  <span className="text-[10px] text-marsu-gold/80">
+                    Annual target trajectory · Baseline to 2030
+                  </span>
+                  <button
+                    onClick={() => setSelectedKpi(null)}
+                    className="rounded bg-marsu-gold px-4 py-2 text-xs font-bold uppercase tracking-wider text-marsu-burgundy hover:bg-yellow-500"
+                  >
+                    Close
+                  </button>
+                </div>
+              </motion.div>
             </motion.div>
           </motion.div>
         )}
