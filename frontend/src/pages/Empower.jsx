@@ -47,6 +47,116 @@ const modalVariants = {
   },
 };
 
+const getTrendPoint = (value, values) => {
+  const numericValue = Number.parseFloat(
+    String(value)
+      .replace(/,/g, "")
+      .match(/-?\d+(?:\.\d+)?/)?.[0],
+  );
+  const numericValues = values
+    .map((item) =>
+      Number.parseFloat(
+        String(item)
+          .replace(/,/g, "")
+          .match(/-?\d+(?:\.\d+)?/)?.[0],
+      ),
+    )
+    .filter((item) => Number.isFinite(item));
+
+  if (!Number.isFinite(numericValue) || numericValues.length === 0) return 50;
+  const minimum = Math.min(...numericValues);
+  const maximum = Math.max(...numericValues, minimum + 1);
+  return 88 - ((numericValue - minimum) / (maximum - minimum)) * 68;
+};
+
+function TargetTrend({ kpi }) {
+  const points = [
+    { label: "Base", value: kpi.baseline },
+    ...[2027, 2028, 2029, 2030].map((year) => ({
+      label: year,
+      value: kpi.targets[year],
+    })),
+  ];
+  const values = points.map((point) => point.value);
+  const coordinates = points.map((point, index) => ({
+    ...point,
+    x: 22 + index * 64,
+    y: getTrendPoint(point.value, values),
+  }));
+  const linePath = coordinates
+    .map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`)
+    .join(" ");
+
+  return (
+    <div className="border-b border-slate-200 bg-white px-5 pb-4 pt-3">
+      <div className="mb-2 flex items-center justify-between">
+        <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">
+          Target trend
+        </span>
+        <span className="text-[10px] text-slate-400">Baseline to 2030</span>
+      </div>
+      <div className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-2">
+        <svg
+          viewBox="0 0 278 112"
+          className="h-24 w-full"
+          role="img"
+          aria-label="Annual target trend line graph"
+        >
+          {[20, 54, 88].map((y) => (
+            <line
+              key={y}
+              x1="14"
+              x2="270"
+              y1={y}
+              y2={y}
+              stroke="#e2e8f0"
+              strokeWidth="1"
+            />
+          ))}
+          <motion.path
+            d={linePath}
+            fill="none"
+            stroke="#660033"
+            strokeWidth="3"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            pathLength="1"
+            initial={{ pathLength: 0 }}
+            animate={{ pathLength: 1 }}
+            transition={{ duration: 0.8, ease: "easeOut" }}
+          />
+          {coordinates.map((point, index) => (
+            <g key={point.label}>
+              <motion.circle
+                cx={point.x}
+                cy={point.y}
+                r="4.5"
+                fill={index === 0 ? "#94a3b8" : "#D4AF37"}
+                stroke="#660033"
+                strokeWidth="2"
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ delay: 0.12 + index * 0.1 }}
+              />
+              <text
+                x={point.x}
+                y="106"
+                textAnchor="middle"
+                fontSize="9"
+                fontWeight="700"
+                fill="#64748b"
+              >
+                {point.label}
+              </text>
+              <title>{`${point.label}: ${point.value}`}</title>
+            </g>
+          ))}
+        </svg>
+      </div>
+    </div>
+  );
+}
+
 export default function EmpowerLandingPage() {
   const [selectedPillar, setSelectedPillar] = useState(null);
   const [selectedKpi, setSelectedKpi] = useState(null);
@@ -370,6 +480,7 @@ export default function EmpowerLandingPage() {
                     </button>
                   </div>
                 </div>
+                <TargetTrend kpi={selectedKpi} />
                 <div className="grid grid-cols-2 gap-3 bg-slate-50 p-5 sm:grid-cols-5">
                   <div className="rounded-lg border border-slate-200 bg-white p-3 sm:col-span-1">
                     <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">
