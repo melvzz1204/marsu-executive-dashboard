@@ -125,6 +125,7 @@ export default function EnrollmentDashboard({ isPublicView = false }) {
 
   const [programTrendData, setProgramTrendData] = useState([]);
   const [isProgramTrendLoading, setIsProgramTrendLoading] = useState(false);
+  const [programRiskView, setProgramRiskView] = useState("highest");
   const [programRisk, setProgramRisk] = useState({
     latestYear: null,
     previousYear: null,
@@ -186,6 +187,7 @@ export default function EnrollmentDashboard({ isPublicView = false }) {
         const queryParams = new URLSearchParams({
           campus: selectedCampus,
           semester: selectedSemester,
+          view: programRiskView === "highest" ? "highest" : "lowest",
         });
         const response = await fetch(
           `${API_BASE}/program-risk?${queryParams}`,
@@ -208,7 +210,7 @@ export default function EnrollmentDashboard({ isPublicView = false }) {
     };
 
     fetchProgramRisk();
-  }, [selectedCampus, selectedSemester]);
+  }, [selectedCampus, selectedSemester, programRiskView]);
 
   useEffect(() => {
     const fetchFilters = async () => {
@@ -340,6 +342,14 @@ export default function EnrollmentDashboard({ isPublicView = false }) {
       direction = "desc";
     }
     setSortConfig({ key, direction });
+  };
+
+  const handleProgramRiskClick = (programName) => {
+    setSelectedDetailEntity(programName);
+    document.getElementById("program-trajectory")?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
   };
 
   const macroTrendData = useMemo(() => {
@@ -642,14 +652,53 @@ export default function EnrollmentDashboard({ isPublicView = false }) {
           className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4 shadow-sm sm:p-5"
           aria-labelledby="program-review-heading"
         >
-          <div className="flex flex-col gap-2 border-b border-slate-200 pb-3 sm:flex-row sm:items-end sm:justify-between">
+          <div className="flex flex-col gap-3 border-b border-slate-200 pb-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <h2
-                id="program-review-heading"
-                className="mt-1 text-sm font-black text-slate-900 capitalize"
-              >
-                Lowest enrollment and declining trends
-              </h2>
+              <div className="flex flex-wrap items-center gap-2">
+                <h2
+                  id="program-review-heading"
+                  className="mt-1 text-sm font-black text-slate-900 capitalize"
+                >
+                  {programRiskView === "highest"
+                    ? "Highest enrollment and leading trends"
+                    : "Lowest enrollment and declining trends"}
+                </h2>
+                <div
+                  className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5 shadow-sm"
+                  role="group"
+                  aria-label="Enrollment program view"
+                >
+                  <button
+                    type="button"
+                    aria-pressed={programRiskView === "lowest"}
+                    onClick={() => setProgramRiskView("lowest")}
+                    className={`rounded-md px-2.5 py-1 text-[10px] font-bold transition-colors ${
+                      programRiskView === "lowest"
+                        ? "bg-[#660033] text-white"
+                        : "text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+                    }`}
+                  >
+                    Lowest
+                  </button>
+                  <button
+                    type="button"
+                    aria-pressed={programRiskView === "highest"}
+                    onClick={() => setProgramRiskView("highest")}
+                    className={`rounded-md px-2.5 py-1 text-[10px] font-bold transition-colors ${
+                      programRiskView === "highest"
+                        ? "bg-[#660033] text-white"
+                        : "text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+                    }`}
+                  >
+                    Highest
+                  </button>
+                </div>
+              </div>
+              <p className="mt-1 text-[10px] text-slate-500">
+                {programRiskView === "highest"
+                  ? "Top programs by current student headcount"
+                  : "Programs needing enrollment attention"}
+              </p>
             </div>
             <p className="text-[10px] font-medium text-slate-500 sm:text-right">
               {programRisk.latestYear
@@ -669,21 +718,26 @@ export default function EnrollmentDashboard({ isPublicView = false }) {
           ) : programRisk.programs.length > 0 ? (
             <div className="grid grid-cols-1 gap-2 pt-3 sm:grid-cols-2 lg:grid-cols-3">
               {programRisk.programs.map((program) => {
+                const isHighestView = programRiskView === "highest";
                 const hasChange = program.changePercentage !== null;
                 const changeLabel = hasChange
                   ? `${program.changePercentage > 0 ? "+" : ""}${program.changePercentage}% YoY`
                   : "No baseline";
-                const signalClass =
-                  program.signal === "Priority review"
+                const signalClass = isHighestView
+                  ? "bg-emerald-50 text-emerald-700 border-emerald-100"
+                  : program.signal === "Priority review"
                     ? "bg-rose-50 text-rose-700 border-rose-100"
                     : program.signal === "Declining trend"
                       ? "bg-amber-50 text-amber-700 border-amber-100"
                       : "bg-slate-100 text-slate-600 border-slate-200";
 
                 return (
-                  <div
+                  <button
+                    type="button"
                     key={`${program.name}-${program.code}`}
-                    className="min-w-0 rounded-xl border border-slate-200 bg-white px-3 py-2.5"
+                    onClick={() => handleProgramRiskClick(program.name)}
+                    className="group min-w-0 cursor-pointer rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-left transition-all hover:-translate-y-0.5 hover:border-[#660033]/30 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-[#660033]/30"
+                    title={`View ${program.name} enrollment trajectory`}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
@@ -695,12 +749,16 @@ export default function EnrollmentDashboard({ isPublicView = false }) {
                         </p>
                         <div className="mt-1 flex items-end justify-between gap-2">
                           <p className="min-w-0 text-[10px] text-slate-500">
-                            {program.current.toLocaleString()} students ·{" "}
-                            {changeLabel}
+                            <span className="font-bold text-slate-800">
+                              {program.current.toLocaleString()}
+                            </span>{" "}
+                            students
+                            {!isHighestView && <> · {changeLabel}</>}
                           </p>
                           <ProgramSparkline
                             values={program.history}
                             isDeclining={
+                              !isHighestView &&
                               program.changePercentage !== null &&
                               program.changePercentage < 0
                             }
@@ -710,10 +768,12 @@ export default function EnrollmentDashboard({ isPublicView = false }) {
                       <span
                         className={`shrink-0 rounded-md border px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide ${signalClass}`}
                       >
-                        {program.signal}
+                        {isHighestView
+                          ? `#${programRisk.programs.indexOf(program) + 1}`
+                          : program.signal}
                       </span>
                     </div>
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -824,7 +884,10 @@ export default function EnrollmentDashboard({ isPublicView = false }) {
         </div>
 
         {/* MICRO / DRILL-DOWN TRAJECTORY CHART */}
-        <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm sm:p-6">
+        <div
+          id="program-trajectory"
+          className="scroll-mt-6 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm sm:p-6"
+        >
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
             <div>
               <h4 className="text-base font-bold text-slate-900 flex items-center gap-2">

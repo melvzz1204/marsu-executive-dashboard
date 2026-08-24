@@ -265,8 +265,9 @@ exports.upsertEnrollmentAnalytics = async (req, res) => {
 // ==========================================
 exports.getProgramRisk = async (req, res) => {
   try {
-    const { campus, semester } = req.query;
+    const { campus, semester, view } = req.query;
     const semesterName = semester || "1st Semester";
+    const isHighestView = view === "highest";
     const matchQuery = { semester: semesterName };
 
     if (campus && campus.toLowerCase() !== "all") {
@@ -360,8 +361,9 @@ exports.getProgramRisk = async (req, res) => {
         return {
           ...program,
           changePercentage,
-          signal:
-            isDeclining && isLowEnrollment
+          signal: isHighestView
+            ? "Highest enrollment"
+            : isDeclining && isLowEnrollment
               ? "Priority review"
               : isDeclining
                 ? "Declining trend"
@@ -371,11 +373,13 @@ exports.getProgramRisk = async (req, res) => {
           score: (isDeclining ? 2 : 0) + (isLowEnrollment ? 2 : 0),
         };
       })
-      .sort(
-        (a, b) =>
-          b.score - a.score ||
-          a.current - b.current ||
-          (a.changePercentage ?? 0) - (b.changePercentage ?? 0),
+      .sort((a, b) =>
+        isHighestView
+          ? b.current - a.current ||
+            (b.changePercentage ?? 0) - (a.changePercentage ?? 0)
+          : b.score - a.score ||
+            a.current - b.current ||
+            (a.changePercentage ?? 0) - (b.changePercentage ?? 0),
       )
       .slice(0, 6);
 
