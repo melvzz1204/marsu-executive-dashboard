@@ -69,6 +69,13 @@ const formatTargetValue = (value, kpiName) => {
   return `${Number.isInteger(percentage) ? percentage : percentage.toFixed(1)}%${dummyMarker}`;
 };
 
+const getNumericValue = (value) =>
+  Number.parseFloat(
+    String(value)
+      .replace(/,/g, "")
+      .match(/-?\d+(?:\.\d+)?/)?.[0],
+  );
+
 const getTrendPoint = (value, values) => {
   const numericValue = Number.parseFloat(
     String(value)
@@ -92,10 +99,8 @@ const getTrendPoint = (value, values) => {
 };
 
 const getKpiStatus = (kpi) => {
-  const baseline = Number.parseFloat(String(kpi.baseline).replace(/,/g, ""));
-  const target2030 = Number.parseFloat(
-    String(kpi.targets[2030]).replace(/,/g, ""),
-  );
+  const baseline = getNumericValue(kpi.baseline);
+  const target2030 = getNumericValue(kpi.targets[2030]);
 
   if (
     isMissingData(kpi.baseline) ||
