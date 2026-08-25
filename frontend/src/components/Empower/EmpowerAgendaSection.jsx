@@ -1,4 +1,52 @@
+import { useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+
+const ROADMAP_PROTOTYPE = [
+  {
+    year: "2027",
+    phase: "Activate",
+    status: "In progress",
+    owner: "Academic Affairs",
+    progress: 42,
+    milestones: [
+      "Access-priority enrollment expansion",
+      "SDG research agenda alignment",
+    ],
+  },
+  {
+    year: "2028",
+    phase: "Scale",
+    status: "Planned",
+    owner: "Research & Innovation",
+    progress: 25,
+    milestones: ["Flexible pathway rollout", "Community technology adoption"],
+  },
+  {
+    year: "2029",
+    phase: "Integrate",
+    status: "Planned",
+    owner: "Executive Command Center",
+    progress: 12,
+    milestones: [
+      "Integrated performance analytics",
+      "International mobility growth",
+    ],
+  },
+  {
+    year: "2030",
+    phase: "Sustain",
+    status: "Planned",
+    owner: "University Leadership",
+    progress: 5,
+    milestones: [
+      "Institutional targets completed",
+      "Continuous improvement cycle",
+    ],
+  },
+];
+
 export default function EmpowerAgendaSection() {
+  const [isRoadmapOpen, setIsRoadmapOpen] = useState(false);
   const agendaHighlights = [
     {
       title: "Inclusive Access",
@@ -131,11 +179,162 @@ export default function EmpowerAgendaSection() {
               initiatives, academic programs, and community extensions.
             </p>
           </div>
-          <button className="whitespace-nowrap px-6 py-3.5 bg-marsu-gold hover:bg-[#b08e4c] text-slate-950 font-sans font-bold text-xs uppercase tracking-wider rounded-none transition-all shadow-md cursor-pointer">
+          <button
+            type="button"
+            onClick={() => setIsRoadmapOpen(true)}
+            className="whitespace-nowrap px-6 py-3.5 bg-marsu-gold hover:bg-[#b08e4c] text-slate-950 font-sans font-bold text-xs uppercase tracking-wider rounded-none transition-all shadow-md cursor-pointer"
+          >
             Explore Full Roadmap →
           </button>
         </div>
       </div>
+
+      <AnimatePresence>
+        {isRoadmapOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
+            onClick={() => setIsRoadmapOpen(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 24, scale: 0.96 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 16, scale: 0.97 }}
+              transition={{ type: "spring", stiffness: 260, damping: 24 }}
+              className="flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-lg border-2 border-marsu-gold bg-slate-50 shadow-2xl"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="flex items-start justify-between gap-4 border-b-2 border-marsu-gold bg-gradient-to-r from-[#2c000b] via-marsu-burgundy to-[#2c000b] p-5 text-white">
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-marsu-gold">
+                    EMPOWER roadmap prototype
+                  </span>
+                  <h3 className="mt-1 font-oswald text-2xl font-bold uppercase tracking-wide">
+                    Full Roadmap Preview
+                  </h3>
+                  <p className="mt-1 text-xs text-slate-300">
+                    Dummy planning data for interface review only
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsRoadmapOpen(false)}
+                  className="rounded-full border border-marsu-gold/50 px-2.5 py-1 text-marsu-gold hover:bg-white/10"
+                  aria-label="Close roadmap prototype"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="overflow-y-auto p-5 sm:p-7">
+                <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  <div className="border-l-4 border-marsu-burgundy bg-white p-3 shadow-sm">
+                    <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                      Pillars
+                    </span>
+                    <strong className="mt-1 block text-2xl text-marsu-burgundy">
+                      07
+                    </strong>
+                  </div>
+                  <div className="border-l-4 border-marsu-gold bg-white p-3 shadow-sm">
+                    <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                      Roadmap years
+                    </span>
+                    <strong className="mt-1 block text-2xl text-slate-800">
+                      04
+                    </strong>
+                  </div>
+                  <div className="border-l-4 border-emerald-500 bg-white p-3 shadow-sm">
+                    <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                      Sample actions
+                    </span>
+                    <strong className="mt-1 block text-2xl text-slate-800">
+                      08
+                    </strong>
+                  </div>
+                  <div className="border-l-4 border-sky-500 bg-white p-3 shadow-sm">
+                    <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                      Prototype status
+                    </span>
+                    <strong className="mt-1 block text-sm text-slate-800">
+                      Draft UI
+                    </strong>
+                  </div>
+                </div>
+
+                <div className="relative space-y-3 before:absolute before:bottom-4 before:left-[19px] before:top-4 before:w-px before:bg-marsu-gold/60 sm:before:left-[23px]">
+                  {ROADMAP_PROTOTYPE.map((item, index) => (
+                    <motion.div
+                      key={item.year}
+                      initial={{ opacity: 0, x: -12 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: index * 0.08 }}
+                      className="relative grid grid-cols-[40px_1fr] gap-3 sm:grid-cols-[48px_1fr] sm:gap-4"
+                    >
+                      <div className="relative z-10 mt-5 flex h-3 w-3 items-center justify-center rounded-full border-2 border-marsu-gold bg-marsu-burgundy ring-4 ring-slate-50" />
+                      <div className="border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+                        <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
+                          <div>
+                            <span className="text-xs font-black uppercase tracking-widest text-marsu-burgundy">
+                              {item.year} · {item.phase}
+                            </span>
+                            <h4 className="mt-1 font-oswald text-lg font-bold uppercase text-slate-900">
+                              {item.owner}
+                            </h4>
+                          </div>
+                          <span className="self-start border border-marsu-gold/50 bg-marsu-gold/10 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-marsu-burgundy">
+                            {item.status}
+                          </span>
+                        </div>
+                        <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100">
+                          <motion.div
+                            initial={{ width: 0 }}
+                            animate={{ width: `${item.progress}%` }}
+                            transition={{
+                              delay: index * 0.08 + 0.2,
+                              duration: 0.55,
+                            }}
+                            className="h-full bg-marsu-burgundy"
+                          />
+                        </div>
+                        <div className="mt-2 flex justify-between text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                          <span>Sample completion</span>
+                          <span>{item.progress}%</span>
+                        </div>
+                        <ul className="mt-3 grid gap-2 text-xs text-slate-600 sm:grid-cols-2">
+                          {item.milestones.map((milestone) => (
+                            <li
+                              key={milestone}
+                              className="border-l-2 border-marsu-gold/60 pl-2"
+                            >
+                              {milestone}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between gap-4 border-t-2 border-marsu-gold bg-[#2c000b] px-5 py-3">
+                <span className="text-[10px] text-marsu-gold/80">
+                  Prototype only · No live roadmap data connected
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setIsRoadmapOpen(false)}
+                  className="rounded bg-marsu-gold px-4 py-2 text-xs font-bold uppercase tracking-wider text-marsu-burgundy hover:bg-yellow-500"
+                >
+                  Close
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </section>
   );
 }

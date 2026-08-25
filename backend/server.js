@@ -46,12 +46,23 @@ const shutdown = async (signal) => {
 
 const start = async () => {
   validateEnvironment();
-  await connectDB();
+
+  // Start listening before connecting to MongoDB so Render can reach the
+  // health endpoint while the database is unavailable or still starting.
   server = app.listen(PORT, () => {
     const deploymentId = process.env.RENDER_GIT_COMMIT || "local";
     console.log(`MarSU API ${deploymentId} is running on port ${PORT}`);
     console.log("Health check available at /health");
   });
+
+  try {
+    await connectDB();
+  } catch (error) {
+    console.error(`MongoDB connection failed: ${error.message}`);
+    console.error(
+      "The API is running, but database-backed requests are unavailable.",
+    );
+  }
 };
 
 process.on("SIGINT", () => shutdown("SIGINT"));
@@ -67,5 +78,8 @@ process.on("uncaughtException", (error) => {
 
 start().catch((error) => {
   console.error(`Server startup failed: ${error.message}`);
+  if (server) {
+    server.close();
+  }
   process.exit(1);
 });
