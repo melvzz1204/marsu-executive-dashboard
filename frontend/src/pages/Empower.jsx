@@ -47,6 +47,28 @@ const modalVariants = {
   },
 };
 
+const isPercentageKpi = (name = "") =>
+  /%|rate|readiness|satisfaction|employability|accreditation level|copc/i.test(
+    name,
+  );
+
+const isMissingData = (value) =>
+  value === null || value === undefined || String(value).trim() === "";
+
+const formatTargetValue = (value, kpiName) => {
+  if (isMissingData(value)) return "—";
+  if (!isPercentageKpi(kpiName)) return value;
+
+  const rawValue = String(value);
+  const numericValue = Number.parseFloat(rawValue.replace(/,/g, ""));
+  if (!Number.isFinite(numericValue)) return value;
+
+  const percentage =
+    Math.abs(numericValue) <= 1 ? numericValue * 100 : numericValue;
+  const dummyMarker = rawValue.includes("*") ? " *" : "";
+  return `${Number.isInteger(percentage) ? percentage : percentage.toFixed(1)}%${dummyMarker}`;
+};
+
 const getTrendPoint = (value, values) => {
   const numericValue = Number.parseFloat(
     String(value)
@@ -68,6 +90,55 @@ const getTrendPoint = (value, values) => {
   const maximum = Math.max(...numericValues, minimum + 1);
   return 88 - ((numericValue - minimum) / (maximum - minimum)) * 68;
 };
+
+const getKpiStatus = (kpi) => {
+  const baseline = Number.parseFloat(String(kpi.baseline).replace(/,/g, ""));
+  const target2030 = Number.parseFloat(
+    String(kpi.targets[2030]).replace(/,/g, ""),
+  );
+
+  if (
+    isMissingData(kpi.baseline) ||
+    isMissingData(kpi.targets?.[2030]) ||
+    !Number.isFinite(baseline) ||
+    !Number.isFinite(target2030) ||
+    baseline === 0
+  ) {
+    return {
+      direction: "",
+      change: "Pending",
+      tone: "text-slate-500 bg-slate-100",
+    };
+  }
+
+  const percentage = Math.round(
+    ((target2030 - baseline) / Math.abs(baseline)) * 100,
+  );
+  if (percentage === 0) {
+    return {
+      direction: "→",
+      change: "0%",
+      tone: "text-slate-500 bg-slate-100",
+    };
+  }
+
+  return {
+    direction: percentage > 0 ? "↑" : "↓",
+    change: `${Math.abs(percentage)}%`,
+    tone:
+      percentage > 0
+        ? "text-emerald-700 bg-emerald-50"
+        : "text-rose-700 bg-rose-50",
+  };
+};
+
+const outcomeIcons = [
+  { symbol: "🚀", label: "Growth and access" },
+  { symbol: "🔬", label: "Research and innovation" },
+  { symbol: "🤝", label: "Partnership and impact" },
+  { symbol: "🌐", label: "Global opportunity" },
+  { symbol: "💡", label: "Technology and progress" },
+];
 
 function TargetTrend({ kpi }) {
   const points = [
@@ -148,7 +219,7 @@ function TargetTrend({ kpi }) {
               >
                 {point.label}
               </text>
-              <title>{`${point.label}: ${point.value}`}</title>
+              <title>{`${point.label}: ${formatTargetValue(point.value, kpi.name)}`}</title>
             </g>
           ))}
         </svg>
@@ -309,7 +380,7 @@ export default function EmpowerLandingPage() {
               initial="hidden"
               animate="visible"
               exit="exit"
-              className="bg-white rounded-lg shadow-2xl max-w-5xl w-full max-h-[90vh] flex flex-col overflow-hidden border-2 border-marsu-gold"
+              className="bg-white rounded-lg shadow-2xl max-w-7xl w-full max-h-[95vh] flex flex-col overflow-hidden border-2 border-marsu-gold"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Modal Header */}
@@ -339,7 +410,7 @@ export default function EmpowerLandingPage() {
               </div>
 
               {/* Modal Body */}
-              <div className="p-6 overflow-y-auto space-y-6">
+              <div className="p-6 sm:p-8 overflow-y-auto space-y-6">
                 <div className="bg-[#2c000b]/5 border-l-4 border-marsu-gold rounded-r-md p-4">
                   <h4 className="font-sans text-xs font-extrabold uppercase tracking-widest text-marsu-burgundy mb-1">
                     Strategic Scope & Focus
@@ -356,16 +427,22 @@ export default function EmpowerLandingPage() {
                   </h3>
 
                   <div className="overflow-x-auto border border-slate-200 rounded-lg shadow-sm">
-                    <table className="w-full min-w-[760px] text-left border-collapse text-xs">
+                    <table className="w-full min-w-[980px] text-left border-collapse text-xs">
                       <thead>
                         <tr className="bg-[#2c000b] text-marsu-gold font-oswald tracking-wider uppercase text-[11px] border-b-2 border-marsu-gold">
-                          <th className="p-3.5 w-1/3 border-r border-marsu-gold/20">
+                          <th className="p-3.5 w-[25%] border-r border-marsu-gold/20">
                             Outcome
                           </th>
-                          <th className="p-3.5 w-5/12 border-r border-marsu-gold/20">
+                          <th className="p-3.5 w-[30%] border-r border-marsu-gold/20">
                             Strategies / Programs
                           </th>
-                          <th className="p-3.5 w-1/4">KPIs</th>
+                          <th className="p-3.5 w-[23%] border-r border-marsu-gold/20">
+                            KPIs
+                          </th>
+                          <th className="p-3.5 w-[12%] border-r border-marsu-gold/20">
+                            Status (YoY)
+                          </th>
+                          <th className="p-3.5 w-[10%]">Action</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-200 bg-white">
@@ -378,35 +455,87 @@ export default function EmpowerLandingPage() {
                             className="hover:bg-amber-50/30 transition-colors"
                           >
                             <td className="p-3.5 align-top font-semibold text-slate-800 border-r border-slate-100">
-                              {item.outcome}
+                              <div className="flex items-start gap-2.5">
+                                <motion.span
+                                  whileHover={{ scale: 1.18, rotate: 8 }}
+                                  transition={{
+                                    type: "spring",
+                                    stiffness: 400,
+                                    damping: 12,
+                                  }}
+                                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-marsu-gold/40 bg-gradient-to-br from-amber-100 via-white to-rose-100 text-lg shadow-sm"
+                                  role="img"
+                                  aria-label={
+                                    outcomeIcons[i % outcomeIcons.length].label
+                                  }
+                                >
+                                  {outcomeIcons[i % outcomeIcons.length].symbol}
+                                </motion.span>
+                                <span>{item.outcome}</span>
+                              </div>
                             </td>
                             <td className="p-3.5 align-top text-slate-600 leading-relaxed whitespace-pre-line border-r border-slate-100">
                               {item.strategies}
                             </td>
-                            <td className="p-3.5 align-top bg-amber-50/50">
+                            <td className="p-3.5 align-top bg-amber-50/50 border-r border-slate-100">
                               <div className="space-y-2">
                                 {item.kpis.map((kpi) => (
                                   <div
                                     key={kpi.name}
-                                    className="flex items-center justify-between gap-3 rounded border border-amber-200 bg-white p-2"
+                                    className="min-h-10 rounded border border-amber-200 bg-white p-2 font-semibold leading-relaxed text-marsu-burgundy"
                                   >
-                                    <span className="font-semibold leading-relaxed text-marsu-burgundy">
-                                      {kpi.name}
-                                    </span>
-                                    <motion.button
-                                      whileHover={{ scale: 1.04 }}
-                                      whileTap={{ scale: 0.97 }}
-                                      onClick={() =>
-                                        setSelectedKpi({
-                                          ...kpi,
-                                          pillar: selectedPillar,
-                                        })
-                                      }
-                                      className="shrink-0 rounded bg-marsu-burgundy px-2 py-1 text-[9px] font-bold uppercase tracking-wide text-marsu-gold shadow-sm hover:bg-[#3b000f]"
-                                    >
-                                      View Target
-                                    </motion.button>
+                                    {kpi.name}
                                   </div>
+                                ))}
+                              </div>
+                            </td>
+                            <td className="p-3.5 align-top border-r border-slate-100">
+                              <div className="space-y-2">
+                                {item.kpis.map((kpi) => {
+                                  const status = getKpiStatus(kpi);
+                                  return (
+                                    <div
+                                      key={kpi.name}
+                                      className={`flex min-h-10 items-center gap-1.5 rounded px-2 py-1 ${status.tone}`}
+                                      title={
+                                        status.change === "Pending"
+                                          ? "Year-over-year status: Pending data"
+                                          : `2030 target change from baseline: ${status.direction} ${status.change}`
+                                      }
+                                    >
+                                      {status.direction && (
+                                        <span
+                                          className="text-lg font-black leading-none"
+                                          aria-hidden="true"
+                                        >
+                                          {status.direction}
+                                        </span>
+                                      )}
+                                      <span className="font-bold">
+                                        {status.change}
+                                      </span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </td>
+                            <td className="p-3.5 align-top">
+                              <div className="space-y-2">
+                                {item.kpis.map((kpi) => (
+                                  <motion.button
+                                    key={kpi.name}
+                                    whileHover={{ scale: 1.04 }}
+                                    whileTap={{ scale: 0.97 }}
+                                    onClick={() =>
+                                      setSelectedKpi({
+                                        ...kpi,
+                                        pillar: selectedPillar,
+                                      })
+                                    }
+                                    className="flex min-h-10 w-full items-center justify-center rounded bg-marsu-burgundy px-2 py-1 text-[9px] font-bold uppercase tracking-wide text-marsu-gold shadow-sm hover:bg-[#3b000f]"
+                                  >
+                                    View Target
+                                  </motion.button>
                                 ))}
                               </div>
                             </td>
@@ -487,7 +616,10 @@ export default function EmpowerLandingPage() {
                       Baseline
                     </span>
                     <strong className="mt-2 block text-sm text-slate-800">
-                      {selectedKpi.baseline}
+                      {formatTargetValue(
+                        selectedKpi.baseline,
+                        selectedKpi.name,
+                      )}
                     </strong>
                   </div>
                   {[2027, 2028, 2029, 2030].map((year) => (
@@ -499,7 +631,10 @@ export default function EmpowerLandingPage() {
                         {year}
                       </span>
                       <strong className="mt-2 block text-sm text-slate-800">
-                        {selectedKpi.targets[year]}
+                        {formatTargetValue(
+                          selectedKpi.targets[year],
+                          selectedKpi.name,
+                        )}
                       </strong>
                     </div>
                   ))}
