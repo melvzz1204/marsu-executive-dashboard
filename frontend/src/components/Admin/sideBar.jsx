@@ -154,7 +154,7 @@ export default function Sidebar({ activeTab, onNavClick, isOpen, onClose }) {
             strokeLinecap="round"
             strokeLinejoin="round"
             strokeWidth={1.8}
-            d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"
+            d="M8 21h8m-4-4v4M7 4h10v3a5 5 0 01-10 0V4zm0 2H4v1a4 4 0 004 4m9-5h3v1a4 4 0 01-4 4"
           />
         </svg>
       ),

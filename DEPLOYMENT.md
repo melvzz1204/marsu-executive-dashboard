@@ -68,10 +68,13 @@ Expected response:
 2. Set **Root Directory** to `frontend`.
 3. Keep the detected **Framework Preset** as Vite.
 4. The production URL is committed in `frontend/.env.production`. If Vercel also
-   defines `VITE_API_URL`, set it to this exact value:
+   defines `VITE_API_URL`, set it to this exact value. You may also set the
+   optional timeout shown below for clarity; the frontend defaults to 60
+   seconds:
 
 ```text
 VITE_API_URL=https://marsu-executive-dashbaord.onrender.com/api/v1
+VITE_API_TIMEOUT_MS=60000
 ```
 
 The `/api/v1` suffix is required. Without it, login targets `/auth/login`, but

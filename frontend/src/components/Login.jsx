@@ -133,10 +133,12 @@ const Login = () => {
         setError(data.message || "Invalid email or password.");
       }
     } catch (err) {
-      setError(
-        err.response?.data?.message ||
-          "Unable to establish a connection with the backend server.",
-      );
+      const connectionMessage =
+        err.code === "ECONNABORTED"
+          ? "The backend server is waking up. Please wait a moment and sign in again."
+          : "Unable to reach the backend server. Check your internet connection and try again.";
+
+      setError(err.response?.data?.message || connectionMessage);
     } finally {
       setIsLoading(false);
     }
