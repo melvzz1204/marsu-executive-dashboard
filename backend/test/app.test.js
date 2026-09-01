@@ -123,3 +123,70 @@ test("upload middleware rejects non-Excel files before controller execution", as
   assert.equal(response.status, 400);
   assert.match(response.body.message, /Excel spreadsheet/i);
 });
+
+test("achievement submission requires a dean account", async () => {
+  const response = await request(app)
+    .post("/api/v1/achievement-posts")
+    .set("Authorization", `Bearer ${createToken({ role: "admin" })}`)
+    .field("title", "Institutional award")
+    .field("subtitle", "A major university milestone")
+    .field(
+      "body",
+      "This achievement contains enough detail to pass content validation.",
+    )
+    .field("eventDate", "2026-01-01")
+    .attach("images", Buffer.from("image"), {
+      filename: "award.png",
+      contentType: "image/png",
+    });
+
+  assert.equal(response.status, 403);
+  assert.match(response.body.message, /not authorized/i);
+});
+
+test("achievement review queue is restricted to the Information Unit role", async () => {
+  const deanResponse = await request(app)
+    .get("/api/v1/achievement-posts/review")
+    .set("Authorization", `Bearer ${createToken({ role: "dean" })}`);
+
+  assert.equal(deanResponse.status, 403);
+
+  const adminResponse = await request(app)
+    .get("/api/v1/achievement-posts/review")
+    .set("Authorization", `Bearer ${createToken({ role: "admin" })}`);
+
+  assert.equal(adminResponse.status, 403);
+
+  // The Information Unit role passes the authorization gate (the controller
+  // then needs MongoDB, which is not connected in the test environment, so
+  // any non-401/403 response confirms review access is granted).
+  const infoUnitResponse = await request(app)
+    .get("/api/v1/achievement-posts/review")
+    .set(
+      "Authorization",
+      `Bearer ${createToken({ role: "information_unit" })}`,
+    );
+
+  assert.notEqual(infoUnitResponse.status, 401);
+  assert.notEqual(infoUnitResponse.status, 403);
+});
+
+test("achievement upload rejects unsupported image formats before database access", async () => {
+  const response = await request(app)
+    .post("/api/v1/achievement-posts")
+    .set("Authorization", `Bearer ${createToken({ role: "dean" })}`)
+    .field("title", "Institutional award")
+    .field("subtitle", "A major university milestone")
+    .field(
+      "body",
+      "This achievement contains enough detail to pass content validation.",
+    )
+    .field("eventDate", "2026-01-01")
+    .attach("images", Buffer.from("not an image"), {
+      filename: "award.gif",
+      contentType: "image/gif",
+    });
+
+  assert.equal(response.status, 400);
+  assert.match(response.body.message, /JPEG, PNG, or WebP/i);
+});

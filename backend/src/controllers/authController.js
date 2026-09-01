@@ -89,7 +89,11 @@ exports.register = async (req, res) => {
     }
 
     const requestedRole = role || "executive";
-    if (!["executive", "dean", "admin"].includes(requestedRole)) {
+    if (
+      !["executive", "dean", "admin", "information_unit"].includes(
+        requestedRole,
+      )
+    ) {
       return res.status(400).json({ success: false, message: "Invalid role." });
     }
 

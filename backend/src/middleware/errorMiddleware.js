@@ -20,7 +20,7 @@ const errorHandler = (error, req, res, next) => {
     statusCode = 400;
     message =
       error.code === "LIMIT_FILE_SIZE"
-        ? "The uploaded file exceeds the 10 MB limit."
+        ? `The uploaded file exceeds the ${req.originalUrl.includes("achievement-posts") ? "15 MB" : "10 MB"} limit.`
         : error.message;
   } else if (error.name === "ValidationError") {
     statusCode = 400;

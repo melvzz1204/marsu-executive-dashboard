@@ -75,6 +75,8 @@ export function useDashboardState() {
   const handleLogout = () => {
     setIsLoggingOut(true);
     setTimeout(() => {
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
       window.location.href = "/";
     }, 1500);
   };

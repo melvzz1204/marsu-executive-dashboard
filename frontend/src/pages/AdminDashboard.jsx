@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import Sidebar from "../components/Admin/sideBar";
 
 // Imports for Enrollments
@@ -8,8 +9,22 @@ import EnrollmentsUpload from "../components/Admin/Dashboards/enrollments/Enroll
 import HigherEducationUpload from "../components/Admin/Dashboards/higherEducation/higherEducationUpload";
 
 export default function AdminDashboard() {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("enrollments");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const user = (() => {
+    try {
+      return JSON.parse(localStorage.getItem("user") || "{}");
+    } catch {
+      return {};
+    }
+  })();
+
+  useEffect(() => {
+    if (!localStorage.getItem("token") || user.role !== "admin") {
+      navigate("/", { replace: true });
+    }
+  }, [navigate, user.role]);
 
   const categoryLabels = {
     "higher-ed": "Higher Education",
@@ -23,7 +38,6 @@ export default function AdminDashboard() {
     gass: "General Administration & Support Services",
     "financial-services": "Financial Services",
     "administrative-services": "Administrative Services",
-    achievements: "Achievements",
     enrollments: "Enrollments",
     budget: "Budget Utilization",
   };
@@ -90,7 +104,7 @@ export default function AdminDashboard() {
                   Signed in as
                 </span>
                 <span className="mt-0.5 block text-sm font-bold uppercase text-slate-800">
-                  Administrator
+                  {user.name || "Administrator"}
                 </span>
               </div>
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#580017] text-sm font-bold text-[#D4AF37] shadow-sm">

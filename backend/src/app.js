@@ -15,6 +15,7 @@ const enrollmentRoutes = require("./routes/enrollment/enrollmentRoutes");
 const higherEducationRoutes = require("./routes/higherEducation/higherEducationRoutes");
 const financeRoutes = require("./routes/finance/budgetRoutes");
 const licensureExamRoutes = require("./routes/higherEducation/licensureExamRoutes");
+const achievementPostRoutes = require("./routes/achievements/achievementPostRoutes");
 
 // for public viewing
 const publicViewingRoutes = require("./routes/enrollment/publicViewingRoutes");
@@ -90,6 +91,7 @@ app.use("/api/v1/enrollment", enrollmentRoutes);
 app.use("/api/v1/higher-education", higherEducationRoutes);
 app.use("/api/v1/higher-education/licensure", licensureExamRoutes);
 app.use("/api/v1/budget", financeRoutes);
+app.use("/api/v1/achievement-posts", achievementPostRoutes);
 
 // Public viewing
 app.use("/api/v1/public-viewing", publicViewingRoutes);

@@ -45,6 +45,22 @@ textarea {
   font-family: var(--font-oswald) !important;
 }
 
+/* Pointer cursor for every clickable control and link */
+button:not(:disabled),
+[role="button"],
+a,
+input[type="submit"],
+input[type="button"],
+input[type="reset"],
+select,
+label[for] {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }

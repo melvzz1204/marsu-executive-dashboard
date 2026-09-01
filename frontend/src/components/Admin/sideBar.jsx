@@ -9,6 +9,8 @@ export default function Sidebar({ activeTab, onNavClick, isOpen, onClose }) {
 
   // Logout Handler
   const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
     window.location.href = "/";
   };
 
@@ -139,25 +141,6 @@ export default function Sidebar({ activeTab, onNavClick, isOpen, onClose }) {
         { id: "financial-services", label: "Financial Services" },
         { id: "administrative-services", label: "Administrative Services" },
       ],
-    },
-    {
-      id: "achievements",
-      label: "Achievements",
-      icon: (
-        <svg
-          className="w-5 h-5 text-[#D4AF37]"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={1.8}
-            d="M8 21h8m-4-4v4M7 4h10v3a5 5 0 01-10 0V4zm0 2H4v1a4 4 0 004 4m9-5h3v1a4 4 0 01-4 4"
-          />
-        </svg>
-      ),
     },
     {
       id: "enrollments",

@@ -3,7 +3,7 @@ import Sidebar from "../components/Sidebar";
 import ExecutiveKPIs from "../components/ExecutiveKPIs";
 import EnrollmentChart from "../components/EnrollmentChart";
 import ResearchMetrics from "../components/ResearchMetricsChart";
-import Achievements from "../components/AchievementsCharts";
+import AchievementPosts from "../components/AchievementPosts";
 import BudgetUtilization from "../components/BudgetUtilizationChart";
 import Report from "../components/Reports";
 import HigherEducation from "../components/HigherEducation";
@@ -254,7 +254,7 @@ function MainDashboard() {
 
           {currentTab === "achievements" && (
             <div id="block-board-passing" className="scroll-mt-24">
-              <Achievements isDarkMode={isDarkMode} />
+              <AchievementPosts mode="published" isDarkMode={isDarkMode} />
             </div>
           )}
 

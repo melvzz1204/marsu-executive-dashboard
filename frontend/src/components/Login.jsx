@@ -121,8 +121,12 @@ const Login = () => {
         localStorage.setItem("user", JSON.stringify(user));
 
         // 3. Determine target route based on user role
-        if (role === "admin") {
+        if (role === "information_unit") {
+          setRedirectPath("/information-unit");
+        } else if (role === "admin") {
           setRedirectPath("/admin-dashboard");
+        } else if (role === "dean") {
+          setRedirectPath("/dean-achievements");
         } else {
           setRedirectPath("/dashboard");
         }
