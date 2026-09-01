@@ -35,19 +35,55 @@ A correct deployment logs `MarSU API <commit> is running on port <port>` and
 
 The repository's `render.yaml` contains the non-secret service configuration.
 Create a Render Blueprint from the repository, or use the existing Web Service
-settings listed above. Add only these secret values in Render:
+settings listed below. After editing the Blueprint, deploy it with **Manual
+Deploy > Clear build cache & deploy** (or Blueprint > Sync) so the new service
+settings take effect.
 
-- `MONGO_URI`: the complete MongoDB Atlas URI
-- `JWT_SECRET`: a random value containing at least 32 characters
+### Required settings
 
-The Blueprint sets `CORS_ORIGINS` to the deployed frontend origin:
+| Setting        | Value              |
+| -------------- | ------------------ |
+| Branch         | `security-testing` |
+| Root Directory | `backend`          |
+| Build Command  | `npm ci`           |
+| Start Command  | `npm start`        |
+| Health Check   | `/health`          |
+
+### Environment variables
+
+Set these as **secrets** (`sync: false` in `render.yaml` — never commit them):
+
+| Key          | Description                                                |
+| ------------ | ---------------------------------------------------------- |
+| `MONGO_URI`  | The complete MongoDB Atlas URI                             |
+| `JWT_SECRET` | A random value containing at least 32 characters           |
+| `AI_API_KEY` | The AI provider API key (Z.ai / OpenAI / Google AI Studio) |
+
+The Blueprint sets the following non-secret values automatically. For an
+existing service not managed by the Blueprint, add them manually:
 
 ```text
-https://marsu-executive-dashbaord.vercel.app
+NODE_ENV=production
+TRUST_PROXY=true
+CORS_ORIGINS=https://marsu-executive-dashbaord.vercel.app
+JWT_EXPIRES_IN=8h
+RATE_LIMIT_MAX=300
+
+# Empower AI Chatbot
+AI_PROVIDER=glm
+AI_MODEL=glm-5.3
+AI_BASE_URL=https://agentrouter.org/v1
+AI_MAX_TOOL_HOPS=5
+AI_MAX_OUTPUT_TOKENS=4000
+AI_TEMPERATURE=0.2
+AI_TIMEOUT_MS=60000
+AI_USER_AGENT=roo-code/1.0
+CHAT_RATE_LIMIT_MAX=20
 ```
 
-For an existing Render service that is not managed by the Blueprint, set
-`CORS_ORIGINS` to that exact value manually. Do not include a path.
+If `AI_BASE_URL` points to a proxy router such as `agentrouter.org`, keep
+`AI_USER_AGENT=roo-code/1.0` — the router whitelists clients by User-Agent and
+rejects the OpenAI SDK's default UA.
 
 Do not set `PORT`; Render supplies it. Do not add `:10000` to public URLs.
 Render's public health URL is:
