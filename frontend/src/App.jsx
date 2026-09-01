@@ -5,6 +5,7 @@ import AdminDashboard from "./pages/AdminDashboard";
 import Empower from "./pages/Empower";
 import DeanAchievements from "./pages/DeanAchievements";
 import InformationUnitDashboard from "./pages/InformationUnitDashboard";
+import FloatingChatbot from "./components/Empower/FloatingChatbot";
 
 function App() {
   return (
@@ -20,6 +21,8 @@ function App() {
           element={<InformationUnitDashboard />}
         />
       </Routes>
+      {/* 🤖 Global AI assistant — floats above every page */}
+      <FloatingChatbot />
     </Router>
   );
 }

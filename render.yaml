@@ -25,3 +25,14 @@ services:
         value: 8h
       - key: RATE_LIMIT_MAX
         value: "300"
+      # --- Empower AI Chatbot ---
+      - key: AI_PROVIDER
+        value: glm
+      - key: sk-Eg7N7qEWKV0zzBTQxXdHqEsa4d2eda8PRMevW6cdyVI9bRxo
+        sync: false
+      - key: AI_MODEL
+        value: glm-5.3
+      - key: AI_MAX_TOOL_HOPS
+        value: "5"
+      - key: CHAT_RATE_LIMIT_MAX
+        value: "20"
