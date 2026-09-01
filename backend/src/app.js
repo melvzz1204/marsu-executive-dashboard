@@ -62,7 +62,19 @@ const corsOptions = {
 };
 
 app.disable("x-powered-by");
-app.set("trust proxy", process.env.TRUST_PROXY === "true" ? 1 : false);
+// Render (and other hosted platforms) always sit behind a reverse proxy that
+// sets X-Forwarded-For. express-rate-limit v8 throws
+// ERR_ERL_UNEXPECTED_X_FORWARDED_FOR when that header is present but trust
+// proxy is disabled, so enable it automatically in production. TRUST_PROXY is
+// kept as an explicit override for local/manual setups.
+const trustProxy = process.env.TRUST_PROXY
+  ? process.env.TRUST_PROXY === "true"
+    ? 1
+    : Number(process.env.TRUST_PROXY) || false
+  : isProduction
+    ? 1
+    : false;
+app.set("trust proxy", trustProxy);
 app.use(helmet());
 app.use(cors(corsOptions));
 app.use(express.json({ limit: "1mb" }));

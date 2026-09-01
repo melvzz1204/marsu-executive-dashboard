@@ -39,6 +39,12 @@ settings listed below. After editing the Blueprint, deploy it with **Manual
 Deploy > Clear build cache & deploy** (or Blueprint > Sync) so the new service
 settings take effect.
 
+> **Trust proxy:** the app enables Express `trust proxy` automatically whenever
+> `NODE_ENV=production`. Render always sets `X-Forwarded-For`, and
+> `express-rate-limit` v8 rejects requests when that header is present but trust
+> proxy is disabled (`ERR_ERL_UNEXPECTED_X_FORWARDED_FOR`). Do not set
+> `TRUST_PROXY=false` in production — it would re-introduce that crash.
+
 ### Required settings
 
 | Setting        | Value              |
