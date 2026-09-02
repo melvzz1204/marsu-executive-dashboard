@@ -37,7 +37,7 @@ services:
       - key: AI_PROVIDER
         value: glm
       - key: AI_MODEL
-        value: glm-5.3
+        value: glm-4.7
       - key: AI_BASE_URL
         value: https://agentrouter.org/v1
       - key: AI_MAX_TOOL_HOPS
