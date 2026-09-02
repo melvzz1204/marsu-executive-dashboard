@@ -31,10 +31,21 @@ const PROVIDER_DEFAULTS = {
     baseURL: "https://generativelanguage.googleapis.com/v1beta/openai",
     defaultModel: "gemini-2.5-flash",
   },
+  // Catch-all for any unrecognized AI_PROVIDER value (e.g. "openai compatible")
+  // that still works as an OpenAI-compatible endpoint via AI_BASE_URL.
+  custom: {},
 };
 
 const provider = (process.env.AI_PROVIDER || "glm").toLowerCase();
 const defaults = PROVIDER_DEFAULTS[provider] || PROVIDER_DEFAULTS.custom;
+
+if (!defaults.baseURL && !process.env.AI_BASE_URL) {
+  console.warn(
+    `[chat] AI_PROVIDER="${process.env.AI_PROVIDER}" is not a recognised provider. ` +
+    `Set AI_BASE_URL to use a custom OpenAI-compatible endpoint, ` +
+    `or change AI_PROVIDER to one of: glm, openai, gemini.`,
+  );
+}
 
 if (!process.env.AI_API_KEY) {
   // Fail fast at call time rather than import time so the rest of the
