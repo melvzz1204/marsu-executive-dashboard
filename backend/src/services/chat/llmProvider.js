@@ -12,6 +12,7 @@
  * Exposes one method:
  *   streamChat({ messages, tools }) → async iterable of normalized chunks:
  *     { type: "delta", text }                    — assistant text token
+ *     { type: "reasoning", text }                — model thinking (GLM-5.x etc.)
  *     { type: "toolCalls", toolCalls: [...] }    — complete tool call list
  */
 const OpenAI = require("openai");
@@ -74,55 +75,87 @@ async function* streamChat({ messages, tools }) {
     });
   }
 
-  const completion = await client.chat.completions.create({
-    model,
-    messages,
-    tools: tools && tools.length > 0 ? tools : undefined,
-    stream: true,
-    temperature: Number(process.env.AI_TEMPERATURE) || 0.2,
-    max_tokens: Number(process.env.AI_MAX_OUTPUT_TOKENS) || 1500,
-  });
+  const maxRetries = 2;
+  let lastError = null;
 
-  // Accumulators for streamed tool calls, keyed by chunk index.
-  const toolCallAcc = new Map();
-  let sawToolCalls = false;
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const completion = await client.chat.completions.create({
+        model,
+        messages,
+        tools: tools && tools.length > 0 ? tools : undefined,
+        stream: true,
+        temperature: Number(process.env.AI_TEMPERATURE) || 0.2,
+        max_tokens: Number(process.env.AI_MAX_OUTPUT_TOKENS) || 1500,
+      });
 
-  for await (const chunk of completion) {
-    const choice = chunk.choices?.[0];
-    if (!choice) continue;
+      // Accumulators for streamed tool calls, keyed by chunk index.
+      const toolCallAcc = new Map();
+      let sawToolCalls = false;
 
-    const delta = choice.delta || {};
+      for await (const chunk of completion) {
+        const choice = chunk.choices?.[0];
+        if (!choice) continue;
 
-    if (typeof delta.content === "string" && delta.content.length > 0) {
-      yield { type: "delta", text: delta.content };
-    }
+        const delta = choice.delta || {};
 
-    if (Array.isArray(delta.tool_calls)) {
-      sawToolCalls = true;
-      for (const part of delta.tool_calls) {
-        const idx = part.index ?? 0;
-        const current = toolCallAcc.get(idx) || {
-          id: "",
-          type: "function",
-          function: { name: "", arguments: "" },
-        };
-        if (part.id) current.id = part.id;
-        if (part.function?.name) current.function.name += part.function.name;
-        if (part.function?.arguments)
-          current.function.arguments += part.function.arguments;
-        toolCallAcc.set(idx, current);
+        // Some reasoning models (e.g. GLM-5.x) emit their thinking via
+        // reasoning_content. Forward it so the frontend can show activity
+        // during the "thinking" phase.
+        if (
+          typeof delta.reasoning_content === "string" &&
+          delta.reasoning_content.length > 0
+        ) {
+          yield { type: "reasoning", text: delta.reasoning_content };
+        }
+
+        if (typeof delta.content === "string" && delta.content.length > 0) {
+          yield { type: "delta", text: delta.content };
+        }
+
+        if (Array.isArray(delta.tool_calls)) {
+          sawToolCalls = true;
+          for (const part of delta.tool_calls) {
+            const idx = part.index ?? 0;
+            const current = toolCallAcc.get(idx) || {
+              id: "",
+              type: "function",
+              function: { name: "", arguments: "" },
+            };
+            if (part.id) current.id = part.id;
+            if (part.function?.name) current.function.name += part.function.name;
+            if (part.function?.arguments)
+              current.function.arguments += part.function.arguments;
+            toolCallAcc.set(idx, current);
+          }
+        }
       }
+
+      if (sawToolCalls) {
+        yield {
+          type: "toolCalls",
+          toolCalls: [...toolCallAcc.values()].filter(
+            (tc) => tc.function.name.length > 0,
+          ),
+        };
+      }
+      return; // success — exit retry loop
+    } catch (err) {
+      lastError = err;
+      // Retry on transient provider errors (500 / 502 / 503 / 429).
+      const status = err.status || err.statusCode || 0;
+      if ([500, 502, 503, 429].includes(status) && attempt < maxRetries) {
+        console.warn(
+          `[chat] provider returned ${status} on attempt ${attempt}/${maxRetries}, retrying…`,
+        );
+        continue;
+      }
+      throw err; // non-retryable or last attempt
     }
   }
 
-  if (sawToolCalls) {
-    yield {
-      type: "toolCalls",
-      toolCalls: [...toolCallAcc.values()].filter(
-        (tc) => tc.function.name.length > 0,
-      ),
-    };
-  }
+  // Should not reach here, but just in case.
+  throw lastError;
 }
 
 module.exports = { streamChat, model, maxToolHops, provider };

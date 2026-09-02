@@ -32,6 +32,9 @@ function writeEvent(res, payload) {
   if (res.writableEnded) return false;
   try {
     res.write(`data: ${JSON.stringify(payload)}\n\n`);
+    // Flush immediately so the frame is pushed through any proxy (nginx,
+    // Render, etc.) without waiting for the OS TCP buffer to fill.
+    if (typeof res.flush === "function") res.flush();
     return true;
   } catch {
     return false;
@@ -112,6 +115,9 @@ exports.streamChatResponse = async (req, res, next) => {
         if (event.type === "delta") {
           finalText += event.text;
           if (!writeEvent(res, { type: "delta", text: event.text })) break;
+        } else if (event.type === "reasoning") {
+          // Forward model thinking so the UI can show activity.
+          if (!writeEvent(res, { type: "reasoning", text: event.text })) break;
         } else if (event.type === "toolCalls") {
           toolCalls = event.toolCalls;
         }
@@ -180,14 +186,20 @@ exports.streamChatResponse = async (req, res, next) => {
 
     writeEvent(res, { type: "done" });
   } catch (error) {
-    console.error("[chat] agent loop failed:", error.message);
-    writeEvent(res, {
-      type: "error",
-      message:
-        error.statusCode === 503
-          ? "The AI assistant is not configured on this server. Please contact the administrator."
-          : "The assistant encountered an error while answering. Please try again.",
+    const status = error.statusCode || error.status || 0;
+    console.error("[chat] agent loop failed:", {
+      message: error.message,
+      status,
+      userId: user?.id,
+      role: user?.role,
     });
+    const clientMessage =
+      status === 503
+        ? "The AI assistant is not configured on this server. Please contact the administrator."
+        : status === 500
+          ? "The AI provider returned an error. Please try again in a moment."
+          : "The assistant encountered an error while answering. Please try again.";
+    writeEvent(res, { type: "error", message: clientMessage });
   } finally {
     if (!res.writableEnded) {
       res.end();

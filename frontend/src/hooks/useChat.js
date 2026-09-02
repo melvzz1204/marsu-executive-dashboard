@@ -24,6 +24,7 @@ export function useChat() {
       reports: [],
     },
   ]);
+  const [reasoning, setReasoning] = useState(""); // model thinking text
   const [isStreaming, setIsStreaming] = useState(false);
   const [toolStatus, setToolStatus] = useState(null); // e.g. "getEnrollmentTrend"
   const [error, setError] = useState(null);
@@ -50,6 +51,7 @@ export function useChat() {
 
       setError(null);
       setToolStatus(null);
+      setReasoning("");
 
       // Optimistic user message + empty assistant bubble to stream into.
       const userMessage = { role: "user", content: trimmed };
@@ -111,6 +113,7 @@ export function useChat() {
               continue;
             }
             if (event.type === "delta") {
+              setReasoning(""); // clear reasoning once content arrives
               setMessages((prev) => {
                 const next = [...prev];
                 const last = next[next.length - 1];
@@ -122,6 +125,8 @@ export function useChat() {
                 }
                 return next;
               });
+            } else if (event.type === "reasoning") {
+              setReasoning((prev) => prev + event.text);
             } else if (event.type === "tool") {
               setToolStatus(event.name);
             } else if (event.type === "report") {
@@ -201,6 +206,7 @@ export function useChat() {
         abortRef.current = null;
         setIsStreaming(false);
         setToolStatus(null);
+        setReasoning("");
       }
     },
     [messages, isStreaming],
@@ -218,7 +224,8 @@ export function useChat() {
       },
     ]);
     setError(null);
+    setReasoning("");
   }, [stop]);
 
-  return { messages, isStreaming, toolStatus, error, sendMessage, stop, reset };
+  return { messages, isStreaming, toolStatus, reasoning, error, sendMessage, stop, reset };
 }
