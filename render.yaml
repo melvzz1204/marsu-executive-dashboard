@@ -35,11 +35,10 @@ services:
         value: "300"
       # --- Empower AI Chatbot ---
       - key: AI_PROVIDER
-        value: glm
+        value: gemini
       - key: AI_MODEL
-        value: glm-4.7
-      - key: AI_BASE_URL
-        value: https://agentrouter.org/v1
+        value: gemini-2.0-flash
+      # AI_BASE_URL is optional for gemini — the SDK defaults to the correct endpoint
       - key: AI_MAX_TOOL_HOPS
         value: "5"
       - key: AI_MAX_OUTPUT_TOKENS
