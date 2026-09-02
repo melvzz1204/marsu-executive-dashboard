@@ -179,6 +179,21 @@ export function useChat() {
             }
             return next;
           });
+        } else {
+          // done received — guard against an empty answer (e.g. model
+          // returned only reasoning with no content).
+          setMessages((prev) => {
+            const next = [...prev];
+            const last = next[next.length - 1];
+            if (last?.role === "assistant" && !last.content) {
+              next[next.length - 1] = {
+                ...last,
+                content:
+                  "The assistant did not produce a text response. Please try rephrasing your question.",
+              };
+            }
+            return next;
+          });
         }
       } catch (err) {
         if (err.name === "AbortError") {

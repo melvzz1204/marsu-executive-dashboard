@@ -92,6 +92,8 @@ async function* streamChat({ messages, tools }) {
       // Accumulators for streamed tool calls, keyed by chunk index.
       const toolCallAcc = new Map();
       let sawToolCalls = false;
+      let sawContent = false;
+      let reasoningBuffer = "";
 
       for await (const chunk of completion) {
         const choice = chunk.choices?.[0];
@@ -106,10 +108,12 @@ async function* streamChat({ messages, tools }) {
           typeof delta.reasoning_content === "string" &&
           delta.reasoning_content.length > 0
         ) {
+          reasoningBuffer += delta.reasoning_content;
           yield { type: "reasoning", text: delta.reasoning_content };
         }
 
         if (typeof delta.content === "string" && delta.content.length > 0) {
+          sawContent = true;
           yield { type: "delta", text: delta.content };
         }
 
@@ -129,6 +133,14 @@ async function* streamChat({ messages, tools }) {
             toolCallAcc.set(idx, current);
           }
         }
+      }
+
+      // Some reasoning models (e.g. GLM-5.x via agentrouter) emit their
+      // answer in reasoning_content but leave content empty.  When that
+      // happens, fall back to the accumulated reasoning text so the user
+      // actually sees a response.
+      if (!sawContent && !sawToolCalls && reasoningBuffer.length > 0) {
+        yield { type: "delta", text: reasoningBuffer };
       }
 
       if (sawToolCalls) {
