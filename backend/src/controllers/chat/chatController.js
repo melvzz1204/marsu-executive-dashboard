@@ -143,9 +143,11 @@ exports.streamChatResponse = async (req, res, next) => {
       }
 
       // Append the assistant's tool-call message, then each tool result.
+      // NOTE: Gemini's OpenAI-compatible API rejects `content: null`.
+      // Use an empty string instead so the message passes validation.
       messages.push({
         role: "assistant",
-        content: null,
+        content: "",
         tool_calls: toolCalls,
       });
 
@@ -192,13 +194,18 @@ exports.streamChatResponse = async (req, res, next) => {
       status,
       userId: user?.id,
       role: user?.role,
+      // Gemini/OpenAI SDK may include extra detail on the error object.
+      errorType: error.constructor?.name,
+      errorBody: error.error?.message || error.body || undefined,
     });
     const clientMessage =
       status === 503
         ? "The AI assistant is not configured on this server. Please contact the administrator."
         : status === 500
           ? "The AI provider returned an error. Please try again in a moment."
-          : "The assistant encountered an error while answering. Please try again.";
+          : status === 429
+            ? "The AI service is temporarily busy due to high demand. Please wait a moment and try again."
+            : "The assistant encountered an error while answering. Please try again.";
     writeEvent(res, { type: "error", message: clientMessage });
   } finally {
     if (!res.writableEnded) {
