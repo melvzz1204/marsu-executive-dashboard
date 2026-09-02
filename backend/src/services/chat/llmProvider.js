@@ -7,7 +7,7 @@
  *   AI_PROVIDER=glm     → Z.ai GLM (https://api.z.ai/api/paas/v4)
  *   AI_PROVIDER=openai   → OpenAI (https://api.openai.com/v1)
  *   AI_PROVIDER=gemini   → Gemini OpenAI-compat (https://generativelanguage.googleapis.com/v1beta/openai)
- *                          Default model: gemini-2.5-flash (gemini-2.0-flash was shut down June 1 2026).
+ *                          Default model: gemini-3.6-flash.
  *   AI_PROVIDER=custom   → any OpenAI-compatible endpoint via AI_BASE_URL
  *
  * Exposes one method:
@@ -29,7 +29,7 @@ const PROVIDER_DEFAULTS = {
   },
   gemini: {
     baseURL: "https://generativelanguage.googleapis.com/v1beta/openai",
-    defaultModel: "gemini-2.5-flash",
+    defaultModel: "gemini-3.6-flash",
   },
   // Catch-all for any unrecognized AI_PROVIDER value (e.g. "openai compatible")
   // that still works as an OpenAI-compatible endpoint via AI_BASE_URL.
