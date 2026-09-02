@@ -107,7 +107,23 @@ async function* streamChat({ messages, tools }) {
       let sawContent = false;
       let reasoningBuffer = "";
 
+      // Stream-level inactivity timeout: if no chunk arrives within
+      // STREAM_IDLE_MS we abort to avoid hanging forever (common when the
+      // provider rate-limits mid-stream without closing the connection).
+      const STREAM_IDLE_MS = Number(process.env.AI_STREAM_IDLE_MS) || 30000;
+      let streamTimer = null;
+      const resetTimer = () => {
+        clearTimeout(streamTimer);
+        streamTimer = setTimeout(() => {
+          console.warn(`[chat] stream idle timeout after ${STREAM_IDLE_MS}ms — aborting`);
+          completion.controller?.abort();
+        }, STREAM_IDLE_MS);
+      };
+      resetTimer();
+
+      try {
       for await (const chunk of completion) {
+        resetTimer(); // got data — restart the inactivity clock
         const choice = chunk.choices?.[0];
         if (!choice) continue;
 
@@ -164,6 +180,9 @@ async function* streamChat({ messages, tools }) {
         };
       }
       return; // success — exit retry loop
+      } finally {
+        clearTimeout(streamTimer);
+      }
     } catch (err) {
       lastError = err;
       // Retry on transient provider errors (500 / 502 / 503 / 429).

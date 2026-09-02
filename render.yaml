@@ -47,6 +47,9 @@ services:
         value: "0.2"
       - key: AI_TIMEOUT_MS
         value: "60000"
+      # If no stream chunk arrives within this window, abort to avoid hanging.
+      - key: AI_STREAM_IDLE_MS
+        value: "30000"
       - key: AI_USER_AGENT
         value: roo-code/1.0
       - key: CHAT_RATE_LIMIT_MAX
