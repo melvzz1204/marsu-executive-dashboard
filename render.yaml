@@ -33,12 +33,13 @@ services:
         value: 8h
       - key: RATE_LIMIT_MAX
         value: "300"
-      # --- Empower AI Chatbot ---
+      # --- Empower AI Chatbot (agentrouter + DeepSeek V4 Flash) ---
       - key: AI_PROVIDER
-        value: gemini
+        value: custom
+      - key: AI_BASE_URL
+        value: https://agentrouter.org/v1
       - key: AI_MODEL
-        value: gemini-3.6-flash
-      # AI_BASE_URL is optional for gemini — the SDK defaults to the correct endpoint
+        value: deepseek-v4-flash
       - key: AI_MAX_TOOL_HOPS
         value: "5"
       - key: AI_MAX_OUTPUT_TOKENS
