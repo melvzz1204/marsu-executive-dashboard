@@ -37,7 +37,7 @@ services:
       - key: AI_PROVIDER
         value: gemini
       - key: AI_MODEL
-        value: gemini-2.0-flash
+        value: gemini-2.5-flash
       # AI_BASE_URL is optional for gemini — the SDK defaults to the correct endpoint
       - key: AI_MAX_TOOL_HOPS
         value: "5"
