@@ -1,21 +1,3 @@
-/**
- * LLM Provider Adapter
- * --------------------
- * Single interface for all AI providers using the OpenAI-compatible
- * Chat Completions API. Swap providers via environment variables:
- *
- *   AI_PROVIDER=glm     → Z.ai GLM (https://api.z.ai/api/paas/v4)
- *   AI_PROVIDER=openai   → OpenAI (https://api.openai.com/v1)
- *   AI_PROVIDER=gemini   → Gemini OpenAI-compat (https://generativelanguage.googleapis.com/v1beta/openai)
- *                          Default model: gemini-3.6-flash.
- *   AI_PROVIDER=custom   → any OpenAI-compatible endpoint via AI_BASE_URL
- *
- * Exposes one method:
- *   streamChat({ messages, tools }) → async iterable of normalized chunks:
- *     { type: "delta", text }                    — assistant text token
- *     { type: "reasoning", text }                — model thinking (GLM-5.x etc.)
- *     { type: "toolCalls", toolCalls: [...] }    — complete tool call list
- */
 const OpenAI = require("openai");
 
 const PROVIDER_DEFAULTS = {
