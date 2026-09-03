@@ -33,13 +33,11 @@ services:
         value: 8h
       - key: RATE_LIMIT_MAX
         value: "300"
-      # --- Empower AI Chatbot (agentrouter + DeepSeek V4 Flash) ---
+      # --- Empower AI Chatbot (Gemini free tier) ---
       - key: AI_PROVIDER
-        value: custom
-      - key: AI_BASE_URL
-        value: https://agentrouter.org/v1
+        value: gemini
       - key: AI_MODEL
-        value: deepseek-v4-flash
+        value: gemini-2.5-flash
       - key: AI_MAX_TOOL_HOPS
         value: "5"
       - key: AI_MAX_OUTPUT_TOKENS
@@ -51,7 +49,5 @@ services:
       # If no stream chunk arrives within this window, abort to avoid hanging.
       - key: AI_STREAM_IDLE_MS
         value: "30000"
-      - key: AI_USER_AGENT
-        value: roo-code/1.0
       - key: CHAT_RATE_LIMIT_MAX
         value: "20"

@@ -75,21 +75,15 @@ CORS_ORIGINS=https://marsu-executive-dashbaord.vercel.app
 JWT_EXPIRES_IN=8h
 RATE_LIMIT_MAX=300
 
-# Empower AI Chatbot
-AI_PROVIDER=glm
-AI_MODEL=glm-5.3
-AI_BASE_URL=https://agentrouter.org/v1
+# Empower AI Chatbot (Gemini free tier)
+AI_PROVIDER=gemini
+AI_MODEL=gemini-2.5-flash
 AI_MAX_TOOL_HOPS=5
 AI_MAX_OUTPUT_TOKENS=4000
 AI_TEMPERATURE=0.2
 AI_TIMEOUT_MS=60000
-AI_USER_AGENT=roo-code/1.0
 CHAT_RATE_LIMIT_MAX=20
 ```
-
-If `AI_BASE_URL` points to a proxy router such as `agentrouter.org`, keep
-`AI_USER_AGENT=roo-code/1.0` — the router whitelists clients by User-Agent and
-rejects the OpenAI SDK's default UA.
 
 Do not set `PORT`; Render supplies it. Do not add `:10000` to public URLs.
 Render's public health URL is:
