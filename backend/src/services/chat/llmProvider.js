@@ -56,11 +56,6 @@ if (!process.env.AI_API_KEY) {
 }
 
 const client = new OpenAI({
-  console.log("[DEBUG ENV CHECK]", {
-  AI_PROVIDER: process.env.AI_PROVIDER,
-  AI_BASE_URL: process.env.AI_BASE_URL,
-  AI_MODEL: process.env.AI_MODEL,
-});
   apiKey: process.env.AI_API_KEY || "missing",
   baseURL: process.env.AI_BASE_URL || defaults.baseURL,
   timeout: Number(process.env.AI_TIMEOUT_MS) || 60000,
