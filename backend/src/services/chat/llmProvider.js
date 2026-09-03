@@ -42,8 +42,8 @@ const defaults = PROVIDER_DEFAULTS[provider] || PROVIDER_DEFAULTS.custom;
 if (!defaults.baseURL && !process.env.AI_BASE_URL) {
   console.warn(
     `[chat] AI_PROVIDER="${process.env.AI_PROVIDER}" is not a recognised provider. ` +
-    `Set AI_BASE_URL to use a custom OpenAI-compatible endpoint, ` +
-    `or change AI_PROVIDER to one of: glm, openai, gemini.`,
+      `Set AI_BASE_URL to use a custom OpenAI-compatible endpoint, ` +
+      `or change AI_PROVIDER to one of: glm, openai, gemini.`,
   );
 }
 
@@ -56,12 +56,15 @@ if (!process.env.AI_API_KEY) {
 }
 
 const client = new OpenAI({
+  console.log("[DEBUG ENV CHECK]", {
+  AI_PROVIDER: process.env.AI_PROVIDER,
+  AI_BASE_URL: process.env.AI_BASE_URL,
+  AI_MODEL: process.env.AI_MODEL,
+});
   apiKey: process.env.AI_API_KEY || "missing",
   baseURL: process.env.AI_BASE_URL || defaults.baseURL,
   timeout: Number(process.env.AI_TIMEOUT_MS) || 60000,
   maxRetries: 1,
-  // Some proxy routers (e.g., agentrouter.org) whitelist clients by
-  // User-Agent and reject the OpenAI SDK's default UA with a 401.
   defaultHeaders: {
     "User-Agent": process.env.AI_USER_AGENT || "roo-code/1.0",
   },
@@ -115,71 +118,74 @@ async function* streamChat({ messages, tools }) {
       const resetTimer = () => {
         clearTimeout(streamTimer);
         streamTimer = setTimeout(() => {
-          console.warn(`[chat] stream idle timeout after ${STREAM_IDLE_MS}ms — aborting`);
+          console.warn(
+            `[chat] stream idle timeout after ${STREAM_IDLE_MS}ms — aborting`,
+          );
           completion.controller?.abort();
         }, STREAM_IDLE_MS);
       };
       resetTimer();
 
       try {
-      for await (const chunk of completion) {
-        resetTimer(); // got data — restart the inactivity clock
-        const choice = chunk.choices?.[0];
-        if (!choice) continue;
+        for await (const chunk of completion) {
+          resetTimer(); // got data — restart the inactivity clock
+          const choice = chunk.choices?.[0];
+          if (!choice) continue;
 
-        const delta = choice.delta || {};
+          const delta = choice.delta || {};
 
-        // Some reasoning models (e.g. GLM-5.x) emit their thinking via
-        // reasoning_content. Forward it so the frontend can show activity
-        // during the "thinking" phase.
-        if (
-          typeof delta.reasoning_content === "string" &&
-          delta.reasoning_content.length > 0
-        ) {
-          reasoningBuffer += delta.reasoning_content;
-          yield { type: "reasoning", text: delta.reasoning_content };
-        }
+          // Some reasoning models (e.g. GLM-5.x) emit their thinking via
+          // reasoning_content. Forward it so the frontend can show activity
+          // during the "thinking" phase.
+          if (
+            typeof delta.reasoning_content === "string" &&
+            delta.reasoning_content.length > 0
+          ) {
+            reasoningBuffer += delta.reasoning_content;
+            yield { type: "reasoning", text: delta.reasoning_content };
+          }
 
-        if (typeof delta.content === "string" && delta.content.length > 0) {
-          sawContent = true;
-          yield { type: "delta", text: delta.content };
-        }
+          if (typeof delta.content === "string" && delta.content.length > 0) {
+            sawContent = true;
+            yield { type: "delta", text: delta.content };
+          }
 
-        if (Array.isArray(delta.tool_calls)) {
-          sawToolCalls = true;
-          for (const part of delta.tool_calls) {
-            const idx = part.index ?? 0;
-            const current = toolCallAcc.get(idx) || {
-              id: "",
-              type: "function",
-              function: { name: "", arguments: "" },
-            };
-            if (part.id) current.id = part.id;
-            if (part.function?.name) current.function.name += part.function.name;
-            if (part.function?.arguments)
-              current.function.arguments += part.function.arguments;
-            toolCallAcc.set(idx, current);
+          if (Array.isArray(delta.tool_calls)) {
+            sawToolCalls = true;
+            for (const part of delta.tool_calls) {
+              const idx = part.index ?? 0;
+              const current = toolCallAcc.get(idx) || {
+                id: "",
+                type: "function",
+                function: { name: "", arguments: "" },
+              };
+              if (part.id) current.id = part.id;
+              if (part.function?.name)
+                current.function.name += part.function.name;
+              if (part.function?.arguments)
+                current.function.arguments += part.function.arguments;
+              toolCallAcc.set(idx, current);
+            }
           }
         }
-      }
 
-      // Some reasoning models (e.g. GLM-5.x via agentrouter) emit their
-      // answer in reasoning_content but leave content empty.  When that
-      // happens, fall back to the accumulated reasoning text so the user
-      // actually sees a response.
-      if (!sawContent && !sawToolCalls && reasoningBuffer.length > 0) {
-        yield { type: "delta", text: reasoningBuffer };
-      }
+        // Some reasoning models (e.g. GLM-5.x via agentrouter) emit their
+        // answer in reasoning_content but leave content empty.  When that
+        // happens, fall back to the accumulated reasoning text so the user
+        // actually sees a response.
+        if (!sawContent && !sawToolCalls && reasoningBuffer.length > 0) {
+          yield { type: "delta", text: reasoningBuffer };
+        }
 
-      if (sawToolCalls) {
-        yield {
-          type: "toolCalls",
-          toolCalls: [...toolCallAcc.values()].filter(
-            (tc) => tc.function.name.length > 0,
-          ),
-        };
-      }
-      return; // success — exit retry loop
+        if (sawToolCalls) {
+          yield {
+            type: "toolCalls",
+            toolCalls: [...toolCallAcc.values()].filter(
+              (tc) => tc.function.name.length > 0,
+            ),
+          };
+        }
+        return; // success — exit retry loop
       } finally {
         clearTimeout(streamTimer);
       }
@@ -191,9 +197,7 @@ async function* streamChat({ messages, tools }) {
         `[chat] provider error on attempt ${attempt}/${maxRetries}: status=${status} message="${err.message}"`,
       );
       if ([500, 502, 503, 429].includes(status) && attempt < maxRetries) {
-        console.warn(
-          `[chat] retrying after ${status}…`,
-        );
+        console.warn(`[chat] retrying after ${status}…`);
         continue;
       }
       throw err; // non-retryable or last attempt
