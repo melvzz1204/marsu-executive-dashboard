@@ -105,15 +105,28 @@ async function* streamChat({ messages, tools }) {
 
       try {
         for await (const chunk of completion) {
-          resetTimer(); // got data — restart the inactivity clock
+          resetTimer();
+
+          // 1. Support AgentRouter native stream format ({ type: "delta" | "reasoning", text: "..." })
+          if (chunk.type === "reasoning" && typeof chunk.text === "string") {
+            reasoningBuffer += chunk.text;
+            yield { type: "reasoning", text: chunk.text };
+            continue;
+          }
+
+          if (chunk.type === "delta" && typeof chunk.text === "string") {
+            sawContent = true;
+            yield { type: "delta", text: chunk.text };
+            continue;
+          }
+
+          // 2. Support standard OpenAI stream format ({ choices: [{ delta: ... }] })
           const choice = chunk.choices?.[0];
           if (!choice) continue;
 
           const delta = choice.delta || {};
 
-          // Some reasoning models (e.g. GLM-5.x) emit their thinking via
-          // reasoning_content. Forward it so the frontend can show activity
-          // during the "thinking" phase.
+          // Handle standard reasoning_content field (e.g. GLM / DeepSeek via standard proxies)
           if (
             typeof delta.reasoning_content === "string" &&
             delta.reasoning_content.length > 0
@@ -122,11 +135,13 @@ async function* streamChat({ messages, tools }) {
             yield { type: "reasoning", text: delta.reasoning_content };
           }
 
+          // Handle standard delta content
           if (typeof delta.content === "string" && delta.content.length > 0) {
             sawContent = true;
             yield { type: "delta", text: delta.content };
           }
 
+          // Accumulate tool calls
           if (Array.isArray(delta.tool_calls)) {
             sawToolCalls = true;
             for (const part of delta.tool_calls) {
