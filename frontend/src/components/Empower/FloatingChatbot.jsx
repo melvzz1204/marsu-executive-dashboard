@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useChat } from "../../hooks/useChat";
 import ChatReportModal from "./ChatReportModal";
+import RobotChatIcon from "./RobotChatIcon";
 
 /** Friendly labels for tool names shown while the assistant queries data. */
 const TOOL_LABELS = {
@@ -14,6 +15,14 @@ const TOOL_LABELS = {
   getGlobalRecognition: "Fetching global rankings…",
   getCollegeLicensurePerformance: "Reviewing licensure performance…",
 };
+
+const CHAT_NUDGES = [
+  "Need a quick insight?",
+  "Ask me about enrollment trends.",
+  "Want to explore university data?",
+  "I can help find the numbers.",
+  "Curious about research or licensure?",
+];
 
 /** Render assistant text with simple markdown-ish formatting (bold + bullets). */
 const renderFormattedText = (text) => {
@@ -46,6 +55,7 @@ const renderFormattedText = (text) => {
 const FloatingChatbot = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [isNudgeVisible, setIsNudgeVisible] = useState(true);
+  const [nudgeIndex, setNudgeIndex] = useState(0);
   const [input, setInput] = useState("");
   const [activeReport, setActiveReport] = useState(null); // message index for the open report modal
   const {
@@ -72,10 +82,17 @@ const FloatingChatbot = () => {
     if (isOpen) inputRef.current?.focus();
   }, [isOpen]);
 
-  // Give first-time visitors a quiet invitation, then let it disappear.
+  // Rotate quiet invitations while the assistant is closed, then let them disappear.
   useEffect(() => {
-    const timer = window.setTimeout(() => setIsNudgeVisible(false), 9000);
-    return () => window.clearTimeout(timer);
+    const hideTimer = window.setTimeout(() => setIsNudgeVisible(false), 14000);
+    const rotateTimer = window.setInterval(() => {
+      setNudgeIndex((current) => (current + 1) % CHAT_NUDGES.length);
+    }, 4000);
+
+    return () => {
+      window.clearTimeout(hideTimer);
+      window.clearInterval(rotateTimer);
+    };
   }, []);
 
   const handleSubmit = (e) => {
@@ -360,8 +377,11 @@ const FloatingChatbot = () => {
             <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#600018]">
               Empower AI
             </p>
-            <p className="mt-1 text-sm font-medium text-slate-700">
-              Need a quick insight?
+            <p
+              key={nudgeIndex}
+              className="mt-1 text-sm font-medium text-slate-700 floating-chat-nudge-message"
+            >
+              {CHAT_NUDGES[nudgeIndex]}
             </p>
             <span className="absolute -bottom-1.5 right-5 h-3 w-3 rotate-45 border-r border-b border-[#eadfe2] bg-white" />
           </div>
@@ -398,14 +418,14 @@ const FloatingChatbot = () => {
           isOpen ? "Close Empower AI assistant" : "Open Empower AI assistant"
         }
         aria-expanded={isOpen}
-        className={`floating-chat-fab group relative w-16 h-16 rounded-[1.35rem] flex items-center justify-center shadow-[0_12px_35px_rgba(40,0,15,0.3)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_16px_40px_rgba(40,0,15,0.38)] ${
+        className={`floating-chat-fab group relative w-20 h-20 rounded-[1.5rem] flex items-center justify-center shadow-[0_12px_35px_rgba(40,0,15,0.3)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_16px_40px_rgba(40,0,15,0.38)] ${
           isOpen
             ? "bg-slate-800 text-white"
             : "bg-gradient-to-br from-[#600018] to-[#3A0010] text-[#D4AF37] border border-[#D4AF37]/30"
         }`}
       >
         {!isOpen && (
-          <span className="absolute inset-0 rounded-[1.35rem] border border-[#D4AF37]/50 floating-chat-ring" />
+          <span className="absolute inset-0 rounded-[1.5rem] border border-[#D4AF37]/50 floating-chat-ring" />
         )}
         {isOpen ? (
           // Close Icon
@@ -423,20 +443,9 @@ const FloatingChatbot = () => {
             />
           </svg>
         ) : (
-          // Chat Icon
-          <svg
-            className="w-7 h-7"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="1.5"
-              d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
-            />
-          </svg>
+          <span className="transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-2 group-hover:drop-shadow-[0_0_10px_rgba(212,175,55,0.65)]">
+            <RobotChatIcon size={54} />
+          </span>
         )}
       </button>
     </div>
