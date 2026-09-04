@@ -120,6 +120,7 @@ export default function EnrollmentDashboard({ isPublicView = false }) {
 
   const [currentData, setCurrentData] = useState(null);
   const [trendData, setTrendData] = useState([]);
+  const [allCampusTrendData, setAllCampusTrendData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -269,11 +270,27 @@ export default function EnrollmentDashboard({ isPublicView = false }) {
       const trendUrl = `${API_BASE}/trend?campus=${encodeURIComponent(
         selectedCampus,
       )}&semester=${encodeURIComponent(selectedSemester)}`;
-      const trendRes = await fetch(trendUrl, { headers });
-      const trendJson = await trendRes.json();
+      const allCampusTrendUrl = `${API_BASE}/trend?campus=All&semester=${encodeURIComponent(
+        selectedSemester,
+      )}`;
+      const [trendRes, allCampusTrendRes] = await Promise.all([
+        fetch(trendUrl, { headers }),
+        fetch(allCampusTrendUrl, { headers }),
+      ]);
+      const [trendJson, allCampusTrendJson] = await Promise.all([
+        trendRes.json(),
+        allCampusTrendRes.json(),
+      ]);
 
       if (trendRes.ok && trendJson.success) {
         setTrendData(trendJson.data || []);
+      } else {
+        setTrendData([]);
+      }
+      if (allCampusTrendRes.ok && allCampusTrendJson.success) {
+        setAllCampusTrendData(allCampusTrendJson.data || []);
+      } else {
+        setAllCampusTrendData([]);
       }
     } catch (err) {
       console.error("Error fetching dashboard payload:", err);
@@ -583,6 +600,96 @@ export default function EnrollmentDashboard({ isPublicView = false }) {
             </button>
           </div>
         )}
+
+        {/* UNIVERSITY-WIDE TREND */}
+        <div className="grid grid-cols-1 gap-4 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm lg:grid-cols-[minmax(0,1fr)_220px] lg:items-center">
+          <div className="min-w-0">
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-sm font-black text-slate-900 capitalize">
+                  Total enrollment by academic year university wide
+                </h2>
+                <p className="text-[11px] text-slate-400">
+                  All campuses · {selectedSemester}
+                </p>
+              </div>
+            </div>
+            {loading ? (
+              <Skeleton className="h-40 w-full" />
+            ) : allCampusTrendData.length > 0 ? (
+              <div className="h-40">
+                <Chart
+                  type="line"
+                  data={{
+                    labels: allCampusTrendData.map((item) =>
+                      formatAYLabel(item.academicYear),
+                    ),
+                    datasets: [
+                      {
+                        label: "Total enrollment",
+                        data: allCampusTrendData.map(
+                          (item) => item.totalStudents || 0,
+                        ),
+                        borderColor: PALETTE.gold,
+                        backgroundColor: "rgba(212, 175, 55, 0.10)",
+                        borderWidth: 2.5,
+                        pointRadius: 2.5,
+                        pointHoverRadius: 4,
+                        fill: true,
+                        tension: 0.3,
+                      },
+                    ],
+                  }}
+                  options={{
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                      legend: { display: false },
+                      tooltip: {
+                        callbacks: {
+                          label: (context) =>
+                            ` ${context.parsed.y.toLocaleString()} students`,
+                        },
+                      },
+                    },
+                    scales: {
+                      x: {
+                        grid: { display: false },
+                        ticks: { maxRotation: 0 },
+                      },
+                      y: {
+                        beginAtZero: false,
+                        ticks: {
+                          maxTicksLimit: 4,
+                          callback: (value) => Number(value).toLocaleString(),
+                        },
+                      },
+                    },
+                  }}
+                />
+              </div>
+            ) : (
+              <p className="py-8 text-center text-xs text-slate-400">
+                No all-campus enrollment totals are available.
+              </p>
+            )}
+          </div>
+          <div className="rounded-xl bg-[#660033] px-4 py-4 text-white">
+            <span className="block text-[10px] font-bold uppercase tracking-wider text-white/70">
+              total enrollment
+            </span>
+            <span className="mt-2 block text-3xl font-black text-[#FFD700]">
+              {(
+                allCampusTrendData.find(
+                  (item) => Number(item.academicYear) === Number(selectedYear),
+                )?.totalStudents || 0
+              ).toLocaleString()}
+            </span>
+            <span className="mt-1 block text-[11px] text-white/70">
+              {selectedYear ? formatAYLabel(selectedYear) : "No data"}
+            </span>
+          </div>
+        </div>
 
         {/* KPI SUMMARY CARDS */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
