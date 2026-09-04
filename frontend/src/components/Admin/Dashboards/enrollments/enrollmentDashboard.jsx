@@ -655,7 +655,7 @@ export default function EnrollmentDashboard({ isPublicView = false }) {
                     scales: {
                       x: {
                         grid: { display: false },
-                        ticks: { maxRotation: 0 },
+                        ticks: { maxRotation: 0, font: { size: 10 } },
                       },
                       y: {
                         beginAtZero: false,
@@ -927,14 +927,14 @@ export default function EnrollmentDashboard({ isPublicView = false }) {
                         grid: { display: false },
                         ticks: {
                           color: PALETTE.slateMuted,
-                          font: { size: 11 },
+                          font: { size: 10 },
                         },
                       },
                       y: {
                         grid: { color: "#f1f5f9" },
                         ticks: {
                           color: PALETTE.slateMuted,
-                          font: { size: 11 },
+                          font: { size: 10 },
                         },
                       },
                     },
@@ -1065,11 +1065,11 @@ export default function EnrollmentDashboard({ isPublicView = false }) {
                   scales: {
                     x: {
                       grid: { display: false },
-                      ticks: { color: PALETTE.slateMuted, font: { size: 11 } },
+                      ticks: { color: PALETTE.slateMuted, font: { size: 10 } },
                     },
                     y: {
                       grid: { color: "#f1f5f9" },
-                      ticks: { color: PALETTE.slateMuted, font: { size: 11 } },
+                      ticks: { color: PALETTE.slateMuted, font: { size: 10 } },
                       beginAtZero: true,
                     },
                   },
@@ -1188,7 +1188,7 @@ export default function EnrollmentDashboard({ isPublicView = false }) {
                           key={program._id || idx}
                           className="hover:bg-slate-50/60 transition-colors group"
                         >
-                          <td className="px-6 py-4 text-center font-mono text-slate-400 text-xs font-semibold">
+                          <td className="px-6 py-4 text-center  text-slate-400 text-xs font-semibold">
                             #{String(idx + 1).padStart(2, "0")}
                           </td>
                           <td className="px-6 py-4 font-medium text-slate-900 max-w-md break-words leading-relaxed group-hover:text-[#660033] transition-colors">
@@ -1204,7 +1204,7 @@ export default function EnrollmentDashboard({ isPublicView = false }) {
                               {program.category || "General"}
                             </span>
                           </td>
-                          <td className="px-6 py-4 text-right font-mono text-[#660033] font-bold whitespace-nowrap">
+                          <td className="px-6 py-4 text-right  text-[#660033] font-bold whitespace-nowrap">
                             {(program.enrollment || 0).toLocaleString()}
                           </td>
                           <td className="px-6 py-4 text-center whitespace-nowrap">
