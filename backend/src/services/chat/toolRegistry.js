@@ -47,6 +47,14 @@ const normalizeSemester = (value) =>
         .toLowerCase(),
   ) || null;
 
+// Enrollment uploads have historically stored inconsistent campus casing
+// (for example, "Santa cruz" instead of "Santa Cruz"). Keep the canonical
+// value returned to the model while matching MongoDB case-insensitively.
+const campusQuery = (campus) => ({
+  $regex: `^${String(campus).replace(/[.*+?^${}()|[\\]\\\\]/g, "\\\\$&")}$`,
+  $options: "i",
+});
+
 /** Cap and sanitize a limit argument. */
 const sanitizeLimit = (value, fallback, max) => {
   const n = Number(value);
@@ -57,14 +65,14 @@ const sanitizeLimit = (value, fallback, max) => {
 // Tool implementations (pure data access — no req/res)
 // ---------------------------------------------------------------------------
 
-async function getEnrollmentSnapshot(args, user) {
+async function getEnrollmentSnapshot(args = {}, user) {
   const year = clampYear(args.year, new Date().getFullYear() - 1);
   const campus = normalizeCampus(args.campus) || "Boac";
   const semester = normalizeSemester(args.semester) || "1st Semester";
 
   const snapshot = await EnrollmentAnalytics.findOne({
     academicYear: year,
-    campus,
+    campus: campusQuery(campus),
     semester,
   }).lean();
 
@@ -102,7 +110,7 @@ async function getEnrollmentSnapshot(args, user) {
   };
 }
 
-async function getEnrollmentTrend(args, user) {
+async function getEnrollmentTrend(args = {}, user) {
   const toYear = clampYear(args.toYear, new Date().getFullYear() - 1);
   const fromYear = clampYear(args.fromYear, toYear - 4);
   const campus = normalizeCampus(args.campus) || "Boac";
@@ -113,7 +121,7 @@ async function getEnrollmentTrend(args, user) {
 
   const docs = await EnrollmentAnalytics.find({
     academicYear: { $gte: fromYear, $lte: toYear },
-    campus,
+    campus: campusQuery(campus),
     semester,
   })
     .sort({ academicYear: 1 })
