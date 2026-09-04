@@ -29,14 +29,16 @@ const clampYear = (value, fallback) => {
   return Number.isInteger(n) && n >= 2000 && n <= 2100 ? n : fallback;
 };
 
-const normalizeCampus = (value) =>
-  CAMPUSES.find(
-    (c) =>
-      c.toLowerCase() ===
-      String(value || "")
-        .trim()
-        .toLowerCase(),
-  ) || null;
+const normalizeCampus = (value) => {
+  const key = String(value || "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+  return CAMPUSES.find((c) => c.toLowerCase() === key) || null;
+};
+
+const escapeRegex = (value) =>
+  String(value).replace(/[.*+?^${}()|[\\]\\\\]/g, "\\\\$&");
 
 const normalizeSemester = (value) =>
   SEMESTERS.find(
@@ -44,6 +46,7 @@ const normalizeSemester = (value) =>
       s.toLowerCase() ===
       String(value || "")
         .trim()
+        .replace(/\s+/g, " ")
         .toLowerCase(),
   ) || null;
 
@@ -346,7 +349,12 @@ async function getBudgetUtilization(args, user) {
 async function getAccreditationStatus(args, user) {
   const campus = normalizeCampus(args.campus);
   const query = {};
-  if (campus) query.campusBranch = campus;
+  if (campus) {
+    query.campusBranch = {
+      $regex: `^${escapeRegex(campus)}$`,
+      $options: "i",
+    };
+  }
 
   const programs = await HigherEducation.find(query)
     .sort({ campusBranch: 1, programName: 1 })

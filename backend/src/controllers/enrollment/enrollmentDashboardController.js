@@ -13,6 +13,18 @@ const parseAcademicYear = (value, fallback) => {
 const normalizeText = (value, fallback = "") =>
   typeof value === "string" && value.trim() ? value.trim() : fallback;
 
+const escapeRegex = (value) =>
+  String(value).replace(/[.*+?^${}()|[\\]\\\\]/g, "\\\\$&");
+
+const campusQuery = (campus) => ({
+  $regex: `^${escapeRegex(campus)}$`,
+  $options: "i",
+});
+
+const isAllCampuses = (campus) =>
+  typeof campus === "string" &&
+  ["all", "all campuses"].includes(campus.trim().toLowerCase());
+
 // GET /api/v1/enrollment
 exports.getEnrollmentSnapshot = async (req, res) => {
   try {
@@ -32,7 +44,7 @@ exports.getEnrollmentSnapshot = async (req, res) => {
     // 1. Fetch Snapshot for Requested Academic Year
     const snapshot = await EnrollmentAnalytics.findOne({
       academicYear: numericYear,
-      campus: campusName,
+      campus: campusQuery(campusName),
       semester: semesterName,
     }).lean();
 
@@ -63,7 +75,7 @@ exports.getEnrollmentSnapshot = async (req, res) => {
     // 2. Dynamic YoY Calculation: Fetch Previous Academic Year (AY - 1)
     const prevSnapshot = await EnrollmentAnalytics.findOne({
       academicYear: numericYear - 1,
-      campus: campusName,
+      campus: campusQuery(campusName),
       semester: semesterName,
     }).lean();
 
@@ -137,7 +149,23 @@ exports.getEnrollmentFilters = async (req, res) => {
         years: (years || []).sort((a, b) => b - a), // Descending
         campuses:
           campuses.length > 0
-            ? campuses.sort()
+            ? [
+                ...new Set(
+                  campuses.map((campus) => {
+                    const key = normalizeText(campus)
+                      .replace(/\s+/g, " ")
+                      .toLowerCase();
+                    return (
+                      {
+                        boac: "Boac",
+                        gasan: "Gasan",
+                        "santa cruz": "Santa Cruz",
+                        torrijos: "Torrijos",
+                      }[key] || normalizeText(campus)
+                    );
+                  }),
+                ),
+              ].sort((a, b) => a.localeCompare(b))
             : ["Boac", "Gasan", "Santa Cruz", "Torrijos"],
         semesters:
           semesters.length > 0 ? semesters : ["1st Semester", "2nd Semester"],
@@ -161,8 +189,8 @@ exports.getEnrollmentTrend = async (req, res) => {
     // Match by semester to prevent double-counting 1st + 2nd semesters per year
     let matchQuery = { semester: semesterName };
 
-    if (campus && campus.toLowerCase() !== "all") {
-      matchQuery.campus = campus;
+    if (campus && !isAllCampuses(campus)) {
+      matchQuery.campus = campusQuery(campus.trim());
     }
 
     const rawTrends = await EnrollmentAnalytics.find(matchQuery)
@@ -232,7 +260,7 @@ exports.upsertEnrollmentAnalytics = async (req, res) => {
 
     let record = await EnrollmentAnalytics.findOne({
       academicYear: numericYear,
-      campus: campusName,
+      campus: campusQuery(campusName),
       semester: semesterName,
     });
 
@@ -270,8 +298,8 @@ exports.getProgramRisk = async (req, res) => {
     const isHighestView = view === "highest";
     const matchQuery = { semester: semesterName };
 
-    if (campus && campus.toLowerCase() !== "all") {
-      matchQuery.campus = campus;
+    if (campus && !isAllCampuses(campus)) {
+      matchQuery.campus = campusQuery(campus.trim());
     }
 
     const snapshots = await EnrollmentAnalytics.find(matchQuery)
@@ -414,8 +442,8 @@ exports.getProgramTrend = async (req, res) => {
 
     let matchQuery = { semester: semesterName };
 
-    if (campus && campus.toLowerCase() !== "all") {
-      matchQuery.campus = campus;
+    if (campus && !isAllCampuses(campus)) {
+      matchQuery.campus = campusQuery(campus.trim());
     }
 
     // Fetch the raw trends, but this time select the 'programs' array instead of summary KPIs

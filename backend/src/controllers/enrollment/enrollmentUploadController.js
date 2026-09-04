@@ -252,9 +252,20 @@ exports.uploadEnrollmentExcel = async (req, res) => {
           )
             department = "Sciences";
 
-          const formattedCampus = campus
-            ? campus.charAt(0).toUpperCase() + campus.slice(1).toLowerCase()
-            : "Boac";
+          const campusAliases = {
+            boac: "Boac",
+            gasan: "Gasan",
+            "santa cruz": "Santa Cruz",
+            "santa  cruz": "Santa Cruz",
+            torrijos: "Torrijos",
+          };
+          const campusKey = String(campus)
+            .trim()
+            .replace(/\s+/g, " ")
+            .toLowerCase();
+          const formattedCampus =
+            campusAliases[campusKey] ||
+            String(campus).trim().replace(/\s+/g, " ");
 
           const groupKey = `${tabYear}_${formattedCampus}_${semester.replace(/\s+/g, "")}`;
 
