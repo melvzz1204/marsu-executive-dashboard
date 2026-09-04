@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { getInsights } from "./reportInsights";
 import {
   Chart as ChartJS,
@@ -1261,7 +1262,7 @@ const ChatReportModal = ({ reports, onClose }) => {
     }
   };
 
-  return (
+  return createPortal(
     <div
       id="empower-report-root"
       className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in"
@@ -1541,7 +1542,8 @@ const ChatReportModal = ({ reports, onClose }) => {
           </span>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 };
 

@@ -45,10 +45,19 @@ const renderFormattedText = (text) => {
 
 const FloatingChatbot = () => {
   const [isOpen, setIsOpen] = useState(false);
+  const [isNudgeVisible, setIsNudgeVisible] = useState(true);
   const [input, setInput] = useState("");
   const [activeReport, setActiveReport] = useState(null); // message index for the open report modal
-  const { messages, isStreaming, toolStatus, reasoning, error, sendMessage, stop, reset } =
-    useChat();
+  const {
+    messages,
+    isStreaming,
+    toolStatus,
+    reasoning,
+    error,
+    sendMessage,
+    stop,
+    reset,
+  } = useChat();
   const scrollRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -63,6 +72,12 @@ const FloatingChatbot = () => {
     if (isOpen) inputRef.current?.focus();
   }, [isOpen]);
 
+  // Give first-time visitors a quiet invitation, then let it disappear.
+  useEffect(() => {
+    const timer = window.setTimeout(() => setIsNudgeVisible(false), 9000);
+    return () => window.clearTimeout(timer);
+  }, []);
+
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!input.trim() || isStreaming) return;
@@ -73,10 +88,10 @@ const FloatingChatbot = () => {
 
   return (
     // 🛡️ Safe wrapper pinned strictly to the bottom right
-    <div className="fixed bottom-6 right-6 z-[100] flex flex-col items-end">
+    <div className="fixed bottom-5 right-5 sm:bottom-6 sm:right-6 z-[100] flex flex-col items-end">
       {/* 🗨️ Chat Window */}
       {isOpen && (
-        <div className="mb-4 w-[90vw] max-w-[380px] bg-white rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.3)] overflow-hidden border border-slate-200 flex flex-col animate-fade-in origin-bottom-right transition-all duration-300">
+        <div className="mb-4 w-[calc(100vw-2.5rem)] max-w-[400px] bg-white rounded-[1.5rem] shadow-[0_24px_80px_rgba(40,0,15,0.24)] overflow-hidden border border-[#eadfe2] flex flex-col floating-chat-panel origin-bottom-right">
           {/* Header */}
           <div className="bg-gradient-to-r from-[#600018] to-[#3A0010] p-4 text-white flex justify-between items-center border-b border-[#D4AF37]/30">
             <div className="flex items-center gap-3">
@@ -163,7 +178,7 @@ const FloatingChatbot = () => {
             {messages.map((msg, i) => (
               <div
                 key={i}
-                className={`flex gap-2 max-w-[90%] ${msg.role === "user" ? "self-end flex-row-reverse" : ""}`}
+                className={`flex gap-2 max-w-[90%] chat-message-enter ${msg.role === "user" ? "self-end flex-row-reverse" : ""}`}
               >
                 {msg.role === "assistant" && (
                   <div className="w-6 h-6 rounded-full bg-[#3A0010] flex-shrink-0 flex items-center justify-center mt-1">
@@ -335,15 +350,63 @@ const FloatingChatbot = () => {
         </div>
       )}
 
+      {/* Friendly invitation shown before the panel is opened. */}
+      {!isOpen && isNudgeVisible && (
+        <div
+          className="mb-3 mr-1 flex items-start gap-2 floating-chat-nudge"
+          role="status"
+        >
+          <div className="relative rounded-2xl rounded-br-md border border-[#eadfe2] bg-white px-4 py-3 shadow-[0_12px_35px_rgba(40,0,15,0.16)]">
+            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#600018]">
+              Empower AI
+            </p>
+            <p className="mt-1 text-sm font-medium text-slate-700">
+              Need a quick insight?
+            </p>
+            <span className="absolute -bottom-1.5 right-5 h-3 w-3 rotate-45 border-r border-b border-[#eadfe2] bg-white" />
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsNudgeVisible(false)}
+            aria-label="Dismiss chat invitation"
+            className="mt-1 rounded-full bg-white p-1 text-slate-400 shadow-sm transition-colors hover:text-[#600018]"
+          >
+            <svg
+              className="h-3.5 w-3.5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </button>
+        </div>
+      )}
+
       {/* 🔴 Floating Action Button */}
       <button
-        onClick={() => setIsOpen(!isOpen)}
-        className={`w-14 h-14 rounded-full flex items-center justify-center shadow-[0_8px_30px_rgba(0,0,0,0.4)] transition-all duration-300 hover:scale-105 ${
+        onClick={() => {
+          setIsNudgeVisible(false);
+          setIsOpen(!isOpen);
+        }}
+        aria-label={
+          isOpen ? "Close Empower AI assistant" : "Open Empower AI assistant"
+        }
+        aria-expanded={isOpen}
+        className={`floating-chat-fab group relative w-16 h-16 rounded-[1.35rem] flex items-center justify-center shadow-[0_12px_35px_rgba(40,0,15,0.3)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_16px_40px_rgba(40,0,15,0.38)] ${
           isOpen
             ? "bg-slate-800 text-white"
             : "bg-gradient-to-br from-[#600018] to-[#3A0010] text-[#D4AF37] border border-[#D4AF37]/30"
         }`}
       >
+        {!isOpen && (
+          <span className="absolute inset-0 rounded-[1.35rem] border border-[#D4AF37]/50 floating-chat-ring" />
+        )}
         {isOpen ? (
           // Close Icon
           <svg

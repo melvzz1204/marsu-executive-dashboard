@@ -1,4 +1,9 @@
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  useLocation,
+} from "react-router-dom";
 import Login from "./pages/Home";
 import Dashboard from "./pages/MainDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
@@ -7,9 +12,12 @@ import DeanAchievements from "./pages/DeanAchievements";
 import InformationUnitDashboard from "./pages/InformationUnitDashboard";
 import FloatingChatbot from "./components/Empower/FloatingChatbot";
 
-function App() {
+function AppContent() {
+  const location = useLocation();
+  const showFloatingChatbot = location.pathname === "/dashboard";
+
   return (
-    <Router>
+    <>
       <Routes>
         <Route path="/" element={<Login />} />
         <Route path="/dashboard" element={<Dashboard />} />
@@ -21,8 +29,16 @@ function App() {
           element={<InformationUnitDashboard />}
         />
       </Routes>
-      {/* 🤖 Global AI assistant — floats above every page */}
-      <FloatingChatbot />
+      {/* Keep the assistant scoped to the authenticated executive dashboard. */}
+      {showFloatingChatbot && <FloatingChatbot />}
+    </>
+  );
+}
+
+function App() {
+  return (
+    <Router>
+      <AppContent />
     </Router>
   );
 }
