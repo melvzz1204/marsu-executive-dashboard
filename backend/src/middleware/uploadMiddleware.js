@@ -1,9 +1,14 @@
 const multer = require("multer");
 
 const MAX_UPLOAD_SIZE_BYTES = 10 * 1024 * 1024;
+
 const EXCEL_MIME_TYPES = new Set([
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   "application/vnd.ms-excel",
+  "application/excel",
+  "application/x-excel",
+  "application/x-msexcel",
+  "application/octet-stream", // Fallback for Postman/cURL uploads
 ]);
 
 const createExcelFileFilter =
@@ -11,10 +16,11 @@ const createExcelFileFilter =
     const hasAllowedExtension = extensionPattern.test(file.originalname || "");
     const hasAllowedMimeType = EXCEL_MIME_TYPES.has(file.mimetype);
 
+    // Require valid extension AND an acceptable MIME type
     if (!hasAllowedExtension || !hasAllowedMimeType) {
       const error = new multer.MulterError(
         "LIMIT_UNEXPECTED_FILE",
-        file.fieldname,
+        file.fieldname
       );
       error.message = `Only Excel spreadsheet files (${allowedFormats}) are allowed.`;
       return callback(error);
@@ -25,7 +31,7 @@ const createExcelFileFilter =
 
 const excelFileFilter = createExcelFileFilter(
   /\.(xlsx|xls)$/i,
-  ".xlsx or .xls",
+  ".xlsx or .xls"
 );
 const xlsxFileFilter = createExcelFileFilter(/\.xlsx$/i, ".xlsx");
 

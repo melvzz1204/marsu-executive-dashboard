@@ -68,7 +68,7 @@ budgetUtilizationSchema.virtual("totalObligated").get(function () {
 
 // Virtual for BUR Efficiency (Total Obligated / Total Allotment)
 budgetUtilizationSchema.virtual("burEfficiency").get(function () {
-  const totalAllotment = this.totalAllotment;
+  const totalAllotment = this.totalAllotment; 
   if (!totalAllotment || totalAllotment === 0) return 0;
   return Math.round((this.totalObligated / totalAllotment) * 10000) / 10000;
 });

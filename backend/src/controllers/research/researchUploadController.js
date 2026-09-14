@@ -42,29 +42,31 @@ function formatFileSize(bytes) {
 }
 
 /**
- * Normalize paper scope values
+ * Helper to map full Excel College/Unit strings into Schema collegeCode
  */
-function normalizeScope(scopeStr) {
-  if (!scopeStr) return "Regional Scope";
-  const clean = scopeStr.toUpperCase();
-  if (clean.includes("INTERN")) return "International Scope";
-  if (clean.includes("NAT")) return "National Scope";
-  return "Regional Scope";
-}
+function mapCollegeToCode(collegeStr) {
+  if (!collegeStr) return "CICS";
+  const s = String(collegeStr).toUpperCase();
 
-/**
- * Normalize paper category values
- */
-function normalizeCategory(catStr) {
-  if (!catStr) return "Other";
-  const clean = catStr.toUpperCase();
-  if (clean.includes("PERCEPTION") || clean.includes("SOCIAL"))
-    return "Social Perception";
-  if (clean.includes("QUALITATIVE")) return "Qualitative Study";
-  if (clean.includes("IMPACT")) return "Impact Analysis";
-  if (clean.includes("MODEL") || clean.includes("DEVELOPMENT"))
-    return "Model Development";
-  return "Other";
+  if (s.includes("INFORMATION") || s.includes("COMPUTING") || s.includes("CICS")) return "CICS";
+  if (s.includes("BUSINESS") || s.includes("ACCOUNTANCY") || s.includes("CBMA")) return "CBMA";
+  if (s.includes("EDUCATION") || s.includes("CED")) return "CED";
+  if (s.includes("INDUSTRIAL") || s.includes("TECHNOLO") || s.includes("CIT")) return "CIT";
+  if (s.includes("AGRICULTURE") || s.includes("CA")) return "CA";
+  if (s.includes("ENGINEERING") || s.includes("CE")) return "CE";
+  if (
+    s.includes("ENVIRONMENTAL") ||
+    s.includes("GOVERNANCE") ||
+    s.includes("ARTS") ||
+    s.includes("ALLIED") ||
+    s.includes("FISHERIES") ||
+    s.includes("CRIMINAL") ||
+    s.includes("GRADUATE")
+  ) {
+    return "CAS";
+  }
+
+  return "CICS";
 }
 
 /**
@@ -128,76 +130,41 @@ exports.uploadResearchExcel = async (req, res) => {
           .toUpperCase()
           .replace(/[\s_]+/g, "");
 
-        if (headerText.includes("TITLE")) colIndexes.title = colNumber;
-        if (headerText.includes("AUTHOR")) colIndexes.authors = colNumber;
+        if (headerText.includes("COLLEGE") || headerText.includes("UNIT"))
+          colIndexes.collegeUnit = colNumber;
+        if (headerText.includes("PROGRAM") || headerText.includes("ACADEMIC"))
+          colIndexes.academicProgram = colNumber;
+        if (headerText.includes("TITLE") && !headerText.includes("JOURNAL"))
+          colIndexes.title = colNumber;
+        if (headerText.includes("AUTHOR") || headerText.includes("RESEARCHER"))
+          colIndexes.authors = colNumber;
         if (headerText.includes("YEAR")) colIndexes.year = colNumber;
-        if (headerText.includes("SCOPE")) colIndexes.scope = colNumber;
-        if (headerText.includes("CONF") || headerText.includes("JOURNAL"))
-          colIndexes.conferenceOrJournal = colNumber;
-        if (headerText.includes("CAT")) colIndexes.category = colNumber;
-        if (headerText.includes("VENUE") && !headerText.includes("FORUM"))
-          colIndexes.venue = colNumber;
-        if (headerText.includes("DURATION") || headerText.includes("DAYS"))
-          colIndexes.durationDays = colNumber;
-        if (
-          headerText.includes("STATUS") &&
-          !headerText.includes("PROPOSAL") &&
-          !headerText.includes("COMPLETION") &&
-          !headerText.includes("PUBLIC")
-        )
-          colIndexes.status = colNumber;
-        if (headerText.includes("COLLEGE") || headerText.includes("DEPT"))
-          colIndexes.collegeCode = colNumber;
-        if (headerText.includes("FUND") || headerText.includes("GRANT"))
-          colIndexes.fundingGrantMillions = colNumber;
 
-        // Headers from Excel Template
-        if (
-          headerText.includes("PROPOSALSTATUS") ||
-          headerText.includes("PROPOSAL")
-        )
-          colIndexes.proposalStatus = colNumber;
-        if (
-          headerText.includes("COMPLETIONSTATUS") ||
-          headerText.includes("COMPLETION")
-        )
-          colIndexes.completionStatus = colNumber;
-        if (
-          headerText.includes("PRESENTATIONSTAGE") ||
-          headerText.includes("STAGE")
-        )
-          colIndexes.presentationStage = colNumber;
-        if (
-          headerText.includes("PRESENTATIONFORUM") ||
-          headerText.includes("FORUM")
-        )
-          colIndexes.presentationForumVenue = colNumber;
-        if (
-          headerText.includes("PUBLICATIONSTATUS") ||
-          headerText.includes("PUBLICATION")
-        )
-          colIndexes.publicationStatus = colNumber;
+        // Lifecycle & IP Headers
+        if (headerText.includes("COMPLETION")) colIndexes.completionStatus = colNumber;
+        if (headerText.includes("PUBLICATION")) colIndexes.publicationStatus = colNumber;
+        if (headerText.includes("JOURNAL") || headerText.includes("CONF"))
+          colIndexes.titleOfJournal = colNumber;
         if (
           headerText.includes("INTELLECTUAL") ||
+          headerText.includes("INTELECTUAL") ||
           headerText.includes("PROPERTY") ||
           headerText.includes("IP")
         )
           colIndexes.intellectualPropertyTypeAcquired = colNumber;
       });
 
-      // Header index fallbacks if headers are missing
-      if (!colIndexes.title) colIndexes.title = 1;
-      if (!colIndexes.authors) colIndexes.authors = 2;
-      if (!colIndexes.year) colIndexes.year = 3;
-      if (!colIndexes.scope) colIndexes.scope = 4;
-      if (!colIndexes.conferenceOrJournal) colIndexes.conferenceOrJournal = 5;
-      if (!colIndexes.category) colIndexes.category = 6;
-      if (!colIndexes.venue) colIndexes.venue = 7;
-      if (!colIndexes.durationDays) colIndexes.durationDays = 8;
-      if (!colIndexes.status) colIndexes.status = 9;
-      if (!colIndexes.collegeCode) colIndexes.collegeCode = 10;
-      if (!colIndexes.fundingGrantMillions)
-        colIndexes.fundingGrantMillions = 11;
+      // Template structural positional fallbacks for Research_Master_Log
+      if (!colIndexes.collegeUnit) colIndexes.collegeUnit = 1;
+      if (!colIndexes.academicProgram) colIndexes.academicProgram = 2;
+      if (!colIndexes.title) colIndexes.title = 3;
+      if (!colIndexes.authors) colIndexes.authors = 4;
+      if (!colIndexes.year) colIndexes.year = 5;
+      if (!colIndexes.completionStatus) colIndexes.completionStatus = 6;
+      if (!colIndexes.publicationStatus) colIndexes.publicationStatus = 7;
+      if (!colIndexes.titleOfJournal) colIndexes.titleOfJournal = 8;
+      if (!colIndexes.intellectualPropertyTypeAcquired)
+        colIndexes.intellectualPropertyTypeAcquired = 9;
 
       worksheet.eachRow((row, rowNumber) => {
         if (rowNumber === 1) return; // Skip header row
@@ -206,132 +173,77 @@ exports.uploadResearchExcel = async (req, res) => {
           const title = extractCellValue(row.getCell(colIndexes.title));
           if (!title) return;
 
+          // Parse authors paired as [LastName, FirstName MI]
           const rawAuthors = extractCellValue(row.getCell(colIndexes.authors));
-          const authors = rawAuthors
-            ? rawAuthors
-                .split(",")
-                .map((a) => a.trim())
-                .filter(Boolean)
-            : ["Unknown Author"];
+          let authors = ["Unknown Author"];
+
+          if (rawAuthors) {
+            const parts = rawAuthors.split(",").map((a) => a.trim()).filter(Boolean);
+            const pairedAuthors = [];
+
+            for (let i = 0; i < parts.length; i += 2) {
+              const lastName = parts[i];
+              const firstName = parts[i + 1] || "";
+
+              if (lastName && firstName) {
+                pairedAuthors.push(`${firstName} ${lastName}`);
+              } else if (lastName) {
+                pairedAuthors.push(lastName);
+              }
+            }
+
+            if (pairedAuthors.length > 0) {
+              authors = pairedAuthors;
+            }
+          }
 
           const rawYear = extractCellValue(row.getCell(colIndexes.year));
           const year = parseYearFromText(rawYear) || new Date().getFullYear();
 
-          const rawScope = extractCellValue(row.getCell(colIndexes.scope));
-          const scope = normalizeScope(rawScope);
+          const collegeUnit = extractCellValue(row.getCell(colIndexes.collegeUnit)) || "N/A";
+          
+          // Fallback: If academic_program is empty or N/A, copy collegeUnit
+          const rawAcademicProgram = colIndexes.academicProgram
+            ? extractCellValue(row.getCell(colIndexes.academicProgram))
+            : "";
+          const academicProgram = (rawAcademicProgram && rawAcademicProgram !== "N/A") 
+            ? rawAcademicProgram 
+            : collegeUnit;
 
-          const conferenceOrJournal =
-            extractCellValue(row.getCell(colIndexes.conferenceOrJournal)) ||
-            "N/A";
+          const collegeCode = mapCollegeToCode(collegeUnit);
 
-          const rawCategory = extractCellValue(
-            row.getCell(colIndexes.category),
-          );
-          const category = normalizeCategory(rawCategory);
-
-          const venue =
-            extractCellValue(row.getCell(colIndexes.venue)) || "N/A";
-
-          const rawDuration = extractCellValue(
-            row.getCell(colIndexes.durationDays),
-          );
-          const durationDays = parseInt(rawDuration, 10) || 0;
-
-          const rawStatus = extractCellValue(
-            row.getCell(colIndexes.status),
-          ).toUpperCase();
-          const validStatuses = [
-            "COMPLETED",
-            "ONGOING",
-            "PUBLISHED",
-            "UNDER_REVIEW",
-          ];
-          const status = validStatuses.includes(rawStatus)
-            ? rawStatus
-            : "COMPLETED";
-
-          const collegeCode =
-            extractCellValue(
-              row.getCell(colIndexes.collegeCode),
-            ).toUpperCase() || "CICS";
-
-          const rawFunding = extractCellValue(
-            row.getCell(colIndexes.fundingGrantMillions),
-          );
-          const fundingGrantMillions = parseFloat(rawFunding) || 0.0;
-
-          // Extract lifecycle & IP fields
-          const proposalStatus = colIndexes.proposalStatus
-            ? extractCellValue(row.getCell(colIndexes.proposalStatus)) || "N/A"
-            : "N/A";
           const completionStatus = colIndexes.completionStatus
-            ? extractCellValue(row.getCell(colIndexes.completionStatus)) ||
-              "N/A"
+            ? extractCellValue(row.getCell(colIndexes.completionStatus)) || "N/A"
             : "N/A";
-          const presentationStage = colIndexes.presentationStage
-            ? extractCellValue(row.getCell(colIndexes.presentationStage)) ||
-              "N/A"
-            : "N/A";
-          const presentationForumVenue = colIndexes.presentationForumVenue
-            ? extractCellValue(
-                row.getCell(colIndexes.presentationForumVenue),
-              ) || "N/A"
-            : "N/A";
-          const publicationStatus = colIndexes.publicationStatus
-            ? extractCellValue(row.getCell(colIndexes.publicationStatus)) ||
-              "N/A"
-            : "N/A";
-          const intellectualPropertyTypeAcquired =
-            colIndexes.intellectualPropertyTypeAcquired
-              ? extractCellValue(
-                  row.getCell(colIndexes.intellectualPropertyTypeAcquired),
-                ) || "None"
-              : "None";
 
-          // Calculate metric flags dynamically
-          const isCompleted =
-            completionStatus.toLowerCase() === "completed" ||
-            status === "COMPLETED";
-          const isPresenting =
-            (presentationStage && presentationStage !== "N/A") ||
-            (presentationForumVenue && presentationForumVenue !== "N/A");
-          const isPublished =
-            publicationStatus.toLowerCase() === "published" ||
-            status === "PUBLISHED";
-          const hasIntellectualProperty = Boolean(
-            intellectualPropertyTypeAcquired &&
-              !["none", "n/a", ""].includes(
-                intellectualPropertyTypeAcquired.toLowerCase(),
-              ),
-          );
+          const publicationStatus = colIndexes.publicationStatus
+            ? extractCellValue(row.getCell(colIndexes.publicationStatus)) || "N/A"
+            : "N/A";
+
+          const titleOfJournal = colIndexes.titleOfJournal
+            ? extractCellValue(row.getCell(colIndexes.titleOfJournal)) || "N/A"
+            : "N/A";
+
+          const intellectualPropertyTypeAcquired = colIndexes.intellectualPropertyTypeAcquired
+            ? extractCellValue(row.getCell(colIndexes.intellectualPropertyTypeAcquired)) || "None"
+            : "None";
 
           parsedPapers.push({
             title,
             authors,
             year,
-            scope,
-            conferenceOrJournal,
-            category,
-            venue,
-            durationDays,
-            status,
+            collegeUnit,
             collegeCode,
-            fundingGrantMillions,
-            proposalStatus,
+            academicProgram,
             completionStatus,
-            presentationStage,
-            presentationForumVenue,
             publicationStatus,
+            titleOfJournal,
             intellectualPropertyTypeAcquired,
-            isCompleted,
-            isPresenting,
-            isPublished,
-            hasIntellectualProperty,
           });
         } catch (rowErr) {
           console.warn(
             `Skipping row ${rowNumber} in sheet '${worksheet.name}':`,
-            rowErr.message,
+            rowErr.message
           );
         }
       });
@@ -359,7 +271,7 @@ exports.uploadResearchExcel = async (req, res) => {
       title: { $in: titlesToIngest },
     });
 
-    // ⚠️ IF DUPLICATES FOUND AND ADMIN HAS NOT CONFIRMED OVERWRITE -> RETURN 409
+    // IF DUPLICATES FOUND AND ADMIN HAS NOT CONFIRMED OVERWRITE -> RETURN 409
     if (existingPapers.length > 0 && !forceOverwrite) {
       return res.status(409).json({
         success: false,
@@ -374,7 +286,7 @@ exports.uploadResearchExcel = async (req, res) => {
         return ResearchPaper.findOneAndUpdate(
           { title: paperData.title },
           paperData,
-          { upsert: true, new: true },
+          { upsert: true, new: true, runValidators: true }
         );
       } else {
         return ResearchPaper.create(paperData);
