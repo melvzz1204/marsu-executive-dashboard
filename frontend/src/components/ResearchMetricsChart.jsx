@@ -1,10 +1,9 @@
-import React from "react";
-import ResearchData from "../staticData/research/research.jsx";
+import ResearchDashboard from "./research/ResearchDashboard.jsx";
 
 export default function ResearchMetricsChart() {
   return (
     <div>
-      <ResearchData />
+      <ResearchDashboard />
     </div>
   );
 }

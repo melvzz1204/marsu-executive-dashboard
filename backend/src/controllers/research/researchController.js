@@ -13,6 +13,13 @@ exports.getResearchStats = async (req, res) => {
     // 1. Total Papers Count
     const totalPapers = await ResearchPaper.countDocuments(matchFilter);
 
+    // 1b. Distinct years (always across the full collection so the year filter
+    // options stay stable regardless of the currently selected year).
+    const distinctYears = await ResearchPaper.distinct("year");
+    const availableYears = distinctYears
+      .filter((y) => y != null)
+      .sort((a, b) => b - a);
+
     // 2. Summary Metric Counts (Completed, Presented, Published, IP Acquired)
     const metricSummaryAggregation = await ResearchPaper.aggregate([
       { $match: matchFilter },
@@ -193,6 +200,7 @@ exports.getResearchStats = async (req, res) => {
       success: true,
       data: {
         totalPapers,
+        availableYears,
         summaryMetrics,
         totalFundingMillions: Math.round(totalFundingMillions * 100) / 100,
         projectReach,
