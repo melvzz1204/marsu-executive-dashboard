@@ -246,7 +246,7 @@ export default function ResearchDashboard() {
 
   return (
     <div className="min-h-screen bg-white text-slate-800 p-6 md:p-10 antialiased selection:bg-rose-100 rounded-2xl ">
-      <div className="max-w-6xl mx-auto">
+      <div className="w-full">
         {/* MAIN DASHBOARD HEADER */}
         <header className="mb-10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-200/60 pb-6">
           <div>
