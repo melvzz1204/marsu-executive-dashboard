@@ -12,6 +12,7 @@ import {
 } from "chart.js";
 import { Line as ChartLine } from "react-chartjs-2";
 import api from "../../api/axios";
+import AnnualTargetTracker from "./AnnualTargetTracker.jsx";
 
 ChartJS.register(
   CategoryScale,
@@ -192,6 +193,12 @@ export default function ResearchDashboard() {
     [stats],
   );
   const papersByYear = useMemo(() => stats?.papersByYear ?? [], [stats]);
+  const papersByMonth = useMemo(() => stats?.papersByMonth ?? [], [stats]);
+  const papersByMonthByYear = useMemo(
+    () => stats?.papersByMonthByYear ?? {},
+    [stats],
+  );
+  const trackerYear = stats?.trackerYear;
 
   const completedCount = summary.totalCompleted ?? 0;
   const ongoingCount = summary.totalOngoing ?? 0;
@@ -367,6 +374,16 @@ export default function ResearchDashboard() {
           </div>
         </header>
 
+        {/* ANNUAL TARGET TRACKER */}
+        <div className="mb-10">
+          <AnnualTargetTracker
+            papersByMonth={papersByMonth}
+            papersByMonthByYear={papersByMonthByYear}
+            availableYears={availableYears}
+            year={trackerYear}
+          />
+        </div>
+
         {/* PIPELINE + AUTHORS GRID */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-stretch mb-10">
           {/* LIFECYCLE FUNNEL CARD — where research advances or stalls */}
@@ -436,11 +453,11 @@ export default function ResearchDashboard() {
               Top Authors
             </span>
             <p className="text-[11px] text-slate-400 font-medium mb-4">
-              Ranked by paper count — scroll to see all
+              Top 5 authors by paper count
             </p>
-            <div className="space-y-3.5 max-h-[320px] overflow-y-auto pr-2 pb-1">
+            <div className="space-y-3.5">
               {topAuthors.length > 0 ? (
-                topAuthors.map((author, idx) => (
+                topAuthors.slice(0, 5).map((author, idx) => (
                   <div
                     key={author.name || idx}
                     className="flex items-center justify-between text-xs"

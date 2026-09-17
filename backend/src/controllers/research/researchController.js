@@ -287,6 +287,56 @@ exports.getResearchStats = async (req, res) => {
       .filter((item) => item._id != null)
       .map((item) => ({ year: item._id, count: item.count }));
 
+    // 8b. Annual target tracker: monthly output for every publication year.
+    // Records only carry a publication year, so the month is taken from the
+    // date the entry entered the registry (createdAt). Returning all years at
+    // once lets the client switch reporting year without another request.
+    const currentYear = new Date().getFullYear();
+    const reportingYear =
+      year && year !== "All Years"
+        ? Number(year)
+        : papersByYear.some((row) => row.year === currentYear)
+          ? currentYear
+          : papersByYear.length > 0
+            ? papersByYear[papersByYear.length - 1].year
+            : currentYear;
+
+    const papersByMonthAgg = await ResearchPaper.aggregate([
+      {
+        $group: {
+          _id: { year: "$year", month: { $month: "$createdAt" } },
+          count: { $sum: 1 },
+        },
+      },
+    ]);
+
+    const monthlyByYearMap = new Map();
+    papersByMonthAgg.forEach((row) => {
+      const rowYear = row._id?.year;
+      const rowMonth = row._id?.month;
+      if (rowYear == null || rowMonth == null) return;
+      if (!monthlyByYearMap.has(rowYear)) monthlyByYearMap.set(rowYear, new Map());
+      monthlyByYearMap.get(rowYear).set(rowMonth, row.count);
+    });
+
+    const buildMonthlySeries = (countsMap) =>
+      Array.from({ length: 12 }, (_, index) => ({
+        month: index + 1,
+        count: countsMap?.get(index + 1) || 0,
+      }));
+
+    const papersByMonthByYear = {};
+    monthlyByYearMap.forEach((countsMap, rowYear) => {
+      papersByMonthByYear[String(rowYear)] = buildMonthlySeries(countsMap);
+    });
+
+    const papersByMonth =
+      papersByMonthByYear[String(reportingYear)] ?? buildMonthlySeries(null);
+
+    const trackerActual =
+      papersByYear.find((row) => row.year === reportingYear)?.count ??
+      papersByMonth.reduce((sum, row) => sum + row.count, 0);
+
     // Scope values arrive either as "International Scope" or "International"
     // depending on the ingestion source, so collapse them to a stable key.
     const normalizeScope = (scope) => {
@@ -475,6 +525,10 @@ exports.getResearchStats = async (req, res) => {
         categoryByScope,
         collaboration,
         programTrend,
+        trackerYear: reportingYear,
+        trackerActual,
+        papersByMonth,
+        papersByMonthByYear,
       },
     });
   } catch (error) {
