@@ -2,6 +2,10 @@ const ExcelJS = require("exceljs");
 const HigherEducation = require("../../models/higherEducation/higherEducationModel");
 const HigherEducationTracer = require("../../models/higherEducation/higherEducationTracerModel");
 const UploadLog = require("../../models/uploadLogModel");
+const {
+  ALL_PROGRAMS_LABEL,
+  ALL_CAMPUSES_LABEL,
+} = require("../../services/higherEducation/tracerAggregation");
 
 /**
  * Safely extracts string content from ExcelJS cell values regardless of cell type
@@ -81,6 +85,182 @@ function computeStatusFields(accreditationStatus, endDate) {
   return { isAccredited, reviewStatus };
 }
 
+// Canonical field names mapped to the header spellings we accept across the
+// different higher-education workbooks (registry files and the per-program
+// employability tracer files). Headers are matched case/space/underscore
+// insensitively after normalization.
+const HEADER_ALIASES = {
+  programName: ["programname", "program"],
+  year: ["year"],
+  graduateCount: [
+    "totalgraduates",
+    "graduatecount",
+    "graduates",
+    "totalgraduate",
+    "noofgraduates",
+  ],
+  employedCount: [
+    "totalemployed",
+    "noofgraduateemployed",
+    "totalgraduateemployed",
+    "employed",
+  ],
+  employabilityRate: [
+    "employmentrate",
+    "employabilityrate",
+    "employmentpercentage",
+    "employabilitypercentage",
+    "rate",
+  ],
+  campusBranch: ["campusbranch", "campus"],
+  accreditationStatus: ["accreditationstatus", "accreditation"],
+  startDate: ["startdate"],
+  endDate: ["enddate"],
+  yearInitialOperation: ["yearinitialoperation"],
+};
+
+const FIELD_BY_ALIAS = (() => {
+  const map = {};
+  Object.entries(HEADER_ALIASES).forEach(([field, aliases]) => {
+    aliases.forEach((alias) => {
+      map[alias] = field;
+    });
+  });
+  return map;
+})();
+
+const normalizeHeader = (value) =>
+  String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+
+const cleanText = (value) => String(value ?? "").replace(/\s+/g, " ").trim();
+
+const hasValue = (value) =>
+  value !== undefined && value !== null && String(value).trim() !== "";
+
+const parseEmployabilityRate = (raw) => {
+  if (raw === undefined || raw === null) return 0;
+
+  let numeric;
+  if (typeof raw === "number") {
+    numeric = raw;
+  } else {
+    numeric = parseFloat(String(raw).replace("%", "").trim());
+  }
+
+  if (isNaN(numeric)) return 0;
+  // Accept both decimal ratios (0.85) and percentages (85).
+  return numeric > 1 ? numeric / 100 : numeric;
+};
+
+/**
+ * Parse a higher-education workbook into program-registry rows and tracer
+ * rows. Handles both the program registry template and the per-program
+ * employability template, including college grouping rows that span the
+ * program rows beneath them.
+ *
+ * Exported for unit testing.
+ */
+function parseHigherEducationWorkbook(workbook) {
+  const parsedPrograms = [];
+  const parsedTracers = [];
+
+  workbook.eachSheet((worksheet) => {
+    if (!worksheet || worksheet.rowCount <= 1) return;
+
+    const headerKeys = [];
+    worksheet.getRow(1).eachCell({ includeEmpty: true }, (cell, colNumber) => {
+      const key = normalizeHeader(extractCellValue(cell));
+      headerKeys[colNumber] = FIELD_BY_ALIAS[key] || null;
+    });
+
+    // Current grouping label (college/department), forward-filled from the
+    // group header row down to the program rows beneath it.
+    let currentGroup = "";
+
+    worksheet.eachRow((row, rowNumber) => {
+      if (rowNumber === 1) return; // Skip header row
+
+      const values = {};
+      row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+        const field = headerKeys[colNumber];
+        if (field && values[field] === undefined) {
+          values[field] = extractCellValue(cell);
+        }
+      });
+
+      const programName = cleanText(values.programName);
+      const campusBranch = cleanText(values.campusBranch);
+      const hasYear = hasValue(values.year);
+      const hasGraduate = hasValue(values.graduateCount);
+      const hasEmployed = hasValue(values.employedCount);
+
+      // Group/college header row: a label with no measurement data.
+      if (programName && !hasYear && !hasGraduate && !hasEmployed) {
+        currentGroup = programName;
+        return;
+      }
+
+      // Skip summary/total rows (e.g. "Total Employment Rate").
+      if (/^(grand\s+)?total\b/i.test(programName)) return;
+
+      if (!programName && !hasYear) return;
+
+      // Program registry rows require both campus and program.
+      if (campusBranch && programName) {
+        const accreditationStatus =
+          cleanText(values.accreditationStatus) || "Not Accredited";
+        const endDate = parseExcelDate(values.endDate);
+        const { isAccredited, reviewStatus } = computeStatusFields(
+          accreditationStatus,
+          endDate,
+        );
+
+        parsedPrograms.push({
+          campusBranch,
+          programName,
+          yearInitialOperation: cleanText(values.yearInitialOperation) || "N/A",
+          accreditationStatus,
+          startDate: parseExcelDate(values.startDate),
+          endDate,
+          isAccredited,
+          reviewStatus,
+        });
+      }
+
+      // Tracer rows: one measurement per year / program / campus.
+      if (hasYear) {
+        const yearVal = parseInt(values.year, 10);
+        if (isNaN(yearVal)) return;
+
+        const employabilityRate = parseEmployabilityRate(
+          values.employabilityRate,
+        );
+        const graduateCount = hasGraduate
+          ? parseInt(values.graduateCount, 10) || 0
+          : 0;
+        const employedCount = hasEmployed
+          ? parseInt(values.employedCount, 10) || 0
+          : Math.round(graduateCount * employabilityRate);
+
+        parsedTracers.push({
+          year: yearVal,
+          programName: programName || ALL_PROGRAMS_LABEL,
+          campusBranch: campusBranch || ALL_CAMPUSES_LABEL,
+          collegeName: currentGroup || null,
+          graduateCount,
+          employabilityRate,
+          employedCount,
+        });
+      }
+    });
+  });
+
+  return { parsedPrograms, parsedTracers };
+}
+
 /**
  * @desc Upload & process Excel File into both Program & Tracer collections
  * @route POST /api/v1/higher-education/upload
@@ -114,108 +294,30 @@ exports.uploadHigherEducationExcel = async (req, res) => {
       });
     }
 
-    // 3. Extract Headers and Parse Data Rows
-    const headers = [];
-    const headerRow = worksheet.getRow(1);
+    // 3. Parse program registry and tracer rows from the workbook
+    const { parsedPrograms, parsedTracers } =
+      parseHigherEducationWorkbook(workbook);
 
-    headerRow.eachCell({ includeEmpty: true }, (cell, colNumber) => {
-      const val = extractCellValue(cell);
-      headers[colNumber] = val ? String(val).trim() : "";
+    // Collapse in-file duplicates (keeping the last occurrence) so the unique
+    // indexes are never violated during writes.
+    const dedupedPrograms = new Map();
+    parsedPrograms.forEach((program) => {
+      dedupedPrograms.set(
+        `${program.campusBranch}::${program.programName}`,
+        program,
+      );
     });
+    const uniquePrograms = [...dedupedPrograms.values()];
 
-    const parsedPrograms = [];
-    const parsedTracers = [];
-
-    worksheet.eachRow((row, rowNumber) => {
-      if (rowNumber === 1) return; // Skip Header Row
-
-      const rowData = {};
-      row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
-        const headerName = headers[colNumber];
-        if (headerName) {
-          rowData[headerName] = extractCellValue(cell);
-        }
-      });
-
-      // Process Program Registry Data
-      const campusBranch = rowData["Campus_Branch"]
-        ? String(rowData["Campus_Branch"]).trim()
-        : "";
-      const programName = rowData["Program_Name"]
-        ? String(rowData["Program_Name"]).trim()
-        : "";
-
-      if (campusBranch && programName) {
-        const rawAccreditation = rowData["Accreditation_Status"]
-          ? String(rowData["Accreditation_Status"]).trim()
-          : "";
-        const accreditationStatus = rawAccreditation || "Not Accredited";
-        const startDate = parseExcelDate(rowData["Start_Date"]);
-        const endDate = parseExcelDate(rowData["End_Date"]);
-
-        const { isAccredited, reviewStatus } = computeStatusFields(
-          accreditationStatus,
-          endDate,
-        );
-
-        parsedPrograms.push({
-          campusBranch,
-          programName,
-          yearInitialOperation: rowData["Year_Initial_Operation"]
-            ? String(rowData["Year_Initial_Operation"]).trim()
-            : "N/A",
-          accreditationStatus,
-          startDate,
-          endDate,
-          isAccredited,
-          reviewStatus,
-        });
-      }
-
-      // Process Yearly Employability & Graduate Tracer Data
-      const yearVal = rowData["Year"] ? parseInt(rowData["Year"], 10) : null;
-      if (yearVal && !isNaN(yearVal)) {
-        let rawEmployability = rowData["Employability_Rate"];
-        let employabilityRate = 0;
-
-        if (typeof rawEmployability === "number") {
-          employabilityRate =
-            rawEmployability > 1 ? rawEmployability / 100 : rawEmployability;
-        } else if (typeof rawEmployability === "string") {
-          const cleaned = parseFloat(rawEmployability.replace("%", "").trim());
-          if (!isNaN(cleaned)) {
-            employabilityRate = cleaned > 1 ? cleaned / 100 : cleaned;
-          }
-        }
-
-        const graduateCount = rowData["Graduate_Count"]
-          ? parseInt(rowData["Graduate_Count"], 10) || 0
-          : 0;
-
-        const rawEmployed = rowData["No._of_Graduate_Employed"];
-        let employedCount = 0;
-
-        if (
-          rawEmployed !== undefined &&
-          rawEmployed !== null &&
-          rawEmployed !== ""
-        ) {
-          employedCount = parseInt(rawEmployed, 10) || 0;
-        } else {
-          employedCount = Math.round(graduateCount * employabilityRate);
-        }
-
-        parsedTracers.push({
-          year: yearVal,
-          graduateCount,
-          employabilityRate,
-          employedCount,
-        });
-      }
+    const dedupedTracers = new Map();
+    parsedTracers.forEach((tracer) => {
+      const key = `${tracer.year}::${tracer.programName}::${tracer.campusBranch}`;
+      dedupedTracers.set(key, tracer);
     });
+    const uniqueTracers = [...dedupedTracers.values()];
 
     // 4. Validate parsed records count
-    if (parsedPrograms.length === 0 && parsedTracers.length === 0) {
+    if (uniquePrograms.length === 0 && uniqueTracers.length === 0) {
       return res.status(422).json({
         success: false,
         error:
@@ -223,14 +325,30 @@ exports.uploadHigherEducationExcel = async (req, res) => {
       });
     }
 
-    // 5. SCAN DATABASE FOR EXISTING RECORDS
-    const totalExistingPrograms = await HigherEducation.countDocuments();
-    const totalExistingTracers = await HigherEducationTracer.countDocuments();
-    const hasExistingData =
-      totalExistingPrograms > 0 || totalExistingTracers > 0;
+    // 5. SCAN DATABASE FOR MATCHING RECORDS
+    const tracerKeys = uniqueTracers.map((tracer) => ({
+      year: tracer.year,
+      programName: tracer.programName,
+      campusBranch: tracer.campusBranch,
+    }));
+    const programKeys = uniquePrograms.map((program) => ({
+      campusBranch: program.campusBranch,
+      programName: program.programName,
+    }));
 
-    // IF DATA EXISTS AND OVERWRITE IS NOT CONFIRMED -> BLOCK & RETURN 409
-    if (hasExistingData && !forceOverwrite) {
+    const [existingTracers, existingPrograms] = await Promise.all([
+      tracerKeys.length
+        ? HigherEducationTracer.countDocuments({ $or: tracerKeys })
+        : 0,
+      programKeys.length
+        ? HigherEducation.countDocuments({ $or: programKeys })
+        : 0,
+    ]);
+
+    const conflictCount = existingTracers + existingPrograms;
+
+    // Matching records exist and overwrite is not confirmed -> block.
+    if (conflictCount > 0 && !forceOverwrite) {
       await UploadLog.create({
         module: "HIGHER_EDUCATION",
         fileName,
@@ -238,32 +356,48 @@ exports.uploadHigherEducationExcel = async (req, res) => {
         uploadedBy,
         status: "DUPLICATE_BLOCK",
         isOverwrite: false,
-        errorMessage: `Upload blocked. Found existing dataset in database. Confirmation required to overwrite.`,
+        errorMessage: `Upload blocked. Found ${conflictCount} existing matching record(s). Confirmation required to overwrite.`,
       }).catch(() => {});
 
       return res.status(409).json({
         success: false,
         isDuplicate: true,
-        message: `Found existing higher education records in the database. Re-uploading will replace the dataset with your spreadsheet.`,
+        message: `Found ${conflictCount} existing higher education record(s) matching this file. Overwrite confirmation required.`,
       });
     }
 
-    // 6. SAVE OR REPLACE RECORDS IN MONGODB
-    if (forceOverwrite) {
-      // Clear current collection datasets to reflect deletions made in Excel
-      await HigherEducation.deleteMany({});
-      await HigherEducationTracer.deleteMany({});
+    // 6. SAVE OR UPDATE RECORDS IN MONGODB
+    if (uniquePrograms.length > 0) {
+      // The registry file is a full snapshot, so an overwrite replaces it.
+      if (forceOverwrite) {
+        await HigherEducation.deleteMany({});
+      }
+      await HigherEducation.insertMany(uniquePrograms);
     }
 
-    if (parsedPrograms.length > 0) {
-      await HigherEducation.insertMany(parsedPrograms);
+    if (uniqueTracers.length > 0) {
+      // Replace only the years present in this file, preserving other years
+      // of tracer data, then upsert each year/program/campus record.
+      if (forceOverwrite) {
+        const years = [...new Set(uniqueTracers.map((tracer) => tracer.year))];
+        await HigherEducationTracer.deleteMany({ year: { $in: years } });
+      }
+      await HigherEducationTracer.bulkWrite(
+        uniqueTracers.map((tracer) => ({
+          updateOne: {
+            filter: {
+              year: tracer.year,
+              programName: tracer.programName,
+              campusBranch: tracer.campusBranch,
+            },
+            update: { $set: tracer },
+            upsert: true,
+          },
+        })),
+      );
     }
 
-    if (parsedTracers.length > 0) {
-      await HigherEducationTracer.insertMany(parsedTracers);
-    }
-
-    const totalRecordsProcessed = parsedPrograms.length + parsedTracers.length;
+    const totalRecordsProcessed = uniquePrograms.length + uniqueTracers.length;
 
     // 7. RECORD LOG
     await UploadLog.create({
@@ -279,11 +413,11 @@ exports.uploadHigherEducationExcel = async (req, res) => {
     return res.status(201).json({
       success: true,
       message: forceOverwrite
-        ? `Successfully synchronized dataset! Processed ${parsedPrograms.length} program(s) and ${parsedTracers.length} tracer record(s).`
-        : `Successfully uploaded dataset! Processed ${parsedPrograms.length} program(s) and ${parsedTracers.length} tracer record(s).`,
+        ? `Successfully synchronized dataset! Processed ${uniquePrograms.length} program(s) and ${uniqueTracers.length} tracer record(s).`
+        : `Successfully uploaded dataset! Processed ${uniquePrograms.length} program(s) and ${uniqueTracers.length} tracer record(s).`,
       stats: {
-        programsProcessed: parsedPrograms.length,
-        tracerRecordsProcessed: parsedTracers.length,
+        programsProcessed: uniquePrograms.length,
+        tracerRecordsProcessed: uniqueTracers.length,
       },
     });
   } catch (error) {
@@ -359,3 +493,5 @@ exports.clearUploadLogs = async (req, res) => {
     });
   }
 };
+
+exports.parseHigherEducationWorkbook = parseHigherEducationWorkbook;

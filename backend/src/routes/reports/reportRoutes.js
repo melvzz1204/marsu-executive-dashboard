@@ -4,6 +4,10 @@ const router = express.Router();
 
 // Import the unified multi-model reporting controllers
 const { exportToCSV, exportToPDF } = require("../../controllers/reports/reportController");
+const {
+  getPresidentReport,
+  downloadPresidentPptx,
+} = require("../../controllers/reports/presidentReportController");
 
 // Import your authentication guardrails
 const { protect, authorize } = require("../../middleware/authMiddleware");
@@ -20,5 +24,14 @@ router
 router
   .route("/institutional/pdf")
   .get(authorize("executive", "dean", "admin"), exportToPDF);
+
+// 🏛️ President's Report — assembled report data and editable .pptx deck
+router
+  .route("/presidents")
+  .get(authorize("executive", "admin"), getPresidentReport);
+
+router
+  .route("/presidents/pptx")
+  .get(authorize("executive", "admin"), downloadPresidentPptx);
 
 module.exports = router;

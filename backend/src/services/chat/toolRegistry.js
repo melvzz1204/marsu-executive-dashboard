@@ -16,6 +16,10 @@ const HigherEducation = require("../../models/higherEducation/higherEducationMod
 const HigherEducationTracer = require("../../models/higherEducation/higherEducationTracerModel");
 const GlobalRecognition = require("../../models/achievements/globalRecognitionModel");
 const LicensurePerformance = require("../../models/achievements/licensurePerformanceModel");
+const {
+  isInstitutionRow,
+  buildYearSeries,
+} = require("../higherEducation/tracerAggregation");
 
 const CAMPUSES = ["Boac", "Gasan", "Santa Cruz", "Torrijos"];
 const SEMESTERS = ["1st Semester", "2nd Semester", "Summer"];
@@ -404,32 +408,67 @@ async function getAccreditationStatus(args, user) {
 // ---------------------------------------------------------------------------
 
 async function getEmployabilityTracer(args, user) {
-  const docs = await HigherEducationTracer.find({})
-    .sort({ year: 1 })
-    .limit(sanitizeLimit(args.limit, 20, 50))
-    .lean();
+  const programName =
+    typeof args.programName === "string" && args.programName.trim() !== ""
+      ? args.programName.trim()
+      : null;
+  const collegeName =
+    typeof args.collegeName === "string" && args.collegeName.trim() !== ""
+      ? args.collegeName.trim()
+      : null;
+
+  const query = {};
+  if (programName) query.programName = campusQuery(programName);
+  if (collegeName) query.collegeName = campusQuery(collegeName);
+
+  const docs = await HigherEducationTracer.find(query).lean();
 
   if (docs.length === 0) {
-    return { found: false, message: "No employability tracer data found." };
+    const target = programName
+      ? `program "${programName}"`
+      : collegeName
+        ? `college "${collegeName}"`
+        : null;
+    return {
+      found: false,
+      message: target
+        ? `No employability tracer data found for ${target}.`
+        : "No employability tracer data found.",
+    };
   }
+
+  // Program- and college-scoped rows are aggregated per year. With no scope,
+  // prefer institution-wide rows; if only program rows exist, roll them up.
+  const institutionRows = docs.filter(isInstitutionRow);
+  const scopedRows =
+    programName || collegeName
+      ? docs
+      : institutionRows.length > 0
+        ? institutionRows
+        : docs;
+
+  const scope = programName
+    ? "program-specific"
+    : collegeName
+      ? "college-specific"
+      : "institution-wide";
+
+  const series = buildYearSeries(scopedRows)
+    .slice(-sanitizeLimit(args.limit, 20, 50))
+    .map((entry) => ({
+      year: entry.year,
+      graduates: entry.totalGraduates,
+      employed: entry.employedCount,
+      employabilityRatePercent: entry.employabilityPercentage,
+    }));
 
   return {
     found: true,
-    series: docs.map((d) => ({
-      year: d.year,
-      graduates: d.graduateCount || 0,
-      employed: d.employedCount || 0,
-      employabilityRatePercent:
-        Math.round((d.employabilityRate || 0) * 10000) / 100,
-    })),
-    latest: {
-      year: docs[docs.length - 1].year,
-      graduates: docs[docs.length - 1].graduateCount || 0,
-      employed: docs[docs.length - 1].employedCount || 0,
-      employabilityRatePercent:
-        Math.round((docs[docs.length - 1].employabilityRate || 0) * 10000) /
-        100,
-    },
+    program: programName || "All Programs",
+    college: collegeName || "All Colleges",
+    scope,
+    series,
+    latest: series[series.length - 1] || null,
   };
 }
 
@@ -710,10 +749,20 @@ const TOOLS = [
       function: {
         name: "getEmployabilityTracer",
         description:
-          "Get graduate employability tracer data: graduate counts, employed counts, and employability rates by year.",
+          "Get graduate employability tracer data: graduate counts, employed counts, and employability rates by year. Optionally scope to a specific academic program with programName, or to a college (aggregated across its programs) with collegeName.",
         parameters: {
           type: "object",
           properties: {
+            programName: {
+              type: "string",
+              description:
+                "Optional academic program name (e.g. 'BS Information Technology') to return that program's tracer series.",
+            },
+            collegeName: {
+              type: "string",
+              description:
+                "Optional college name (e.g. 'COLLEGE OF ENGINEERING') to return that college's aggregated tracer series.",
+            },
             limit: {
               type: "integer",
               description: "Max years to return (default 20).",

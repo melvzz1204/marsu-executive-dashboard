@@ -11,6 +11,7 @@ const {
 
 const {
   getHigherEducationStats,
+  getProgramTracer,
   getHigherEducationPrograms,
 } = require("../../controllers/higherEducation/higherEducationController");
 
@@ -27,6 +28,7 @@ router
   .get(authorize("admin"), getUploadLogs)
   .delete(authorize("admin"), clearUploadLogs);
 router.get("/stats", getHigherEducationStats);
+router.get("/tracer", getProgramTracer);
 router.get("/programs", getHigherEducationPrograms);
 
 module.exports = router;

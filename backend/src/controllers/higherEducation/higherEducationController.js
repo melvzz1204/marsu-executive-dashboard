@@ -1,22 +1,60 @@
 const HigherEducation = require("../../models/higherEducation/higherEducationModel");
 const HigherEducationTracer = require("../../models/higherEducation/higherEducationTracerModel");
+const {
+  ALL_PROGRAMS_LABEL,
+  ALL_CAMPUSES_LABEL,
+  isInstitutionRow,
+  buildYearSeries,
+  summarizePrograms,
+} = require("../../services/higherEducation/tracerAggregation");
+
+const escapeRegex = (value) =>
+  String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const exactRegex = (value) => new RegExp(`^${escapeRegex(value)}$`, "i");
+
+// Treat missing values and the aggregate "All" labels as "no filter".
+const isAllValue = (value, allLabel) => {
+  if (value === undefined || value === null) return true;
+  const normalized = String(value).trim().toLowerCase();
+  return (
+    normalized === "" ||
+    normalized === "all" ||
+    normalized === allLabel.toLowerCase()
+  );
+};
 
 /**
  * @desc Get complete analytics payload for Higher Education Dashboard
  * @route GET /api/v1/higher-education/stats
+ * @query campusBranch, programName, collegeName, year
  */
 exports.getHigherEducationStats = async (req, res) => {
   try {
-    const { campusBranch } = req.query;
-    const matchFilter = {};
+    const { campusBranch, programName, collegeName, year } = req.query;
+    const hasCampusFilter = !isAllValue(campusBranch, ALL_CAMPUSES_LABEL);
+    const hasProgramFilter = !isAllValue(programName, ALL_PROGRAMS_LABEL);
+    const hasCollegeFilter = Boolean(
+      collegeName &&
+        String(collegeName).trim() !== "" &&
+        String(collegeName).trim().toLowerCase() !== "all",
+    );
+    const hasYearFilter = Boolean(
+      year !== undefined &&
+        year !== null &&
+        String(year).trim() !== "" &&
+        String(year).trim().toLowerCase() !== "all" &&
+        !isNaN(parseInt(year, 10)),
+    );
+    const yearValue = hasYearFilter ? parseInt(year, 10) : null;
 
-    if (campusBranch && campusBranch !== "All Campuses" && campusBranch !== "All") {
-      matchFilter.campusBranch = campusBranch;
-    }
+    const matchFilter = {};
+    if (hasCampusFilter) matchFilter.campusBranch = campusBranch;
+    if (hasProgramFilter) matchFilter.programName = exactRegex(programName);
 
     const today = new Date();
 
-    // 1. KPI Metric Summary (from HigherEducation)
+    // 1. KPI Metric Summary (from HigherEducation registry)
     const totalPrograms = await HigherEducation.countDocuments(matchFilter);
 
     // Active Accreditations (Accredited AND End Date >= Today)
@@ -65,40 +103,56 @@ exports.getHigherEducationStats = async (req, res) => {
     ]);
 
     // 4. Multi-Year Tracer Matrix (from HigherEducationTracer)
-    const tracerData = await HigherEducationTracer.find().sort({ year: 1 });
+    // Scope filter excludes the year so availableYears stays stable in the UI.
+    const scopeFilter = {};
+    if (hasCampusFilter) scopeFilter.campusBranch = campusBranch;
+    if (hasProgramFilter) scopeFilter.programName = exactRegex(programName);
+    if (hasCollegeFilter) scopeFilter.collegeName = exactRegex(collegeName);
 
-    const tracerStudyMatrix = tracerData.map((item) => {
-      // Calculate employed count fallback if not explicitly set in database
-      const count =
-        item.employedCount !== undefined && item.employedCount !== null
-          ? item.employedCount
-          : Math.round((item.graduateCount || 0) * (item.employabilityRate || 0));
+    const availableYears = (
+      await HigherEducationTracer.distinct("year", scopeFilter)
+    )
+      .filter((value) => Number.isFinite(Number(value)))
+      .map((value) => Number(value))
+      .sort((a, b) => b - a);
 
-      return {
-        year: item.year,
-        totalGraduates: item.graduateCount,
-        employedCount: count, // 💡 NEW FIELD PASSED TO FRONTEND
-        employabilityPercentage: Math.round((item.employabilityRate || 0) * 10000) / 100,
-      };
-    });
+    const tracerFilter = { ...scopeFilter };
+    if (hasYearFilter) tracerFilter.year = yearValue;
 
-    // Calculate Overall Totals and Average Employability
-    const totalGraduatesSum = tracerData.reduce((acc, curr) => acc + (curr.graduateCount || 0), 0);
-    
-    const totalEmployedSum = tracerData.reduce((acc, curr) => {
-      const employed =
-        curr.employedCount !== undefined && curr.employedCount !== null
-          ? curr.employedCount
-          : Math.round((curr.graduateCount || 0) * (curr.employabilityRate || 0));
-      return acc + employed;
-    }, 0);
+    const tracerData = await HigherEducationTracer.find(tracerFilter)
+      .sort({ year: 1 })
+      .lean();
 
-    const avgEmployability =
-      tracerData.length > 0
-        ? tracerData.reduce((acc, curr) => acc + (curr.employabilityRate || 0), 0) / tracerData.length
+    // When a program is selected, report that program's series. Otherwise
+    // prefer institution-wide rows; if the collection only contains
+    // program-level rows, roll them up into institution totals per year.
+    const institutionRows = tracerData.filter(isInstitutionRow);
+    const programRows = tracerData.filter((row) => !isInstitutionRow(row));
+    const matrixSource = hasProgramFilter
+      ? tracerData
+      : institutionRows.length > 0
+        ? institutionRows
+        : programRows;
+
+    const tracerStudyMatrix = buildYearSeries(matrixSource);
+
+    // Program-level outcomes (graduate-weighted), grouped per program/campus.
+    const programEmployability = summarizePrograms(tracerData);
+
+    const totalGraduatesSum = tracerStudyMatrix.reduce(
+      (acc, row) => acc + (row.totalGraduates || 0),
+      0,
+    );
+
+    const totalEmployedSum = tracerStudyMatrix.reduce(
+      (acc, row) => acc + (row.employedCount || 0),
+      0,
+    );
+
+    const cumulativeEmployability =
+      totalGraduatesSum > 0
+        ? Math.round((totalEmployedSum / totalGraduatesSum) * 10000) / 100
         : 0;
-
-    const cumulativeEmployability = Math.round(avgEmployability * 10000) / 100;
 
     return res.status(200).json({
       success: true,
@@ -107,13 +161,19 @@ exports.getHigherEducationStats = async (req, res) => {
           totalPrograms,
           activeAccreditations,
           expiredOrPending,
-          totalGraduates: totalGraduatesSum, // 💡 Optional KPI
-          totalEmployed: totalEmployedSum,   // 💡 Optional KPI
+          totalGraduates: totalGraduatesSum,
+          totalEmployed: totalEmployedSum,
           cumulativeEmployabilityPercentage: cumulativeEmployability,
         },
         accreditationBreakdown,
         campusBreakdown,
         tracerStudyMatrix,
+        programEmployability,
+        availableYears,
+        selectedProgram: hasProgramFilter ? programName : ALL_PROGRAMS_LABEL,
+        selectedCampus: hasCampusFilter ? campusBranch : ALL_CAMPUSES_LABEL,
+        selectedCollege: hasCollegeFilter ? collegeName : null,
+        selectedYear: hasYearFilter ? yearValue : null,
       },
     });
   } catch (error) {
@@ -126,20 +186,94 @@ exports.getHigherEducationStats = async (req, res) => {
 };
 
 /**
- * @desc Fetch Program Registry cards with optional campus filtering
+ * @desc Get the multi-year employability tracer series for one program
+ * @route GET /api/v1/higher-education/tracer
+ * @query programName (required), campusBranch, collegeName, year
+ */
+exports.getProgramTracer = async (req, res) => {
+  try {
+    const { programName, campusBranch, collegeName, year } = req.query;
+
+    if (isAllValue(programName, ALL_PROGRAMS_LABEL)) {
+      return res.status(400).json({
+        success: false,
+        error: "programName query parameter is required.",
+      });
+    }
+
+    const scopeFilter = { programName: exactRegex(programName) };
+    if (!isAllValue(campusBranch, ALL_CAMPUSES_LABEL)) {
+      scopeFilter.campusBranch = campusBranch;
+    }
+    if (collegeName && String(collegeName).trim() !== "") {
+      scopeFilter.collegeName = exactRegex(collegeName);
+    }
+
+    const availableYears = (
+      await HigherEducationTracer.distinct("year", scopeFilter)
+    )
+      .filter((value) => Number.isFinite(Number(value)))
+      .map((value) => Number(value))
+      .sort((a, b) => b - a);
+
+    const filter = { ...scopeFilter };
+    const hasYearFilter = Boolean(
+      year !== undefined &&
+        year !== null &&
+        String(year).trim() !== "" &&
+        String(year).trim().toLowerCase() !== "all" &&
+        !isNaN(parseInt(year, 10)),
+    );
+    if (hasYearFilter) filter.year = parseInt(year, 10);
+
+    const tracerData = await HigherEducationTracer.find(filter)
+      .sort({ year: 1 })
+      .lean();
+
+    const series = buildYearSeries(tracerData);
+    const summary = summarizePrograms(tracerData)[0] || null;
+
+    return res.status(200).json({
+      success: true,
+      program: programName,
+      campus: isAllValue(campusBranch, ALL_CAMPUSES_LABEL)
+        ? ALL_CAMPUSES_LABEL
+        : campusBranch,
+      count: tracerData.length,
+      data: { series, summary, availableYears },
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Error fetching program employability tracer data",
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * @desc Fetch Program Registry cards with optional campus/program filtering
  * @route GET /api/v1/higher-education/programs
  */
 exports.getHigherEducationPrograms = async (req, res) => {
   try {
-    const { campusBranch, search, page = 1, limit = 12 } = req.query;
+    const {
+      campusBranch,
+      programName,
+      search,
+      page = 1,
+      limit = 12,
+    } = req.query;
     const query = {};
 
-    if (campusBranch && campusBranch !== "All" && campusBranch !== "All Campuses") {
+    if (!isAllValue(campusBranch, ALL_CAMPUSES_LABEL)) {
       query.campusBranch = campusBranch;
     }
 
-    if (search && search.trim() !== "") {
-      query.programName = { $regex: search, $options: "i" };
+    if (!isAllValue(programName, ALL_PROGRAMS_LABEL)) {
+      query.programName = exactRegex(programName);
+    } else if (search && search.trim() !== "") {
+      query.programName = { $regex: escapeRegex(search), $options: "i" };
     }
 
     const pageNum = parseInt(page, 10);

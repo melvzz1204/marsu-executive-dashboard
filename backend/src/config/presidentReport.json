@@ -1,0 +1,237 @@
+{
+  "meta": {
+    "country": "Republic of the Philippines",
+    "institution": "MARINDUQUE STATE UNIVERSITY",
+    "office": "Office of the President",
+    "title": "The President's Report",
+    "periodTemplate": "For the interim period ended June 30, {year}",
+    "periodShortTemplate": "Q1-Q2 {year}",
+    "generatedNote": "Generated {date} · MarSU Executive Dashboard",
+    "contact": "MarSU | Panfilo M. Manguera Sr. Rd., Tanza, Boac, Marinduque, Philippines   |   www.marsu.edu.ph   |   president@marsu.edu.ph   |   042 332 2728"
+  },
+  "agenda": {
+    "eyebrow": "The President's Report",
+    "title": "Key Accomplishments",
+    "items": [
+      "Higher Education Program",
+      "Advanced Education Program",
+      "Research Program",
+      "Technical Advisory Extension Program",
+      "Key Accomplishments"
+    ]
+  },
+  "indicatorColumns": [
+    "Indicator",
+    "{periodShort} Target",
+    "{periodShort} Actual",
+    "Variance"
+  ],
+  "sections": [
+    {
+      "id": "higher-education",
+      "title": "Higher Education Program",
+      "accent": "burgundy",
+      "intro": "Performance in the licensure examinations, employability of graduates, enrollment in priority programs, and accreditation of undergraduate programs.",
+      "slides": [
+        {
+          "type": "indicatorTable",
+          "title": "Performance in the Licensure Examination",
+          "rows": [
+            {
+              "label": "Percentage of first-time licensure exam-takers that pass the licensure exams",
+              "source": "licensure.overall",
+              "target": 64,
+              "unit": "%"
+            }
+          ],
+          "program": {
+            "title": "Licensure Examination Breakdown",
+            "source": "licensure.programs",
+            "columns": ["Examination", "Passed", "Takers", "Passing Rate"]
+          }
+        },
+        {
+          "type": "indicatorTable",
+          "title": "Employability of Graduates",
+          "rows": [
+            {
+              "label": "Percentage of graduates (2 years prior) that are employed",
+              "source": "employability.rate",
+              "target": 65,
+              "unit": "%"
+            }
+          ],
+          "chart": {
+            "title": "Multi-Year Graduate Placement & Employment Output",
+            "source": "employability.placement",
+            "xLabel": "Graduating Class",
+            "primaryYLabel": "Headcount",
+            "secondaryYLabel": "Placement Rate (%)"
+          }
+        },
+        {
+          "type": "indicatorTable",
+          "title": "Enrollment in Priority Programs",
+          "rows": [
+            {
+              "label": "Percentage of undergraduate students enrolled in CHED-identified or RDC-identified priority programs",
+              "source": "enrollment.priorityPct",
+              "target": 100,
+              "unit": "%"
+            }
+          ]
+        },
+        {
+          "type": "chart",
+          "title": "Undergraduate Enrollment",
+          "charts": [
+            {
+              "kind": "bar",
+              "orientation": "bar",
+              "source": "enrollment.byProgram",
+              "title": "Enrollment by Program",
+              "xLabel": "Number of Students"
+            },
+            {
+              "kind": "line",
+              "source": "enrollment.trend",
+              "title": "Enrollment Trend",
+              "xLabel": "Academic Year",
+              "yLabel": "Total Students"
+            }
+          ]
+        },
+        {
+          "type": "indicatorTable",
+          "title": "Accreditation of Undergraduate Programs",
+          "rows": [
+            {
+              "label": "Percentage of undergraduate programs with accreditation",
+              "source": "accreditation.coverage",
+              "target": 100,
+              "unit": "%"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "advanced-education",
+      "title": "Advanced Education Program",
+      "accent": "burgundy",
+      "intro": "Graduate school faculty engagement in research, enrollment in research degree programs, and accreditation of graduate programs.",
+      "slides": [
+        {
+          "type": "indicatorTable",
+          "title": "Graduate School Faculty Engaged in Research",
+          "rows": [
+            {
+              "label": "Percentage of Graduate School faculty engaged in research work"
+            }
+          ]
+        },
+        {
+          "type": "indicatorTable",
+          "title": "Enrollment in Research Degree Programs",
+          "rows": [
+            {
+              "label": "Percentage of graduate students enrolled in research degree programs"
+            }
+          ]
+        },
+        {
+          "type": "indicatorTable",
+          "title": "Accreditation of Graduate Programs",
+          "rows": [
+            {
+              "label": "Percentage of graduate programs with accreditation"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "research",
+      "title": "Research Program",
+      "accent": "burgundy",
+      "intro": "Research utilization, research outputs completed within the year, and research presentations in national, regional, and international fora.",
+      "slides": [
+        {
+          "type": "indicatorTable",
+          "title": "Research Utilization",
+          "rows": [
+            {
+              "label": "Number of research outputs in the last three years utilized by industry or other beneficiaries",
+              "source": "research.utilized",
+              "target": 11,
+              "unit": ""
+            }
+          ]
+        },
+        {
+          "type": "indicatorTable",
+          "title": "Research Completed and Presented",
+          "rows": [
+            {
+              "label": "Number of research outputs completed within the year",
+              "source": "research.completed",
+              "target": 30,
+              "unit": ""
+            },
+            {
+              "label": "Percentage of research outputs presented in national, regional, and international fora",
+              "source": "research.presented",
+              "target": 100,
+              "unit": "%"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "extension",
+      "title": "Technical Advisory Extension Program",
+      "accent": "burgundy",
+      "intro": "Active partnerships with stakeholders and extension programs organized and supported for partner communities.",
+      "slides": [
+        {
+          "type": "indicatorTable",
+          "title": "Active Partnership with Various Stakeholders",
+          "rows": [
+            {
+              "label": "Number of active partnerships with LGUs, industries, NGOs, NGAs, SMEs, and other stakeholders"
+            }
+          ]
+        },
+        {
+          "type": "indicatorTable",
+          "title": "Extension Programs Organized and Supported",
+          "rows": [
+            {
+              "label": "Number of extension programs organized and supported consistent with mandated priority programs"
+            },
+            {
+              "label": "Number of trainees weighted by the length of training"
+            },
+            {
+              "label": "Percentage of beneficiaries who rated the training courses as satisfactory or higher"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "key-accomplishments",
+      "title": "Key Accomplishments",
+      "accent": "gold",
+      "intro": "Milestones, awards, partnerships, and international recognitions recorded for the reporting period.",
+      "slides": [
+        {
+          "type": "accomplishmentCards",
+          "title": "Milestones and Recognitions",
+          "source": "accomplishments.items"
+        }
+      ]
+    }
+  ]
+}
