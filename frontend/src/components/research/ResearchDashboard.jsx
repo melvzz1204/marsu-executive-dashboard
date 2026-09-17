@@ -3,33 +3,29 @@ import {
   Chart as ChartJS,
   CategoryScale,
   LinearScale,
-  BarElement,
+  LineElement,
+  PointElement,
+  Filler,
   Title,
   Tooltip,
   Legend,
 } from "chart.js";
-import { Bar as ChartBar } from "react-chartjs-2";
+import { Line as ChartLine } from "react-chartjs-2";
 import api from "../../api/axios";
 
 ChartJS.register(
   CategoryScale,
   LinearScale,
-  BarElement,
+  LineElement,
+  PointElement,
+  Filler,
   Title,
   Tooltip,
   Legend,
 );
 
-// Sentinel values understood by the backend controller (researchController.js).
+// Sentinel value understood by the backend controller (researchController.js).
 const ALL_YEARS = "All Years";
-const ALL_SCOPES = "All Scopes";
-const ALL_CATEGORIES = "All Categories";
-
-const SCOPE_OPTIONS = [
-  "International Scope",
-  "National Scope",
-  "Regional Scope",
-];
 
 const STATUS_LABELS = {
   COMPLETED: "Completed",
@@ -44,6 +40,42 @@ const PAGE_LIMIT = 4;
 const baseScope = (scope) => (scope || "").replace(/\s*Scope$/i, "").trim();
 // Spreadsheet ingestion can leave the unicode replacement char behind — soften it.
 const clean = (str) => (str || "").replace(/\uFFFD/g, "—");
+
+/**
+ * Visually hidden table mirroring a chart's data so screen reader users receive
+ * the same information as sighted users (canvas elements expose no text).
+ */
+function ScreenReaderTable({ caption, columns, rows }) {
+  return (
+    <table className="sr-only">
+      <caption>{caption}</caption>
+      <thead>
+        <tr>
+          {columns.map((col) => (
+            <th key={col} scope="col">
+              {col}
+            </th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((row, rowIndex) => (
+          <tr key={rowIndex}>
+            {row.map((cell, cellIndex) =>
+              cellIndex === 0 ? (
+                <th key={cellIndex} scope="row">
+                  {cell}
+                </th>
+              ) : (
+                <td key={cellIndex}>{cell}</td>
+              ),
+            )}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
 
 export default function ResearchDashboard() {
   // ---- Dashboard stats (cards, project reach, top authors, category chart) ----
@@ -81,13 +113,14 @@ export default function ResearchDashboard() {
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selectedYear, setSelectedYear] = useState(ALL_YEARS);
-  const [selectedScope, setSelectedScope] = useState(ALL_SCOPES);
-  const [selectedCategory, setSelectedCategory] = useState(ALL_CATEGORIES);
   const [currentPage, setCurrentPage] = useState(1);
 
   // ---- Paginated papers (server-side search / filter / pagination) ----
   const [papers, setPapers] = useState([]);
-  const [papersMeta, setPapersMeta] = useState({ totalCount: 0, totalPages: 1 });
+  const [papersMeta, setPapersMeta] = useState({
+    totalCount: 0,
+    totalPages: 1,
+  });
   const [papersLoading, setPapersLoading] = useState(false);
   const [papersError, setPapersError] = useState(null);
 
@@ -114,8 +147,6 @@ export default function ResearchDashboard() {
           params: {
             search: debouncedSearch || undefined,
             year: selectedYear,
-            scope: selectedScope,
-            category: selectedCategory,
             page: currentPage,
             limit: PAGE_LIMIT,
           },
@@ -148,67 +179,105 @@ export default function ResearchDashboard() {
     isModalOpen,
     debouncedSearch,
     selectedYear,
-    selectedScope,
-    selectedCategory,
     currentPage,
   ]);
 
   // ---- Derived values from stats ----
   const totalPapers = stats?.totalPapers ?? 0;
-  const reach = stats?.projectReach ?? {};
-  const avgDuration = reach.avgDurationDays ?? 0;
   const topAuthors = stats?.topAuthors ?? [];
-  const categoryStats = useMemo(() => stats?.categoryStats ?? [], [stats]);
   const availableYears = stats?.availableYears ?? [];
+  const summary = stats?.summaryMetrics ?? {};
+  const departmentalBreakdown = useMemo(
+    () => stats?.departmentalBreakdown ?? [],
+    [stats],
+  );
+  const papersByYear = useMemo(() => stats?.papersByYear ?? [], [stats]);
 
-  // Bar chart: top 4 categories by paper count.
-  const barChartData = useMemo(() => {
-    const sorted = [...categoryStats]
-      .filter((c) => c.count > 0)
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 4);
+  const completedCount = summary.totalCompleted ?? 0;
+  const ongoingCount = summary.totalOngoing ?? 0;
+  const publishedCount = summary.totalPublished ?? 0;
+  const ipCount = summary.totalIPAcquired ?? 0;
 
-    if (sorted.length === 0) {
+  const pctOfTotal = (n) =>
+    totalPapers > 0 ? `${Math.round((n / totalPapers) * 100)}%` : "—";
+
+  // Lifecycle funnel: Completed → Published → IP Acquired. Each
+  // stage also reports conversion from the previous stage so stalls are obvious.
+  const conversion = (current, previous) =>
+    previous > 0 ? Math.round((current / previous) * 100) : null;
+  const funnelStages = [
+    {
+      label: "Completed",
+      value: completedCount,
+      bar: "bg-[#660033]",
+      valueColor: "text-[#660033]",
+      conversion: null,
+    },
+    {
+      label: "Published",
+      value: publishedCount,
+      bar: "bg-[#D4AF37]",
+      valueColor: "text-[#8a6d1f]",
+      conversion: conversion(publishedCount, completedCount),
+    },
+    {
+      label: "IP Acquired",
+      value: ipCount,
+      bar: "bg-[#4a0025]",
+      valueColor: "text-[#4a0025]",
+      conversion: conversion(ipCount, publishedCount),
+    },
+  ];
+  const funnelMax = Math.max(1, completedCount, publishedCount, ipCount);
+
+  // Area line: papers per year trend.
+  const yearTrendData = useMemo(() => {
+    if (papersByYear.length === 0) {
       return {
         labels: ["No Data"],
         datasets: [
           {
             data: [0],
-            backgroundColor: "#e2e8f0",
-            borderRadius: 4,
-            barThickness: 12,
+            borderColor: "#e2e8f0",
+            backgroundColor: "#f1f5f9",
+            fill: true,
           },
         ],
       };
     }
-
     return {
-      labels: sorted.map((c) => c.name),
+      labels: papersByYear.map((r) => String(r.year)),
       datasets: [
         {
-          data: sorted.map((c) => c.count),
-          backgroundColor: "#660033",
-          hoverBackgroundColor: "#4a0025",
-          borderRadius: 4,
-          barThickness: 12,
+          label: "Papers",
+          data: papersByYear.map((r) => r.count),
+          borderColor: "#D4AF37",
+          borderWidth: 3.5,
+          backgroundColor: "rgba(212, 175, 55, 0.12)",
+          fill: true,
+          tension: 0.35,
+          pointBackgroundColor: "#ffffff",
+          pointBorderColor: "#D4AF37",
+          pointBorderWidth: 2,
+          pointRadius: 5,
+          pointHoverRadius: 8,
         },
       ],
     };
-  }, [categoryStats]);
+  }, [papersByYear]);
 
-  const barOptions = {
+  const yearTrendOptions = {
     responsive: true,
     maintainAspectRatio: false,
-    indexAxis: "y",
     plugins: { legend: { display: false } },
     scales: {
       x: {
-        grid: { color: "#f8fafc" },
-        ticks: { color: "#94a3b8", font: { size: 9 } },
+        grid: { display: false },
+        ticks: { color: "#1e293b", font: { size: 10, weight: "600" } },
       },
       y: {
-        grid: { display: false },
-        ticks: { color: "#1e293b", font: { size: 11, weight: "500" } },
+        grid: { color: "#f8fafc" },
+        ticks: { color: "#94a3b8", font: { size: 9 }, precision: 0 },
       },
     },
   };
@@ -248,57 +317,41 @@ export default function ResearchDashboard() {
     <div className="min-h-screen bg-white text-slate-800 p-6 md:p-10 antialiased selection:bg-rose-100 rounded-2xl ">
       <div className="w-full">
         {/* MAIN DASHBOARD HEADER */}
-        <header className="mb-10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-200/60 pb-6">
-          <div>
-            <div className="flex items-center gap-2 mb-1.5">
-              <span className="h-1.5 w-1.5 bg-[#D4AF37] rounded-full" />
-              <span className="text-[10px] uppercase tracking-widest font-bold text-slate-400 ">
-                Institutional Repository
-              </span>
-            </div>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900">
-              Research
-            </h1>
-          </div>
-
-          <div className="relative bg-[#660033] text-white px-6 py-4 rounded-xl shadow-[0_4px_0_0_#D4AF37] text-center min-w-[160px]">
-            <span className="text-[10px] font-extrabold tracking-wider text-slate-300 block uppercase mb-1">
-              Total Papers
-            </span>
-            <span className="text-3xl font-black text-[#FFD700] leading-none block mt-1 tracking-tight">
-              {totalPapers}
-              {totalPapers > 0 ? "+" : ""}
-            </span>
-            <span className="text-[11px] font-medium text-slate-200/90 block capitalize tracking-wide mt-1">
-              active registry
-            </span>
-          </div>
-        </header>
-
-        {/* THREE COLUMN STATS GRID */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-stretch mb-10">
-          {/* MODAL GATEWAY BUTTON CARD */}
-          <div className="lg:col-span-1 bg-white p-6 rounded-2xl border border-slate-200/70 shadow-[0_4px_20px_rgba(0,0,0,0.02)] flex flex-col justify-between items-start group relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-slate-50 rounded-bl-full -z-10 group-hover:bg-rose-50/50 transition-colors duration-300" />
+        <header className="mb-10 border-b border-slate-200/60 pb-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
-              <span className="text-[9px] font-bold uppercase tracking-wider  text-slate-400 block mb-2">
-                Database Index
-              </span>
-              <h2 className="text-lg font-bold text-slate-900 tracking-tight leading-snug mb-2">
-                Search & Filter Papers
-              </h2>
-              <p className="text-xs text-slate-400 leading-relaxed max-w-[220px]">
-                Open the database to search, filter by year, and view individual
-                project details.
-              </p>
+              <div className="flex items-center gap-2 mb-1.5">
+                <span className="h-1.5 w-1.5 bg-[#D4AF37] rounded-full" />
+                <span className="text-[10px] uppercase tracking-widest font-bold text-slate-400 ">
+                  Institutional Repository
+                </span>
+              </div>
+              <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+                Research
+              </h1>
             </div>
+
+            <div className="relative bg-[#660033] text-white px-6 py-4 rounded-xl shadow-[0_4px_0_0_#D4AF37] text-center min-w-[160px]">
+              <span className="text-[10px] font-extrabold tracking-wider text-slate-300 block uppercase mb-1">
+                Total Papers
+              </span>
+              <span className="text-3xl font-black text-[#FFD700] leading-none block mt-1 tracking-tight">
+                {totalPapers}
+              </span>
+              <span className="text-[11px] font-medium text-slate-200/90 block capitalize tracking-wide mt-1">
+                active registry
+              </span>
+            </div>
+          </div>
+
+          <div className="mt-4 flex justify-start">
             <button
               onClick={() => setIsModalOpen(true)}
-              className="mt-6 w-full py-3 px-4 bg-[#660033] hover:bg-[#4a0025] text-white rounded-xl text-xs font-semibold shadow-xs transition-all duration-200 flex items-center justify-center gap-2 group-hover:scale-[1.01] cursor-pointer"
+              className="px-5 py-3 bg-[#660033] hover:bg-[#4a0025] text-white rounded-xl text-xs font-bold shadow-xs transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer"
             >
               <span>View All Research Papers</span>
               <svg
-                className="w-3.5 h-3.5 transform group-hover:translate-x-0.5 transition-transform"
+                className="w-3.5 h-3.5"
                 fill="none"
                 stroke="currentColor"
                 strokeWidth="2.5"
@@ -312,57 +365,82 @@ export default function ResearchDashboard() {
               </svg>
             </button>
           </div>
-          {/* PROJECT REACH SUMMARY CARD */}
+        </header>
+
+        {/* PIPELINE + AUTHORS GRID */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-stretch mb-10">
+          {/* LIFECYCLE FUNNEL CARD — where research advances or stalls */}
           <div className="bg-white p-6 rounded-2xl border border-slate-200/70 shadow-[0_4px_20px_rgba(0,0,0,0.02)] flex flex-col justify-start">
-            {/* Predictable spacing under the header */}
-            <span className="text-[9px] font-bold uppercase tracking-wider  text-slate-400 block mb-4">
-              Project Reach
+            <span className="text-[9px] font-bold uppercase tracking-wider  text-slate-400 block mb-1">
+              Research Pipeline
             </span>
-            <div className="space-y-3.5">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-slate-700 font-medium">
-                  International Scope
-                </span>
-                <span className=" font-bold text-[#660033] bg-rose-50 px-2 py-0.5 rounded-sm">
-                  {reach.international ?? 0}
-                </span>
-              </div>
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-slate-700 font-medium">
-                  National Scope
-                </span>
-                <span className=" font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded-sm">
-                  {reach.national ?? 0}
-                </span>
-              </div>
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-slate-700 font-medium">
-                  Regional Scope
-                </span>
-                <span className=" font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-sm">
-                  {reach.regional ?? 0}
-                </span>
-              </div>
+            <p className="text-[11px] text-slate-400 font-medium mb-5">
+              Share of registry reaching each stage
+            </p>
+            <div className="space-y-4 flex-1">
+              {funnelStages.map((stage) => {
+                const widthPct = Math.max(
+                  stage.value > 0 ? 8 : 0,
+                  Math.round((stage.value / funnelMax) * 100),
+                );
+                return (
+                  <div key={stage.label}>
+                    <div className="flex items-baseline justify-between text-xs mb-1.5">
+                      <span className="text-slate-700 font-semibold flex items-center gap-2">
+                        {stage.label}
+                        {stage.conversion !== null && (
+                          <span
+                            className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md ${
+                              stage.conversion >= 60
+                                ? "bg-[#660033]/10 text-[#660033]"
+                                : stage.conversion >= 30
+                                  ? "bg-[#D4AF37]/25 text-[#8a6d1f]"
+                                  : "bg-slate-200/70 text-slate-500"
+                            }`}
+                            title={`${stage.conversion}% of the previous stage advanced here`}
+                          >
+                            {stage.conversion}% → prev
+                          </span>
+                        )}
+                      </span>
+                      <span className={`font-bold ${stage.valueColor}`}>
+                        {stage.value}{" "}
+                        <span className="font-medium text-slate-400">
+                          ({pctOfTotal(stage.value)})
+                        </span>
+                      </span>
+                    </div>
+                    <div className="h-3 rounded-full bg-slate-100 overflow-hidden">
+                      <div
+                        className={`h-full rounded-full ${stage.bar} transition-all duration-500`}
+                        style={{ width: `${widthPct}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
             </div>
             <div className="mt-auto pt-4 border-t border-slate-100 flex justify-between items-baseline">
               <span className="text-[10px] text-slate-400 font-medium">
-                Average Duration
+                Ongoing Studies
               </span>
-              <span className="text-lg  font-bold text-slate-900">
-                {avgDuration}{" "}
-                <span className="text-xs font-normal text-slate-400">Days</span>
+              <span className="text-lg font-bold text-[#660033]">
+                {ongoingCount}
               </span>
             </div>
           </div>
 
-          {/* TOP RESEARCHERS PANEL */}
+          {/* TOP AUTHORS PANEL */}
           <div className="bg-white p-6 rounded-2xl border border-slate-200/70 shadow-[0_4px_20px_rgba(0,0,0,0.02)] flex flex-col justify-start">
-            <span className="text-[9px] font-bold uppercase tracking-wider  text-slate-400 block mb-4">
+            <span className="text-[9px] font-bold uppercase tracking-wider  text-slate-400 block mb-1">
               Top Authors
             </span>
-            <div className="space-y-2.5">
+            <p className="text-[11px] text-slate-400 font-medium mb-4">
+              Ranked by paper count — scroll to see all
+            </p>
+            <div className="space-y-3.5 max-h-[320px] overflow-y-auto pr-2 pb-1">
               {topAuthors.length > 0 ? (
-                topAuthors.slice(0, 5).map((author, idx) => (
+                topAuthors.map((author, idx) => (
                   <div
                     key={author.name || idx}
                     className="flex items-center justify-between text-xs"
@@ -381,21 +459,84 @@ export default function ResearchDashboard() {
                   </div>
                 ))
               ) : (
-                <p className="text-xs text-slate-400">No authors recorded yet.</p>
+                <p className="text-xs text-slate-400">
+                  No authors recorded yet.
+                </p>
               )}
             </div>
           </div>
         </div>
 
-        {/* LOWER BAR CHART COMPONENT */}
-        <section className="bg-white p-6 rounded-2xl border border-slate-200/70 shadow-[0_4px_20px_rgba(0,0,0,0.02)]">
-          <h3 className="text-[10px] font-bold  uppercase tracking-widest text-slate-400 mb-6 pb-2 border-b border-slate-100">
-            Papers by Category
-          </h3>
-          <div className="relative h-40 w-full">
-            <ChartBar data={barChartData} options={barOptions} />
-          </div>
-        </section>
+        {/* COLLEGE OUTPUT + YEAR TREND ROW */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10">
+          <section className="bg-white p-6 rounded-2xl border border-slate-200/70 shadow-[0_4px_20px_rgba(0,0,0,0.02)] flex flex-col justify-start">
+            <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
+              Papers by College
+            </span>
+            <p className="text-[11px] text-slate-400 font-medium mb-4">
+              Paper count per college unit
+            </p>
+            <div className="space-y-3.5 flex-1">
+              {departmentalBreakdown.length > 0 ? (
+                departmentalBreakdown.slice(0, 8).map((row, idx) => {
+                  const leaderPapers =
+                    departmentalBreakdown[0]?.papersPublished || 1;
+                  const barPct = Math.max(
+                    6,
+                    Math.round(
+                      ((row.papersPublished || 0) / leaderPapers) * 100,
+                    ),
+                  );
+                  return (
+                    <div key={row.collegeCode || idx}>
+                      <div className="flex items-center justify-between text-xs mb-1">
+                        <div className="flex items-center gap-2 truncate">
+                          <span className="w-4 h-4 bg-slate-50 border border-slate-100 text-[9px] font-bold rounded-sm flex items-center justify-center text-slate-400">
+                            {idx + 1}
+                          </span>
+                          <span className="text-slate-700 font-semibold truncate">
+                            {row.collegeCode || "UNASSIGNED"}
+                          </span>
+                        </div>
+                        <span className="text-[10px] font-medium text-slate-400">
+                          {row.papersPublished ?? 0} papers
+                        </span>
+                      </div>
+                      <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden ml-6">
+                        <div
+                          className="h-full rounded-full bg-[#660033] transition-all duration-500"
+                          style={{ width: `${barPct}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <p className="text-xs text-slate-400">
+                  No college records yet.
+                </p>
+              )}
+            </div>
+          </section>
+
+          <section className="bg-white p-6 rounded-2xl border border-slate-200/70 shadow-[0_4px_20px_rgba(0,0,0,0.02)]">
+            <h3 className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-6 pb-2 border-b border-slate-100">
+              Papers per Year
+            </h3>
+            <div
+              className="relative h-56 w-full"
+              role="img"
+              aria-label="Area line chart of total research papers published per year"
+            >
+              <ChartLine data={yearTrendData} options={yearTrendOptions} />
+            </div>
+            <ScreenReaderTable
+              caption="Papers per year"
+              columns={["Year", "Papers"]}
+              rows={papersByYear.map((row) => [row.year, row.count])}
+            />
+          </section>
+        </div>
 
         {/* ======================================================= */}
         {/*           POP-UP MODAL ENGINE SEARCH LIGHTBOX            */}
@@ -411,8 +552,7 @@ export default function ResearchDashboard() {
                       All Research Papers
                     </h3>
                     <p className="text-[11px] text-slate-400 font-medium">
-                      Search by keywords or use the dropdowns to filter the
-                      database.
+                      Search by keywords or filter by year.
                     </p>
                   </div>
                   <button
@@ -480,38 +620,6 @@ export default function ResearchDashboard() {
                         );
                       })}
                     </div>
-
-                    <select
-                      className="bg-white border border-slate-200 text-slate-700 p-1.5 rounded-md cursor-pointer focus:outline-hidden shadow-2xs"
-                      value={selectedScope}
-                      onChange={(e) => {
-                        setSelectedScope(e.target.value);
-                        resetPage();
-                      }}
-                    >
-                      <option value={ALL_SCOPES}>All Scopes</option>
-                      {SCOPE_OPTIONS.map((scope) => (
-                        <option key={scope} value={scope}>
-                          {scope}
-                        </option>
-                      ))}
-                    </select>
-
-                    <select
-                      className="bg-white border border-slate-200 text-slate-700 p-1.5 rounded-md cursor-pointer focus:outline-hidden shadow-2xs"
-                      value={selectedCategory}
-                      onChange={(e) => {
-                        setSelectedCategory(e.target.value);
-                        resetPage();
-                      }}
-                    >
-                      <option value={ALL_CATEGORIES}>All Categories</option>
-                      {categoryStats.map((cat) => (
-                        <option key={cat.name} value={cat.name}>
-                          {cat.name}
-                        </option>
-                      ))}
-                    </select>
                   </div>
                 </div>
               </div>
@@ -556,7 +664,7 @@ export default function ResearchDashboard() {
                                 isInternational
                                   ? "text-[#660033]"
                                   : isNational
-                                    ? "text-amber-700"
+                                    ? "text-[#8a6d1f]"
                                     : "text-slate-500"
                               }
                             >
@@ -571,10 +679,10 @@ export default function ResearchDashboard() {
                             </span>
 
                             <span
-                              className={`ml-auto  text-[9px] uppercase tracking-wider flex items-center gap-1 ${isCompleted ? "text-emerald-600" : "text-blue-500"}`}
+                              className={`ml-auto  text-[9px] uppercase tracking-wider flex items-center gap-1 ${isCompleted ? "text-[#660033]" : "text-[#8a6d1f]"}`}
                             >
                               <span
-                                className={`h-1 w-1 rounded-full ${isCompleted ? "bg-emerald-500" : "bg-blue-400"}`}
+                                className={`h-1 w-1 rounded-full ${isCompleted ? "bg-[#660033]" : "bg-[#D4AF37]"}`}
                               />
                               {statusLabel}
                             </span>
@@ -593,13 +701,56 @@ export default function ResearchDashboard() {
                             </span>
                           </p>
 
-                          <div className="mt-1 pt-2 border-t border-slate-100 flex flex-wrap gap-x-6 text-[11px] font-medium text-slate-400">
+                          <div className="mt-1 pt-2 border-t border-slate-100 flex flex-wrap gap-x-6 gap-y-1 text-[11px] font-medium text-slate-400">
                             <span>
                               <strong className="text-slate-500">
                                 Category:
                               </strong>{" "}
                               {item.category}
                             </span>
+                            {item.collegeCode && (
+                              <span>
+                                <strong className="text-slate-500">
+                                  College:
+                                </strong>{" "}
+                                {item.collegeCode}
+                                {item.academicProgram &&
+                                  item.academicProgram !== "N/A" &&
+                                  ` • ${clean(item.academicProgram)}`}
+                              </span>
+                            )}
+                            {item.publicationStatus &&
+                              item.publicationStatus !== "N/A" && (
+                                <span>
+                                  <strong className="text-slate-500">
+                                    Publication:
+                                  </strong>{" "}
+                                  {clean(item.publicationStatus)}
+                                  {item.conferenceOrJournal &&
+                                    item.conferenceOrJournal !== "N/A" &&
+                                    ` • ${clean(item.conferenceOrJournal)}`}
+                                </span>
+                              )}
+                            {item.completionStatus &&
+                              item.completionStatus !== "N/A" && (
+                                <span>
+                                  <strong className="text-slate-500">
+                                    Completion:
+                                  </strong>{" "}
+                                  {clean(item.completionStatus)}
+                                </span>
+                              )}
+                            {item.intellectualPropertyTypeAcquired &&
+                              !["None", "N/A", ""].includes(
+                                item.intellectualPropertyTypeAcquired,
+                              ) && (
+                                <span>
+                                  <strong className="text-slate-500">
+                                    IP:
+                                  </strong>{" "}
+                                  {clean(item.intellectualPropertyTypeAcquired)}
+                                </span>
+                              )}
                             {item.venue && item.venue !== "N/A" && (
                               <span>
                                 <strong className="text-slate-500">

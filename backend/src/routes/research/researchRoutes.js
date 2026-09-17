@@ -15,6 +15,7 @@ const {
 const {
   uploadResearchExcel,
   getResearchUploadLogs,
+  downloadResearchTemplate,
 } = require("../../controllers/research/researchUploadController");
 
 router.use(protect);
@@ -44,6 +45,9 @@ router.post(
 
 // Retrieve upload history audit logs
 router.get("/logs", authorize("admin"), getResearchUploadLogs);
+
+// Downloadable Excel template with the 9 expected headers
+router.get("/template", downloadResearchTemplate);
 
 // ==========================================
 // 🛠️ UTILITY / SEEDING ENDPOINTS

@@ -8,6 +8,9 @@ import EnrollmentsUpload from "../components/Admin/Dashboards/enrollments/Enroll
 // Imports for Higher Education
 import HigherEducationUpload from "../components/Admin/Dashboards/higherEducation/higherEducationUpload";
 
+// Imports for Research
+import ResearchUpload from "../components/Admin/Dashboards/research/ResearchUpload";
+
 export default function AdminDashboard() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("enrollments");
@@ -43,7 +46,9 @@ export default function AdminDashboard() {
   };
 
   const isActiveWorkspace =
-    activeTab === "enrollments" || activeTab === "higher-ed";
+    activeTab === "enrollments" ||
+    activeTab === "higher-ed" ||
+    activeTab === "research";
 
   return (
     <div className="oswald-brand relative flex h-dvh overflow-hidden bg-[#f4f6f8] text-slate-800">
@@ -132,6 +137,8 @@ export default function AdminDashboard() {
             <EnrollmentsUpload />
           ) : activeTab === "higher-ed" ? (
             <HigherEducationUpload />
+          ) : activeTab === "research" ? (
+            <ResearchUpload />
           ) : (
             <div className="border border-dashed border-slate-300 bg-white p-8 text-center shadow-sm sm:p-16">
               <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-[#580017]/5 text-[#580017]">

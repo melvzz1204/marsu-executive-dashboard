@@ -1,5 +1,6 @@
 import { useState } from "react";
 import api from "../../../../api/axios";
+import Toast from "../../../Toast";
 import UploadHistory from "./uploadHistoryHigherEducation";
 
 // Helper function to format bytes into readable sizes
@@ -112,7 +113,9 @@ export default function HigherEducationUpload() {
         headers: { "Content-Type": "multipart/form-data" },
       });
 
-      // SUCCESS
+      // SUCCESS — clear the file input first (it also resets any prior
+      // message), then set the success toast so batching keeps it visible.
+      handleClearFile();
       setStatusMessage({
         type: "success",
         text:
@@ -124,7 +127,6 @@ export default function HigherEducationUpload() {
             : null),
       });
 
-      handleClearFile();
       setRefreshTrigger((prev) => prev + 1); // Trigger history table reload
     } catch (err) {
       // DUPLICATE DETECTED: Trigger Overwrite Modal
@@ -367,98 +369,6 @@ export default function HigherEducationUpload() {
             </div>
           </div>
 
-          {/* UPLOAD STATUS BANNER */}
-          {statusMessage && (
-            <div
-              className={`rounded-xl border p-4 transition-all duration-300 ${
-                statusMessage.type === "success"
-                  ? "border-emerald-200 bg-emerald-50/90 text-emerald-900 shadow-sm"
-                  : "border-rose-200 bg-rose-50/90 text-rose-900 shadow-sm"
-              }`}
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex items-center gap-2.5">
-                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/80 text-sm shadow-xs">
-                    {statusMessage.type === "success" ? "✅" : "⚠️"}
-                  </span>
-                  <p className="text-xs font-bold leading-snug">
-                    {statusMessage.text}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setStatusMessage(null)}
-                  className="rounded-lg p-1 text-slate-400 transition-colors hover:bg-black/5 hover:text-slate-600 cursor-pointer"
-                >
-                  <svg
-                    className="h-4 w-4"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
-                </button>
-              </div>
-
-              {/* STATS METRIC CHIPS */}
-              {statusMessage.stats && (
-                <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-emerald-200/60 pt-3 text-[11px]">
-                  <span className="inline-flex items-center gap-1.5 rounded-md bg-emerald-100/90 px-2.5 py-1 font-semibold text-emerald-950">
-                    <svg
-                      className="h-3.5 w-3.5 text-emerald-700"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                      />
-                    </svg>
-                    {datasetType === "licensure"
-                      ? "Licensure Records Ingested:"
-                      : "Programs Ingested:"}{" "}
-                    <strong className="font-extrabold text-emerald-900">
-                      {statusMessage.stats.programsProcessed ||
-                        statusMessage.stats.recordsProcessed ||
-                        0}
-                    </strong>
-                  </span>
-
-                  {datasetType === "higherEducation" && (
-                    <span className="inline-flex items-center gap-1.5 rounded-md bg-emerald-100/90 px-2.5 py-1 font-semibold text-emerald-950">
-                      <svg
-                        className="h-3.5 w-3.5 text-emerald-700"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M12 14l9-5-9-5-9 5 9 5z"
-                        />
-                      </svg>
-                      Tracer & Graduate Records:{" "}
-                      <strong className="font-extrabold text-emerald-900">
-                        {statusMessage.stats.tracerRecordsProcessed || 0}
-                      </strong>
-                    </span>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-
           {/* STEP 2: INTERACTIVE DROPZONE AREA */}
           <div className="space-y-3">
             <div
@@ -642,6 +552,8 @@ export default function HigherEducationUpload() {
 
       {/* SEPARATE UPLOAD HISTORY COMPONENT */}
       <UploadHistory refreshTrigger={refreshTrigger} />
+
+      <Toast toast={statusMessage} onClose={() => setStatusMessage(null)} />
 
       {/* OVERWRITE CONFIRMATION MODAL */}
       {showOverwriteModal && (

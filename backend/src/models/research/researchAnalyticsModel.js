@@ -70,13 +70,11 @@ const researchPaperSchema = new mongoose.Schema(
     proposalStatus: {
       type: String,
       trim: true,
-      enum: ["Approved", "Pending", "Disapproved", "Under Review", "N/A"],
       default: "N/A",
     },
     completionStatus: {
       type: String,
       trim: true,
-      enum: ["Completed", "Ongoing", "Terminated", "N/A"],
       default: "N/A",
     },
     presentationStage: {
@@ -92,21 +90,11 @@ const researchPaperSchema = new mongoose.Schema(
     publicationStatus: {
       type: String,
       trim: true,
-      enum: ["Published", "Unpublished", "Under Review", "Accepted", "N/A"],
       default: "N/A",
     },
     intellectualPropertyTypeAcquired: {
       type: String,
       trim: true,
-      enum: [
-        "Patents",
-        "Copyrighted",
-        "Patented",
-        "Utility Model",
-        "Trademark",
-        "None",
-        "N/A",
-      ],
       default: "None",
     },
 
@@ -134,10 +122,16 @@ const researchPaperSchema = new mongoose.Schema(
 
     // --- Institutional & Financial Fields ---
     collegeCode: {
-      type: String, // e.g., "CICS", "CE", "CED", "CIT", "CBMA"
+      type: String, // e.g., "CICS", "CE", "CED", "CIT", "CBMA" — raw College_Unit value kept as-is
       required: [true, "College code is required"],
       trim: true,
       uppercase: true,
+    },
+    academicProgram: {
+      type: String, // e.g., "BSIT", "BEEd" — maps to Academic_Program column in Excel
+      trim: true,
+      default: "N/A",
+      index: true,
     },
     collegeId: {
       type: mongoose.Schema.Types.ObjectId,
@@ -164,8 +158,11 @@ const researchPaperSchema = new mongoose.Schema(
  * This ensures that counting operations during analytics queries can run fast indexes.
  */
 researchPaperSchema.pre("save", async function () {
+  const completion = String(this.completionStatus || "").toLowerCase();
+  const publication = String(this.publicationStatus || "").toLowerCase();
+
   this.isCompleted =
-    this.completionStatus === "Completed" || this.status === "COMPLETED";
+    completion === "completed" || this.status === "COMPLETED";
 
   this.isPresenting = Boolean(
     (this.presentationStage && this.presentationStage !== "N/A") ||
@@ -173,7 +170,7 @@ researchPaperSchema.pre("save", async function () {
   );
 
   this.isPublished =
-    this.publicationStatus === "Published" || this.status === "PUBLISHED";
+    publication === "published" || this.status === "PUBLISHED";
 
   this.hasIntellectualProperty = Boolean(
     this.intellectualPropertyTypeAcquired &&
@@ -186,6 +183,7 @@ researchPaperSchema.index({
   title: "text",
   authors: "text",
   presentationForumVenue: "text",
+  academicProgram: "text",
 });
 
 module.exports = mongoose.model("ResearchPaper", researchPaperSchema);
