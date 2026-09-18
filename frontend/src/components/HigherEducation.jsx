@@ -17,7 +17,14 @@ const SECTIONS = [
           strokeWidth="2"
           strokeLinecap="round"
           strokeLinejoin="round"
-          d="M12 3 3 7l9 4 9-4-9-4Zm0 8v9m-6-6v4m12-4v4M6 12l6 3 6-3"
+          d="M12 3l7 2.5V11c0 4.2-2.9 7-7 8.5-4.1-1.5-7-4.3-7-8.5V5.5L12 3Z"
+        />
+        <path
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="m9 11.5 2 2 4-4.5"
         />
       </svg>
     ),
@@ -33,7 +40,14 @@ const SECTIONS = [
           strokeWidth="2"
           strokeLinecap="round"
           strokeLinejoin="round"
-          d="M12 14l9-5-9-5-9 5 9 5Zm0 0v7m6-3.422V12M6 17.578V12"
+          d="M4 8h16v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8Z"
+        />
+        <path
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M9 8V6a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2M4 13h16"
         />
       </svg>
     ),
