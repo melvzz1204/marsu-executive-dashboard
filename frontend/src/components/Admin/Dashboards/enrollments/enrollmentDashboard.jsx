@@ -657,10 +657,17 @@ export default function EnrollmentDashboard({ isPublicView = false }) {
                     scales: {
                       x: {
                         grid: { display: false },
+                        border: { display: false },
                         ticks: { maxRotation: 0, font: { size: 10 } },
                       },
                       y: {
                         beginAtZero: false,
+                        grid: {
+                          color: "rgba(148, 163, 184, 0.12)",
+                          lineWidth: 1,
+                          drawTicks: false,
+                        },
+                        border: { display: false },
                         ticks: {
                           maxTicksLimit: 4,
                           callback: (value) => Number(value).toLocaleString(),
@@ -927,13 +934,19 @@ export default function EnrollmentDashboard({ isPublicView = false }) {
                     scales: {
                       x: {
                         grid: { display: false },
+                        border: { display: false },
                         ticks: {
                           color: PALETTE.slateMuted,
                           font: { size: 10 },
                         },
                       },
                       y: {
-                        grid: { color: "#f1f5f9" },
+                        grid: {
+                          color: "rgba(148, 163, 184, 0.12)",
+                          lineWidth: 1,
+                          drawTicks: false,
+                        },
+                        border: { display: false },
                         ticks: {
                           color: PALETTE.slateMuted,
                           font: { size: 10 },
@@ -1067,10 +1080,16 @@ export default function EnrollmentDashboard({ isPublicView = false }) {
                   scales: {
                     x: {
                       grid: { display: false },
+                      border: { display: false },
                       ticks: { color: PALETTE.slateMuted, font: { size: 10 } },
                     },
                     y: {
-                      grid: { color: "#f1f5f9" },
+                      grid: {
+                        color: "rgba(148, 163, 184, 0.12)",
+                        lineWidth: 1,
+                        drawTicks: false,
+                      },
+                      border: { display: false },
                       ticks: { color: PALETTE.slateMuted, font: { size: 10 } },
                       beginAtZero: true,
                     },
