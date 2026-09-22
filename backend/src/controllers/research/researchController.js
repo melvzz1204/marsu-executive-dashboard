@@ -287,6 +287,39 @@ exports.getResearchStats = async (req, res) => {
       .filter((item) => item._id != null)
       .map((item) => ({ year: item._id, count: item.count }));
 
+    // 8c. Yearly research series for the executive KPI cards (funding secured
+    // and publication-rate trends). Intentionally unfiltered by year so the
+    // trend always spans the full registry even when a reporting year is
+    // selected. Funding is stored in millions of pesos (fundingGrantMillions).
+    const researchYearlyAgg = await ResearchPaper.aggregate([
+      {
+        $group: {
+          _id: "$year",
+          papers: { $sum: 1 },
+          published: {
+            $sum: { $cond: [{ $eq: ["$isPublished", true] }, 1, 0] },
+          },
+          completed: {
+            $sum: { $cond: [{ $eq: ["$isCompleted", true] }, 1, 0] },
+          },
+          funding: { $sum: { $ifNull: ["$fundingGrantMillions", 0] } },
+        },
+      },
+      { $sort: { _id: 1 } },
+    ]);
+
+    const researchByYear = researchYearlyAgg
+      .filter((item) => item._id != null)
+      .map((item) => ({
+        year: item._id,
+        papers: item.papers,
+        published: item.published,
+        completed: item.completed,
+        publicationRate:
+          item.completed > 0 ? (item.published / item.completed) * 100 : 0,
+        funding: Math.round((item.funding || 0) * 100) / 100,
+      }));
+
     // 8b. Annual target tracker: monthly output for every publication year.
     // Records only carry a publication year, so the month is taken from the
     // date the entry entered the registry (createdAt). Returning all years at
@@ -521,6 +554,7 @@ exports.getResearchStats = async (req, res) => {
         departmentalBreakdown,
         lifecycleStats: lifecycleStats[0] || {},
         papersByYear,
+        researchByYear,
         papersByYearScope,
         categoryByScope,
         collaboration,

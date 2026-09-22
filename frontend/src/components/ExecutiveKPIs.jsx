@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import api from "../api/axios";
+import { ANNUAL_RESEARCH_TARGET } from "./research/AnnualTargetTracker.jsx";
 
 const NUMBER_FORMATTER = new Intl.NumberFormat("en-PH");
 
@@ -347,6 +348,7 @@ export function ExecutiveKPIs({ onNavigate }) {
     enrollment: null,
     higherEducation: null,
     licensure: null,
+    research: null,
   });
   const [sourceErrors, setSourceErrors] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -357,17 +359,22 @@ export function ExecutiveKPIs({ onNavigate }) {
 
     const fetchKpis = async () => {
       setIsLoading(true);
-      const [enrollmentResult, higherEducationResult, licensureResult] =
-        await Promise.allSettled([
-          api.get("/public-viewing/trend", {
-            params: { semester: "1st Semester" },
-            signal: controller.signal,
-          }),
-          api.get("/higher-education/stats", { signal: controller.signal }),
-          api.get("/higher-education/licensure/stats", {
-            signal: controller.signal,
-          }),
-        ]);
+      const [
+        enrollmentResult,
+        higherEducationResult,
+        licensureResult,
+        researchResult,
+      ] = await Promise.allSettled([
+        api.get("/public-viewing/trend", {
+          params: { semester: "1st Semester" },
+          signal: controller.signal,
+        }),
+        api.get("/higher-education/stats", { signal: controller.signal }),
+        api.get("/higher-education/licensure/stats", {
+          signal: controller.signal,
+        }),
+        api.get("/research/stats", { signal: controller.signal }),
+      ]);
 
       if (controller.signal.aborted) return;
 
@@ -376,6 +383,7 @@ export function ExecutiveKPIs({ onNavigate }) {
         enrollment: null,
         higherEducation: null,
         licensure: null,
+        research: null,
       };
 
       if (enrollmentResult.status === "fulfilled") {
@@ -395,6 +403,12 @@ export function ExecutiveKPIs({ onNavigate }) {
         nextSources.licensure = licensureResult.value.data?.data?.records ?? [];
       } else {
         errors.push("licensure");
+      }
+
+      if (researchResult.status === "fulfilled") {
+        nextSources.research = researchResult.value.data?.data ?? null;
+      } else {
+        errors.push("research");
       }
 
       setSources(nextSources);
@@ -475,6 +489,37 @@ export function ExecutiveKPIs({ onNavigate }) {
     const hasEnrollment = Boolean(currentEnrollment);
     const hasEmployability = Boolean(currentTracer);
     const hasLicensure = Boolean(currentLicensure);
+
+    const research = sources.research;
+    const researchByYear = Array.isArray(research?.researchByYear)
+      ? [...research.researchByYear].sort((a, b) => a.year - b.year)
+      : [];
+    const currentResearchYear = researchByYear.at(-1);
+    const previousResearchYear = researchByYear.at(-2);
+    const hasResearch = (Number(research?.totalPapers) || 0) > 0;
+
+    const fundingTotal = Number(research?.totalFundingMillions);
+    const hasFunding = hasResearch && Number.isFinite(fundingTotal);
+    const fundingChange =
+      currentResearchYear && previousResearchYear
+        ? calculatePercentageChange(
+            Number(currentResearchYear.funding),
+            Number(previousResearchYear.funding),
+          )
+        : null;
+
+    const annualTarget = ANNUAL_RESEARCH_TARGET;
+    const currentOutput = Number(currentResearchYear?.papers) || 0;
+    const hasAnnualOutput = hasResearch && Boolean(currentResearchYear);
+    // Progress toward the target in percentage points: a +6-paper jump on a
+    // 60-item target reads as +10.0 pp in target attainment.
+    const attainmentChange =
+      currentResearchYear && previousResearchYear && annualTarget > 0
+        ? (((Number(currentResearchYear.papers) || 0) -
+            (Number(previousResearchYear.papers) || 0)) /
+            annualTarget) *
+          100
+        : null;
 
     const comingSoonKpi = (title, tabId, blockId, icon, iconBg) => ({
       tabId,
@@ -561,20 +606,58 @@ export function ExecutiveKPIs({ onNavigate }) {
         iconBg: "bg-purple-50 border-purple-100",
         icon: BoardPassingIcon,
       },
-      comingSoonKpi(
-        "Research Funding Secured",
-        "research",
-        "block-research-metrics",
-        ResearchIcon,
-        "bg-teal-50 border-teal-100",
-      ),
-      comingSoonKpi(
-        "Faculty Publication Rate",
-        "research",
-        "block-research-metrics",
-        PublicationIcon,
-        "bg-amber-50 border-amber-100",
-      ),
+      hasFunding
+        ? {
+            tabId: "research",
+            blockId: "block-research-metrics",
+            title: "Research Funding Secured",
+            value: `₱${fundingTotal.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}M`,
+            metricContext: currentResearchYear
+              ? `grants, ${currentResearchYear.year}`
+              : "grants secured",
+            change: formatChange(fundingChange, "%"),
+            trend: getTrend(fundingChange),
+            comparisonLabel:
+              fundingChange === null
+                ? "previous year unavailable"
+                : "year over year",
+            comingSoon: false,
+            trendData: researchByYear.map((item) => item.funding),
+            iconBg: "bg-teal-50 border-teal-100",
+            icon: ResearchIcon,
+          }
+        : comingSoonKpi(
+            "Research Funding Secured",
+            "research",
+            "block-research-metrics",
+            ResearchIcon,
+            "bg-teal-50 border-teal-100",
+          ),
+      hasAnnualOutput
+        ? {
+            tabId: "research",
+            blockId: "block-research-metrics",
+            title: "Annual Research Output",
+            value: NUMBER_FORMATTER.format(currentOutput),
+            metricContext: `of ${annualTarget} target · ${currentResearchYear.year}`,
+            change: formatChange(attainmentChange, " pp"),
+            trend: getTrend(attainmentChange),
+            comparisonLabel:
+              attainmentChange === null
+                ? "previous year unavailable"
+                : "in target attainment",
+            comingSoon: false,
+            trendData: researchByYear.map((item) => item.papers),
+            iconBg: "bg-amber-50 border-amber-100",
+            icon: PublicationIcon,
+          }
+        : comingSoonKpi(
+            "Annual Research Output",
+            "research",
+            "block-research-metrics",
+            PublicationIcon,
+            "bg-amber-50 border-amber-100",
+          ),
       comingSoonKpi(
         "Infrastructure Modernization",
         "general administration",
