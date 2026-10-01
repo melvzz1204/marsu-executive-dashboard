@@ -17,6 +17,50 @@ const statusStyle = {
   rejected: "border-rose-200 bg-rose-50 text-rose-700",
 };
 
+const categories = [
+  "Academic Excellence",
+  "Research and Innovation",
+  "Awards and Recognition",
+  "Community Engagement",
+  "Student Achievement",
+  "Faculty Achievement",
+  "Partnerships",
+  "Sustainability",
+  "Other",
+];
+
+const sdgNames = [
+  "No Poverty",
+  "Zero Hunger",
+  "Good Health",
+  "Quality Education",
+  "Gender Equality",
+  "Clean Water",
+  "Clean Energy",
+  "Decent Work",
+  "Industry & Innovation",
+  "Reduced Inequalities",
+  "Sustainable Cities",
+  "Responsible Consumption",
+  "Climate Action",
+  "Life Below Water",
+  "Life on Land",
+  "Peace & Justice",
+  "Partnerships for the Goals",
+];
+
+const emptyEditForm = {
+  title: "",
+  subtitle: "",
+  body: "",
+  category: "Awards and Recognition",
+  eventDate: new Date().toISOString().slice(0, 10),
+  location: "",
+  sourceUrl: "",
+  tags: "",
+  sdgs: [],
+};
+
 function MetricCard({ label, value, detail, tone }) {
   const tones = {
     maroon: "bg-[#600018] text-white",
@@ -50,6 +94,15 @@ export default function InformationUnitDashboard() {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [actionNotice, setActionNotice] = useState(null);
+  const [editingPost, setEditingPost] = useState(null);
+  const [editForm, setEditForm] = useState(emptyEditForm);
+  const [editImages, setEditImages] = useState([]);
+  const [editAttachment, setEditAttachment] = useState(null);
+  const [removeAttachment, setRemoveAttachment] = useState(false);
+  const [editBusy, setEditBusy] = useState(false);
+  const [confirmDeletePost, setConfirmDeletePost] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
   const user = useMemo(() => {
     try {
       return JSON.parse(localStorage.getItem("user") || "{}");
@@ -112,6 +165,117 @@ export default function InformationUnitDashboard() {
     setActiveView(view);
     setMobileNavOpen(false);
   };
+
+  const startEdit = (post) => {
+    setEditingPost(post);
+    setEditForm({
+      title: post.title || "",
+      subtitle: post.subtitle || "",
+      body: post.body || "",
+      category: post.category || "Awards and Recognition",
+      eventDate: post.eventDate
+        ? new Date(post.eventDate).toISOString().slice(0, 10)
+        : new Date().toISOString().slice(0, 10),
+      location: post.location || "",
+      sourceUrl: post.sourceUrl || "",
+      tags: (post.tags || []).join(", "),
+      sdgs: [...(post.sdgs || [])],
+    });
+    setEditImages([]);
+    setEditAttachment(null);
+    setRemoveAttachment(false);
+    setActionNotice(null);
+  };
+
+  const closeEdit = () => {
+    setEditingPost(null);
+    setEditImages([]);
+    setEditAttachment(null);
+    setRemoveAttachment(false);
+  };
+
+  const toggleEditSdg = (number) =>
+    setEditForm((current) => ({
+      ...current,
+      sdgs: current.sdgs.includes(number)
+        ? current.sdgs.filter((item) => item !== number)
+        : [...current.sdgs, number],
+    }));
+
+  const submitEdit = async (event) => {
+    event?.preventDefault();
+    if (!editingPost) return;
+    if (editImages.length > 10)
+      return setActionNotice({
+        type: "error",
+        text: "Choose no more than 10 replacement images.",
+      });
+    const newFiles = [
+      ...editImages,
+      ...(editAttachment ? [editAttachment] : []),
+    ];
+    const totalUploadSize = newFiles.reduce(
+      (total, file) => total + file.size,
+      0,
+    );
+    if (totalUploadSize > 15 * 1024 * 1024)
+      return setActionNotice({
+        type: "error",
+        text: "Replacement files must not exceed 15 MB in total.",
+      });
+    const payload = new FormData();
+    Object.entries(editForm).forEach(([key, value]) =>
+      payload.append(key, key === "sdgs" ? JSON.stringify(value) : value),
+    );
+    editImages.forEach((image) => payload.append("images", image));
+    if (editAttachment) payload.append("attachment", editAttachment);
+    if (removeAttachment) payload.append("removeAttachment", "true");
+    setEditBusy(true);
+    setActionNotice(null);
+    try {
+      const { data } = await api.patch(
+        `/achievement-posts/${editingPost._id}`,
+        payload,
+        { headers: { "Content-Type": "multipart/form-data" } },
+      );
+      setActionNotice({ type: "success", text: data.message });
+      closeEdit();
+      await loadOverview();
+    } catch (requestError) {
+      setActionNotice({
+        type: "error",
+        text:
+          requestError.response?.data?.message || "Unable to update the post.",
+      });
+    } finally {
+      setEditBusy(false);
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!confirmDeletePost) return;
+    setDeletingId(confirmDeletePost._id);
+    setActionNotice(null);
+    try {
+      const { data } = await api.delete(
+        `/achievement-posts/${confirmDeletePost._id}`,
+      );
+      setActionNotice({ type: "success", text: data.message });
+      setConfirmDeletePost(null);
+      await loadOverview();
+    } catch (requestError) {
+      setActionNotice({
+        type: "error",
+        text:
+          requestError.response?.data?.message || "Unable to delete the post.",
+      });
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const inputClass =
+    "w-full rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-sm text-slate-800 outline-none focus:border-[#600018] focus:ring-4 focus:ring-[#600018]/5";
 
   return (
     <div className="oswald-brand flex h-dvh overflow-hidden bg-[#f4f6f8] text-slate-800">
@@ -252,6 +416,13 @@ export default function InformationUnitDashboard() {
               {error}
             </div>
           )}
+          {actionNotice && (
+            <div
+              className={`rounded-xl border p-4 text-sm font-semibold ${actionNotice.type === "success" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-rose-200 bg-rose-50 text-rose-800"}`}
+            >
+              {actionNotice.text}
+            </div>
+          )}
           {activeView === "overview" ? (
             <>
               <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -322,11 +493,31 @@ export default function InformationUnitDashboard() {
                             {new Date(post.submittedAt).toLocaleDateString()}
                           </p>
                         </div>
-                        <span
-                          className={`w-fit rounded-full border px-2.5 py-1 text-[9px] font-black uppercase tracking-wider ${statusStyle[post.status]}`}
-                        >
-                          {post.status}
-                        </span>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span
+                            className={`w-fit rounded-full border px-2.5 py-1 text-[9px] font-black uppercase tracking-wider ${statusStyle[post.status]}`}
+                          >
+                            {post.status}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => startEdit(post)}
+                            disabled={deletingId === post._id}
+                            className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-[#600018] transition hover:bg-slate-50 disabled:opacity-50"
+                          >
+                            ✎ Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setConfirmDeletePost(post)}
+                            disabled={deletingId === post._id}
+                            className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-rose-700 transition hover:bg-rose-100 disabled:opacity-50"
+                          >
+                            {deletingId === post._id
+                              ? "Deleting..."
+                              : "🗑 Delete"}
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -342,6 +533,269 @@ export default function InformationUnitDashboard() {
           )}
         </div>
       </main>
+
+      {editingPost && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Edit achievement post"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm"
+        >
+          <form
+            onSubmit={submitEdit}
+            className="max-h-[92vh] w-full max-w-3xl space-y-5 overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl sm:p-7"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-lg font-black uppercase text-slate-950">
+                  Edit achievement
+                </h3>
+                <p className="text-xs text-slate-500">
+                  {editingPost.status === "approved"
+                    ? "Editing a published story updates it instantly."
+                    : `Current status: ${editingPost.status}`}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeEdit}
+                aria-label="Close edit dialog"
+                className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-slate-100 text-xl text-slate-600 hover:bg-slate-200"
+              >
+                ×
+              </button>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="text-xs font-black uppercase tracking-wider text-slate-600 sm:col-span-2">
+                Title *
+                <input
+                  required
+                  minLength="5"
+                  maxLength="160"
+                  value={editForm.title}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, title: e.target.value })
+                  }
+                  className={`mt-2 ${inputClass}`}
+                />
+              </label>
+              <label className="text-xs font-black uppercase tracking-wider text-slate-600 sm:col-span-2">
+                Subtitle *
+                <input
+                  required
+                  minLength="5"
+                  maxLength="240"
+                  value={editForm.subtitle}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, subtitle: e.target.value })
+                  }
+                  className={`mt-2 ${inputClass}`}
+                />
+              </label>
+              <label className="text-xs font-black uppercase tracking-wider text-slate-600">
+                Category *
+                <select
+                  value={editForm.category}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, category: e.target.value })
+                  }
+                  className={`mt-2 ${inputClass}`}
+                >
+                  {categories.map((category) => (
+                    <option key={category}>{category}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="text-xs font-black uppercase tracking-wider text-slate-600">
+                Achievement date *
+                <input
+                  required
+                  type="date"
+                  max={new Date().toISOString().slice(0, 10)}
+                  value={editForm.eventDate}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, eventDate: e.target.value })
+                  }
+                  className={`mt-2 ${inputClass}`}
+                />
+              </label>
+              <label className="text-xs font-black uppercase tracking-wider text-slate-600">
+                Location
+                <input
+                  maxLength="180"
+                  value={editForm.location}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, location: e.target.value })
+                  }
+                  className={`mt-2 ${inputClass}`}
+                />
+              </label>
+              <label className="text-xs font-black uppercase tracking-wider text-slate-600">
+                Source link
+                <input
+                  type="url"
+                  maxLength="500"
+                  value={editForm.sourceUrl}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, sourceUrl: e.target.value })
+                  }
+                  className={`mt-2 ${inputClass}`}
+                  placeholder="https://..."
+                />
+              </label>
+              <label className="text-xs font-black uppercase tracking-wider text-slate-600 sm:col-span-2">
+                Story body *
+                <textarea
+                  required
+                  minLength="30"
+                  maxLength="10000"
+                  rows="6"
+                  value={editForm.body}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, body: e.target.value })
+                  }
+                  className={`mt-2 ${inputClass}`}
+                />
+              </label>
+              <label className="text-xs font-black uppercase tracking-wider text-slate-600 sm:col-span-2">
+                Topic tags
+                <input
+                  value={editForm.tags}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, tags: e.target.value })
+                  }
+                  className={`mt-2 ${inputClass}`}
+                  placeholder="research, innovation, student award (maximum 10)"
+                />
+              </label>
+              <label className="text-xs font-black uppercase tracking-wider text-slate-600 sm:col-span-2">
+                Replace images (optional; 1–10 JPEG, PNG, or WebP; leave empty
+                to keep current {editingPost.images?.length || 0})
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  multiple
+                  onChange={(e) =>
+                    setEditImages(Array.from(e.target.files).slice(0, 10))
+                  }
+                  className={`mt-2 ${inputClass}`}
+                />
+                {editImages.length > 0 && (
+                  <span className="mt-2 block normal-case text-slate-500">
+                    {editImages.length} replacement image
+                    {editImages.length === 1 ? "" : "s"} selected
+                  </span>
+                )}
+              </label>
+              <div className="text-xs font-black uppercase tracking-wider text-slate-600 sm:col-span-2">
+                Supporting file
+                {editingPost.attachment && (
+                  <p className="mt-2 normal-case text-slate-500">
+                    Current: {editingPost.attachment.filename}
+                  </p>
+                )}
+                <input
+                  type="file"
+                  accept=".pdf,.doc,.docx,.xls,.xlsx"
+                  onChange={(e) =>
+                    setEditAttachment(e.target.files?.[0] || null)
+                  }
+                  className={`mt-2 ${inputClass}`}
+                />
+                {editingPost.attachment && !editAttachment && (
+                  <label className="mt-2 flex cursor-pointer items-center gap-2 normal-case text-rose-700">
+                    <input
+                      type="checkbox"
+                      checked={removeAttachment}
+                      onChange={(e) => setRemoveAttachment(e.target.checked)}
+                      className="accent-rose-600"
+                    />
+                    Remove current attachment
+                  </label>
+                )}
+              </div>
+            </div>
+            <fieldset>
+              <legend className="text-xs font-black uppercase tracking-wider text-slate-600">
+                Related UN Sustainable Development Goals
+              </legend>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {sdgNames.map((name, index) => (
+                  <label
+                    key={name}
+                    className={`flex cursor-pointer items-center gap-2 rounded-xl border p-3 text-xs font-bold ${editForm.sdgs.includes(index + 1) ? "border-[#600018] bg-[#600018] text-white" : "border-slate-200 bg-white text-slate-600"}`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={editForm.sdgs.includes(index + 1)}
+                      onChange={() => toggleEditSdg(index + 1)}
+                      className="accent-[#D4AF37]"
+                    />
+                    SDG {index + 1}: {name}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+            <div className="flex flex-wrap justify-end gap-2 border-t border-slate-100 pt-4">
+              <button
+                type="button"
+                onClick={closeEdit}
+                disabled={editBusy}
+                className="rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-xs font-black uppercase tracking-wider text-slate-600 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={editBusy}
+                className="rounded-xl bg-[#600018] px-5 py-2.5 text-xs font-black uppercase tracking-wider text-white shadow disabled:opacity-50"
+              >
+                {editBusy ? "Saving..." : "Save changes"}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {confirmDeletePost && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Confirm delete achievement post"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm"
+        >
+          <div className="w-full max-w-md space-y-4 rounded-2xl bg-white p-6 shadow-2xl">
+            <h3 className="text-lg font-black uppercase text-slate-950">
+              Delete achievement?
+            </h3>
+            <p className="text-sm leading-relaxed text-slate-600">
+              This will permanently remove{" "}
+              <strong className="text-slate-900">
+                “{confirmDeletePost.title}”
+              </strong>{" "}
+              from all dashboards. This action cannot be undone.
+            </p>
+            <div className="flex flex-wrap justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setConfirmDeletePost(null)}
+                disabled={deletingId !== null}
+                className="rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-xs font-black uppercase tracking-wider text-slate-600 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmDelete}
+                disabled={deletingId !== null}
+                className="rounded-xl bg-rose-600 px-5 py-2.5 text-xs font-black uppercase tracking-wider text-white shadow disabled:opacity-50"
+              >
+                {deletingId ? "Deleting..." : "Yes, delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

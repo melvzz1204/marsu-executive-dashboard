@@ -265,6 +265,126 @@ exports.reviewPost = async (req, res, next) => {
   }
 };
 
+exports.updatePost = async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id))
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid post ID." });
+
+    const post = await AchievementPost.findById(req.params.id);
+    if (!post)
+      return res
+        .status(404)
+        .json({ success: false, message: "Achievement post not found." });
+
+    const isOwner =
+      post.author?.toString() === req.user.id ||
+      post.author?._id?.toString() === req.user.id;
+    const isInfoUnit = req.user.role === "information_unit";
+    if (!isInfoUnit && !(req.user.role === "dean" && isOwner))
+      return res
+        .status(403)
+        .json({ success: false, message: "You cannot edit this post." });
+    if (req.user.role === "dean" && post.status === "approved" && !isInfoUnit)
+      return res.status(403).json({
+        success: false,
+        message: "Published posts can only be edited by the Information Unit.",
+      });
+
+    const payload = validatePayload(req, false);
+    if (payload.error)
+      return res.status(400).json({ success: false, message: payload.error });
+
+    const newImages = req.files?.images || [];
+    const newAttachment = req.files?.attachment?.[0];
+    const uploadedFiles = [...newImages, ...(newAttachment ? [newAttachment] : [])];
+    const totalUploadSize = uploadedFiles.reduce(
+      (total, file) => total + file.size,
+      0,
+    );
+    if (totalUploadSize > 15 * 1024 * 1024)
+      return res.status(400).json({
+        success: false,
+        message: "Images and attachment must not exceed 15 MB in total.",
+      });
+    if (newImages.length > 10)
+      return res
+        .status(400)
+        .json({ success: false, message: "Upload no more than 10 images." });
+
+    Object.assign(post, payload);
+
+    if (newImages.length > 0) {
+      post.images = newImages.map((file, index) => ({
+        data: file.buffer,
+        contentType: file.mimetype,
+        filename: cleanText(file.originalname, 150),
+        altText: `${payload.title} image ${index + 1}`,
+      }));
+    }
+
+    if (newAttachment) {
+      post.attachment = {
+        data: newAttachment.buffer,
+        contentType: newAttachment.mimetype,
+        filename: cleanText(newAttachment.originalname, 180),
+        size: newAttachment.size,
+      };
+    } else if (
+      req.body.removeAttachment === "true" ||
+      req.body.removeAttachment === true
+    ) {
+      post.attachment = null;
+    }
+
+    await post.save();
+    await post.populate("author", "name email role collegeId");
+    await post.populate("review.reviewedBy", "name role");
+
+    return res.json({
+      success: true,
+      message: "Achievement post updated successfully.",
+      post: serializePost(post),
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+exports.deletePost = async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id))
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid post ID." });
+
+    const post = await AchievementPost.findById(req.params.id);
+    if (!post)
+      return res
+        .status(404)
+        .json({ success: false, message: "Achievement post not found." });
+
+    const isOwner =
+      post.author?.toString() === req.user.id ||
+      post.author?._id?.toString() === req.user.id;
+    const isInfoUnit = req.user.role === "information_unit";
+    if (!isInfoUnit && !(req.user.role === "dean" && isOwner))
+      return res
+        .status(403)
+        .json({ success: false, message: "You cannot delete this post." });
+
+    await post.deleteOne();
+
+    return res.json({
+      success: true,
+      message: "Achievement post deleted successfully.",
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+
 exports.getPublishedPosts = async (req, res, next) => {
   try {
     const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 50);
