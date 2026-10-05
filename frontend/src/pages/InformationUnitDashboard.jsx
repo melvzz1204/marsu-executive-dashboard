@@ -61,6 +61,49 @@ const emptyEditForm = {
   sdgs: [],
 };
 
+function FilePreviewGrid({ files, onRemove }) {
+  const urls = useMemo(
+    () => files.map((file) => URL.createObjectURL(file)),
+    [files],
+  );
+  useEffect(
+    () => () => {
+      urls.forEach((url) => URL.revokeObjectURL(url));
+    },
+    [urls],
+  );
+  if (files.length === 0) return null;
+  return (
+    <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-5">
+      {files.map((file, index) => (
+        <div
+          key={`${file.name}-${file.size}-${index}`}
+          className="group relative overflow-hidden rounded-xl border border-slate-200 bg-slate-950"
+        >
+          <img
+            src={urls[index]}
+            alt={`Selected upload ${index + 1}`}
+            className="h-24 w-full object-contain"
+          />
+          <span className="block truncate bg-white px-1.5 py-1 text-[10px] font-bold text-slate-500">
+            {file.name}
+          </span>
+          {onRemove && (
+            <button
+              type="button"
+              onClick={() => onRemove(index)}
+              aria-label={`Remove image ${index + 1}`}
+              className="absolute right-1 top-1 grid h-6 w-6 place-items-center rounded-full bg-slate-950/70 text-sm text-white transition hover:bg-rose-600"
+            >
+              ×
+            </button>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function MetricCard({ label, value, detail, tone }) {
   const tones = {
     maroon: "bg-[#600018] text-white",
@@ -668,25 +711,37 @@ export default function InformationUnitDashboard() {
                   placeholder="research, innovation, student award (maximum 10)"
                 />
               </label>
-              <label className="text-xs font-black uppercase tracking-wider text-slate-600 sm:col-span-2">
-                Replace images (optional; 1–10 JPEG, PNG, or WebP; leave empty
-                to keep current {editingPost.images?.length || 0})
-                <input
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  multiple
-                  onChange={(e) =>
-                    setEditImages(Array.from(e.target.files).slice(0, 10))
-                  }
-                  className={`mt-2 ${inputClass}`}
-                />
+              <div className="text-xs font-black uppercase tracking-wider text-slate-600 sm:col-span-2">
+                <label>
+                  Replace images (optional; 1–10 JPEG, PNG, or WebP; leave empty
+                  to keep current {editingPost.images?.length || 0} — full photo
+                  is kept)
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    multiple
+                    onChange={(e) =>
+                      setEditImages(Array.from(e.target.files).slice(0, 10))
+                    }
+                    className={`mt-2 ${inputClass}`}
+                  />
+                </label>
                 {editImages.length > 0 && (
                   <span className="mt-2 block normal-case text-slate-500">
                     {editImages.length} replacement image
-                    {editImages.length === 1 ? "" : "s"} selected
+                    {editImages.length === 1 ? "" : "s"} selected — shown below
+                    uncropped
                   </span>
                 )}
-              </label>
+                <FilePreviewGrid
+                  files={editImages}
+                  onRemove={(index) =>
+                    setEditImages((current) =>
+                      current.filter((_, position) => position !== index),
+                    )
+                  }
+                />
+              </div>
               <div className="text-xs font-black uppercase tracking-wider text-slate-600 sm:col-span-2">
                 Supporting file
                 {editingPost.attachment && (
