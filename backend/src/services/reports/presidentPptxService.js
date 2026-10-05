@@ -1011,7 +1011,7 @@ function addChartSlide(pptx, meta, slideData) {
   });
 }
 
-// One milestone per slide, matching the reference deck's Key Accomplishments.
+// One milestone per slide: title stays on top, then left image + right text.
 function addMilestoneSlide(pptx, meta, item, index, total) {
   const slide = pptx.addSlide();
   slide.background = { color: hex(COLORS.white) };
@@ -1044,11 +1044,12 @@ function addMilestoneSlide(pptx, meta, item, index, total) {
     align: "right",
   });
 
+  // Title stays on top, full width.
   slide.addText(item.title || "", {
     x: METRICS.marginX,
     y: 1.32,
     w: CONTENT_W,
-    h: 0.95,
+    h: 0.9,
     fontFace: FONTS.display,
     fontSize: 22,
     bold: true,
@@ -1058,25 +1059,135 @@ function addMilestoneSlide(pptx, meta, item, index, total) {
 
   addRule(pptx, slide, {
     x: METRICS.marginX,
-    y: 2.3,
+    y: 2.28,
     w: 1.1,
     h: 0.035,
     color: COLORS.gold,
   });
 
-  const body = (item.body || item.subtitle || "").replace(/\s+/g, " ").trim();
+  const bodyY = 2.52;
+  const bodyH = 2.35;
+  const hasImage = Boolean(item.image?.data);
+  const subtitle = (item.subtitle || "").replace(/\s+/g, " ").trim();
+  const body = (item.body || "").replace(/\s+/g, " ").trim();
+  const dateLabel = item.date
+    ? new Date(item.date).toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      })
+    : "";
 
-  slide.addText(body.slice(0, 720), {
-    x: METRICS.marginX,
-    y: 2.55,
-    w: CONTENT_W,
-    h: 2.3,
-    fontFace: FONTS.body,
-    fontSize: 11.5,
-    color: hex(COLORS.slate),
-    valign: "top",
-    lineSpacingMultiple: 1.15,
-  });
+  if (!hasImage) {
+    const fallback = [subtitle, body].filter(Boolean).join(" — ").slice(0, 720);
+    slide.addText(fallback, {
+      x: METRICS.marginX,
+      y: bodyY,
+      w: CONTENT_W,
+      h: bodyH,
+      fontFace: FONTS.body,
+      fontSize: 11.5,
+      color: hex(COLORS.slate),
+      valign: "top",
+      lineSpacingMultiple: 1.15,
+    });
+    return;
+  }
+
+  const imageW = 3.8;
+  const imageH = bodyH;
+  const gap = 0.35;
+  const textX = METRICS.marginX + imageW + gap;
+  const textW = CONTENT_W - imageW - gap;
+
+  // Left: single cover image with burgundy frame + subtle shadow base.
+  try {
+    slide.addShape(pptx.ShapeType.rect, {
+      x: METRICS.marginX + 0.04,
+      y: bodyY + 0.04,
+      w: imageW,
+      h: imageH,
+      fill: { color: hex(COLORS.line) },
+      line: { color: hex(COLORS.line), width: 0 },
+    });
+    slide.addImage({
+      data: item.image.data,
+      x: METRICS.marginX,
+      y: bodyY,
+      w: imageW,
+      h: imageH,
+      sizing: { type: "cover", w: imageW, h: imageH },
+    });
+    slide.addShape(pptx.ShapeType.rect, {
+      x: METRICS.marginX,
+      y: bodyY,
+      w: imageW,
+      h: imageH,
+      fill: { color: hex(COLORS.white), transparency: 100 },
+      line: { color: hex(COLORS.burgundy), width: 1.5 },
+    });
+  } catch {
+    // If the image bytes are unreadable, fall back to full-width text.
+    const fallback = [subtitle, body].filter(Boolean).join(" — ").slice(0, 720);
+    slide.addText(fallback, {
+      x: METRICS.marginX,
+      y: bodyY,
+      w: CONTENT_W,
+      h: bodyH,
+      fontFace: FONTS.body,
+      fontSize: 11.5,
+      color: hex(COLORS.slate),
+      valign: "top",
+      lineSpacingMultiple: 1.15,
+    });
+    return;
+  }
+
+  // Right: description text stack.
+  let cursorY = bodyY;
+  if (subtitle) {
+    slide.addText(subtitle, {
+      x: textX,
+      y: cursorY,
+      w: textW,
+      h: 0.55,
+      fontFace: FONTS.body,
+      fontSize: 12,
+      bold: true,
+      italic: true,
+      color: hex(COLORS.burgundy),
+      valign: "top",
+      lineSpacingMultiple: 1.1,
+    });
+    cursorY += 0.58;
+  }
+  if (body) {
+    slide.addText(body.slice(0, 560), {
+      x: textX,
+      y: cursorY,
+      w: textW,
+      h: Math.max(0.8, bodyY + bodyH - cursorY - 0.32),
+      fontFace: FONTS.body,
+      fontSize: 10.5,
+      color: hex(COLORS.slate),
+      valign: "top",
+      lineSpacingMultiple: 1.15,
+    });
+  }
+  const metaLine = [item.category, dateLabel].filter(Boolean).join("  •  ");
+  if (metaLine) {
+    slide.addText(metaLine, {
+      x: textX,
+      y: bodyY + bodyH - 0.28,
+      w: textW,
+      h: 0.28,
+      fontFace: FONTS.body,
+      fontSize: 8,
+      bold: true,
+      color: hex(COLORS.slateMuted),
+      valign: "bottom",
+    });
+  }
 }
 
 async function buildPresidentPptx(payload) {

@@ -329,9 +329,49 @@ const resolvers = {
       status: "approved",
       eventDate: { $gte: start, $lt: end },
     })
+      .select("+images.data")
       .sort({ eventDate: -1 })
       .limit(14)
       .lean();
+
+    const toSlideBuffer = (data) => {
+      if (!data) return null;
+      try {
+        if (Buffer.isBuffer(data)) return data;
+        if (data instanceof Uint8Array) return Buffer.from(data);
+        if (Array.isArray(data)) return Buffer.from(data);
+        // BSON Binary shape from .lean(): { sub_type, buffer: Buffer/Uint8Array/base64 }
+        if (data.buffer) {
+          const inner = data.buffer;
+          if (Buffer.isBuffer(inner)) return inner;
+          if (inner instanceof Uint8Array) return Buffer.from(inner);
+          if (typeof inner === "string")
+            return Buffer.from(inner, "base64");
+          if (Array.isArray(inner)) return Buffer.from(inner);
+        }
+        // { type: 'Buffer', data: [...] } JSON shape
+        if (Array.isArray(data.data)) return Buffer.from(data.data);
+        if (typeof data === "string" && data.length > 100)
+          return Buffer.from(data, "base64");
+        return Buffer.from(data);
+      } catch {
+        return null;
+      }
+    };
+
+    const toSlideImage = (post) => {
+      const first = (post.images || [])[0];
+      if (!first?.data) return null;
+      const buffer = toSlideBuffer(first.data);
+      if (!buffer || !buffer.length) return null;
+      // Allow up to ~8MB per slide image so phone photos are not skipped.
+      if (buffer.length > 8 * 1024 * 1024) return null;
+      const contentType = first.contentType || "image/jpeg";
+      return {
+        data: `${contentType};base64,${buffer.toString("base64")}`,
+        alt: first.altText || post.title || "Achievement image",
+      };
+    };
 
     const items = posts.map((post) => ({
       title: post.title,
@@ -339,6 +379,7 @@ const resolvers = {
       body: post.body || "",
       category: post.category || "Awards and Recognition",
       date: post.eventDate ? new Date(post.eventDate).toISOString() : null,
+      image: toSlideImage(post),
     }));
 
     const recognitions = await GlobalRecognition.find({ rankingYear: year })
